@@ -1,0 +1,150 @@
+.e10_39 { 
+	background-color:rgba(255, 255, 255, 1);
+	width:280px;
+	height:420px;
+	position:absolute;
+}
+.e10_40 { 
+	width:280px;
+	height:420px;
+	position:absolute;
+	left:0px;
+	top:0px;
+	background-image:url(images/bg.png);
+	background-repeat:no-repeat;
+	background-size:cover;
+}
+.e10_49 { 
+	color:rgba(255, 255, 255, 1);
+	width:26px;
+	height:14px;
+	position:absolute;
+	left:3px;
+	top:402px;
+	font-family:KoHo;
+	text-align:left;
+	font-size:13px;
+	letter-spacing:0;
+}
+.e33_60 { 
+	width:205px;
+	height:102px;
+	position:absolute;
+	left:38px;
+	top:188px;
+}
+.e10_41 { 
+	background-color:rgba(0, 0, 0, 1);
+	width:205px;
+	height:31px;
+	position:absolute;
+	left:0px;
+	top:17px;
+}
+
+.e10_42 { 
+	color:rgba(255, 255, 255, 1);
+	width:139px;
+	height:17px;
+	position:absolute;
+	left:0px;
+	top:0px;
+	font-family:Iceberg;
+	text-align:left;
+	font-size:14px;
+	letter-spacing:0;
+}
+.e21_59 { 
+	color:rgba(0, 255, 71.39999270439148, 1);
+	width:205px;
+	height:17px;
+	position:absolute;
+	left:0px;
+	top:48px;
+	font-family:Iceberg;
+	text-align:left;
+	font-size:14px;
+	letter-spacing:0;
+}
+.e10_43 { 
+	width:87px;
+	height:22px;
+	position:absolute;
+	left:59px;
+	top:80px;
+}
+.e10_44 { 
+	background-color:rgba(0, 0, 0, 1);
+	width:87px;
+	height:22px;
+	position:absolute;
+	left:0px;
+	top:0px;
+}
+
+.e10_45 { 
+	color:rgba(255, 255, 255, 1);
+	width:33px;
+	height:17px;
+	position:absolute;
+	left:27px;
+	top:3px;
+	font-family:Iceberg;
+	text-align:left;
+	font-size:14px;
+	letter-spacing:0;
+}
+.e56_150 { 
+	width:153px;
+	height:58px;
+	position:absolute;
+	left:64px;
+	top:46px;
+}
+.ei56_150_3_15 { 
+	color:rgba(255, 255, 255, 1);
+	width:153px;
+	height:58px;
+	position:absolute;
+	left:0px;
+	top:0px;
+	font-family:Italianno;
+	text-align:left;
+	font-size:64px;
+	letter-spacing:0;
+}
+.e81_270 { 
+	width:15px;
+	height:16px;
+	position:absolute;
+	left:259px;
+	top:4px;
+}
+.ei81_270_33_66 { 
+	box-shadow:0px 4px 4px rgba(0, 0, 0, 0.25);
+	width:15px;
+	height:16px;
+	position:absolute;
+	left:0px;
+	top:0px;
+	background-image:url(images/close.png);
+	background-repeat:no-repeat;
+	background-size:cover;
+}
+.e81_272 { 
+	width:17px;
+	height:16px;
+	position:absolute;
+	left:236px;
+	top:4px;
+}
+.ei81_272_33_65 { 
+	width:17px;
+	height:16px;
+	position:absolute;
+	left:0px;
+	top:0px;
+	background-image:url(images/min.png);
+	background-repeat:no-repeat;
+	background-size:cover;
+}

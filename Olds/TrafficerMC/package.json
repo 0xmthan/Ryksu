@@ -1,0 +1,44 @@
+{
+  "name": "trafficermc",
+  "author": "RattlesHyper <undefined@gmail.com>",
+  "maintainer": "RattlesHyper",
+  "version": "1.7.0",
+  "description": "A Minecraft botting tool with Anti-AFK, Chat spammer, Inventory/Chest manager features.",
+  "license": "ISC",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "winx64": "electron-builder build --win --x64",
+    "winx86": "electron-builder build --win --ia32",
+    "linux64": "electron-builder build --linux --x64",
+    "linux86": "electron-builder build --linux --ia32"
+  },
+  "dependencies": {
+    "electron-store": "^8.0.1",
+    "mineflayer": "^4.1.0",
+    "node-fetch": "2.6.7",
+    "proxy-agent": "^5.0.0",
+    "socks": "^2.7.0"
+  },
+  "devDependencies": {
+    "electron": "^18.2.2",
+    "electron-builder": "^23.0.3"
+  },
+  "build": {
+    "appId": "com.rattleshyper.trafficermc",
+    "productName": "TrafficerMC",
+    "copyright": "Copyright © 2022 RattlesHyper",
+    "win": {
+      "target": "portable",
+      "publisherName": "RattlesHyper",
+      "icon": "assets/icons/win/icon.png"
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "icon": "assets/icons/win/icon.png",
+      "category": "Utility"
+    }
+  }
+}
