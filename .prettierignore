@@ -1,0 +1,10 @@
+# Build outputs
+dist
+dist-electron
+
+# Node modules
+node_modules
+
+# Lockfiles & misc
+pnpm-lock.yaml
+.DS_Store

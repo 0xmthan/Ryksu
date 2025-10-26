@@ -1,37 +1,66 @@
 {
-  "name": "fatecat",
-  "version": "1.0.0",
-  "description": "BBF and more",
-  "main": "main.js",
+  "name": "ryksu",
+  "productName": "Ryksu",
+  "version": "2.1.0",
+  "description": "Mc bot",
+  "main": ".webpack/main",
   "scripts": {
-    "start": "electron .",
-    "test": "electron --trace-deprecation ."
+    "dev": "electron-forge start",
+    "package": "electron-forge package",
+    "make": "electron-forge make",
+    "publish": "electron-forge publish",
+    "lint": "echo \"No linting configured\""
   },
-  "author": "NickLF",
-  "license": "ISC",
+  "keywords": [],
+  "author": {
+    "name": "2mdtln",
+    "email": "120330170+2mdtln@users.noreply.github.com"
+  },
+  "license": "MIT",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "electron",
+      "electron-winstaller"
+    ]
+  },
   "devDependencies": {
-    "@playwright/test": "^1.27.0",
-    "electron": "^20.3.1"
+    "@electron-forge/cli": "^7.10.2",
+    "@electron-forge/maker-deb": "^7.10.2",
+    "@electron-forge/maker-dmg": "^7.10.2",
+    "@electron-forge/maker-rpm": "^7.10.2",
+    "@electron-forge/maker-squirrel": "^7.10.2",
+    "@electron-forge/maker-zip": "^7.10.2",
+    "@electron-forge/plugin-auto-unpack-natives": "^7.10.2",
+    "@electron-forge/plugin-fuses": "^7.10.2",
+    "@electron-forge/plugin-webpack": "^7.10.2",
+    "@electron/fuses": "^1.8.0",
+    "@tailwindcss/postcss": "^4.1.16",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.2",
+    "@vercel/webpack-asset-relocator-loader": "1.7.3",
+    "autoprefixer": "^10.4.21",
+    "css-loader": "^6.11.0",
+    "electron": "38.4.0",
+    "eslint": "^9.38.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.4",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "node-loader": "^2.1.0",
+    "postcss": "^8.5.6",
+    "postcss-loader": "^7.3.4",
+    "prettier": "^3.6.2",
+    "prettier-plugin-classnames": "^0.8.5",
+    "prettier-plugin-tailwindcss": "^0.7.1",
+    "style-loader": "^3.3.4",
+    "tailwindcss": "^4.1.16",
+    "ts-loader": "^9.5.4",
+    "typescript": "^5.9.3"
   },
   "dependencies": {
-    "axios": "^0.27.2",
-    "electron-store": "^8.1.0",
-    "grep": "^0.1.0",
-    "internet-available": "^1.0.0",
-    "minecraft-data": "^3.40.0",
-    "mineflayer": "^4.4.0",
-    "mineflayer-antiafk": "^1.1.1",
-    "mineflayer-armor-manager": "^1.4.2",
-    "mineflayer-auto-eat": "^2.3.3",
-    "mineflayer-auto-totem": "^1.3.0",
-    "mineflayer-pathfinder": "^2.4.0",
-    "mineflayer-pvp": "^1.3.2",
-    "mineflayer-radar": "^0.0.2",
-    "mineflayer-tool": "^1.2.0",
-    "mineflayer-tps": "^1.0.1",
-    "mineflayer-web-inventory": "^1.8.3",
-    "prismarine-viewer": "^1.23.0",
-    "qrcode": "^1.5.1",
-    "speakeasy": "^2.0.0"
+    "electron-squirrel-startup": "^1.0.1",
+    "mineflayer": "^4.33.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
   }
 }

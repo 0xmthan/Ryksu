@@ -1,1 +1,9 @@
 node_modules
+dist-electron
+.DS_Store
+release
+dist
+.vscode
+
+out/
+.webpack/
