@@ -23,6 +23,7 @@ export type LastConnection = {
   username: string
   accountType: AccountType
   version?: string
+  offlinePassword?: string
 }
 
 export type ChatMessage = {
