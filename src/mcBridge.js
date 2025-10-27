@@ -97,6 +97,15 @@ const registerMinecraftIpc = (ipcMain) => {
     return botManager.getAutoEatOptions()
   })
 
+  ipcMain.handle('bot:setPathfinderOptions', (_event, options) => {
+    const updated = botManager.setPathfinderOptions(options)
+    return { ok: true, options: updated }
+  })
+
+  ipcMain.handle('bot:getPathfinderOptions', () => {
+    return botManager.getPathfinderOptions()
+  })
+
   ipcMain.on('bot:subscribe', (event) => {
     setActiveWebContents(event.sender)
     const snapshot = botManager.getSnapshot()

@@ -1,4 +1,4 @@
-import type { AutoEatOptions, AutoEatPriority } from '../types'
+import type { AutoEatOptions, AutoEatPriority, PathfinderOptions } from '../types'
 
 export const AUTO_EAT_DEFAULTS: AutoEatOptions = {
   priority: 'foodPoints',
@@ -86,12 +86,14 @@ export type PluginPreferences = {
   armorManagerEnabled: boolean
   autoEatEnabled: boolean
   autoEatOptions: AutoEatOptions
+  pathfinder: PathfinderOptions
 }
 
 const DEFAULT_PLUGIN_PREFERENCES: PluginPreferences = {
   armorManagerEnabled: false,
   autoEatEnabled: false,
   autoEatOptions: AUTO_EAT_DEFAULTS,
+  pathfinder: { followEnabled: false, followTarget: '' },
 }
 
 const STORAGE_KEY = 'ryksu:pluginPreferences'
@@ -100,7 +102,11 @@ export const loadPluginPreferences = (): PluginPreferences => {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) {
-      return { ...DEFAULT_PLUGIN_PREFERENCES, autoEatOptions: { ...AUTO_EAT_DEFAULTS } }
+      return {
+        ...DEFAULT_PLUGIN_PREFERENCES,
+        autoEatOptions: { ...AUTO_EAT_DEFAULTS },
+        pathfinder: { ...DEFAULT_PLUGIN_PREFERENCES.pathfinder },
+      }
     }
 
     const parsed = JSON.parse(raw) as Partial<PluginPreferences>
@@ -115,10 +121,21 @@ export const loadPluginPreferences = (): PluginPreferences => {
           ? parsed.autoEatEnabled
           : DEFAULT_PLUGIN_PREFERENCES.autoEatEnabled,
       autoEatOptions: normalizeAutoEatOptions(parsed.autoEatOptions),
+      pathfinder:
+        parsed.pathfinder && typeof parsed.pathfinder === 'object'
+          ? {
+              followEnabled: Boolean((parsed.pathfinder as PathfinderOptions).followEnabled),
+              followTarget: String((parsed.pathfinder as PathfinderOptions).followTarget ?? '').trim(),
+            }
+          : { ...DEFAULT_PLUGIN_PREFERENCES.pathfinder },
     }
   } catch (error) {
     console.error('Failed to load plugin preferences', error)
-    return { ...DEFAULT_PLUGIN_PREFERENCES, autoEatOptions: { ...AUTO_EAT_DEFAULTS } }
+    return {
+      ...DEFAULT_PLUGIN_PREFERENCES,
+      autoEatOptions: { ...AUTO_EAT_DEFAULTS },
+      pathfinder: { ...DEFAULT_PLUGIN_PREFERENCES.pathfinder },
+    }
   }
 }
 
@@ -127,6 +144,10 @@ export const savePluginPreferences = (preferences: PluginPreferences) => {
     armorManagerEnabled: preferences.armorManagerEnabled,
     autoEatEnabled: preferences.autoEatEnabled,
     autoEatOptions: normalizeAutoEatOptions(preferences.autoEatOptions),
+    pathfinder: {
+      followEnabled: Boolean(preferences.pathfinder?.followEnabled),
+      followTarget: String(preferences.pathfinder?.followTarget ?? '').trim(),
+    },
   }
 
   try {

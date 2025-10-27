@@ -53,3 +53,8 @@ export type AutoEatOptions = {
   bannedFood: string[]
   strictErrors: boolean
 }
+
+export type PathfinderOptions = {
+  followEnabled: boolean
+  followTarget: string
+}

@@ -8,7 +8,14 @@ import useChatHistory from './hooks/useChatHistory'
 import useConnectionPreferences from './hooks/useConnectionPreferences'
 import usePluginControls from './hooks/usePluginControls'
 import useSavedTranscripts from './hooks/useSavedTranscripts'
-import type { AccountType, AutoEatOptions, BotSnapshot, BotStatus, ChatMessage } from './types'
+import type {
+  AccountType,
+  AutoEatOptions,
+  BotSnapshot,
+  BotStatus,
+  ChatMessage,
+  PathfinderOptions,
+} from './types'
 import { makeChatStorageKey, normalizeProtocolError } from './utils/chat'
 
 const App: React.FC = () => {
@@ -39,6 +46,8 @@ const App: React.FC = () => {
     toggleArmorManager,
     toggleAutoEat,
     updateAutoEatOptions,
+    pathfinder,
+    updatePathfinder,
   } = usePluginControls()
 
   const computedChatKey = useMemo(
@@ -107,6 +116,7 @@ const App: React.FC = () => {
       armorManagerEnabled: boolean
       autoEatEnabled: boolean
       autoEatOptions: AutoEatOptions
+      pathfinder: PathfinderOptions
     }) => {
       setIsConnecting(true)
       setLastError(null)
@@ -122,6 +132,7 @@ const App: React.FC = () => {
         armorManagerEnabled: details.armorManagerEnabled,
         autoEatEnabled: details.autoEatEnabled,
         autoEatOptions: details.autoEatOptions,
+        pathfinder: details.pathfinder,
       })
 
       if (!response.ok) {
@@ -147,6 +158,7 @@ const App: React.FC = () => {
       armorManagerEnabled,
       autoEatEnabled,
       autoEatOptions,
+      pathfinder,
     })
   }, [
     accountType,
@@ -161,6 +173,7 @@ const App: React.FC = () => {
     armorManagerEnabled,
     autoEatEnabled,
     autoEatOptions,
+    pathfinder,
   ])
 
   const handleConnect: React.FormEventHandler<HTMLFormElement> = async (event) => {
@@ -231,6 +244,20 @@ const App: React.FC = () => {
       }
     },
     [updateAutoEatOptions]
+  )
+
+  const handlePathfinderTargetChange = useCallback(
+    (target: string) => {
+      updatePathfinder({ ...pathfinder, followTarget: target })
+    },
+    [pathfinder, updatePathfinder]
+  )
+
+  const handlePathfinderToggle = useCallback(
+    (enabled: boolean) => {
+      updatePathfinder({ ...pathfinder, followEnabled: enabled })
+    },
+    [pathfinder, updatePathfinder]
   )
 
   const connectedState = isConnected ? (botState as Extract<BotSnapshot, { connected: true }>) : null
@@ -343,7 +370,7 @@ const App: React.FC = () => {
 
   return (
     <div className="flex min-h-screen flex-col bg-app text-purple-100">
-      <div className="sticky top-0 z-50">
+      <div className="fixed inset-x-0 top-0 z-50">
         <TitleBar
           status={status}
           lastError={lastError}
@@ -356,7 +383,7 @@ const App: React.FC = () => {
           isChatActive={isConnected ? isChatPanelOpen : isViewingSavedChats}
         />
       </div>
-      <main className="flex flex-1">
+      <main className="flex flex-1 overflow-y-auto pt-12">
         {isConnected && connectedState ? (
           <Dashboard
             snapshot={connectedState}
@@ -371,6 +398,10 @@ const App: React.FC = () => {
             autoEatEnabled={autoEatEnabled}
             onAutoEatToggle={toggleAutoEat}
             onAutoEatConfigure={handleOpenAutoEatSettings}
+            pathfinderEnabled={pathfinder.followEnabled}
+            pathfinderTarget={pathfinder.followTarget}
+            onPathfinderToggle={handlePathfinderToggle}
+            onPathfinderTargetChange={handlePathfinderTargetChange}
           />
         ) : isViewingSavedChats ? (
           <SavedChats transcripts={savedTranscripts} onDelete={handleDeleteTranscript} />

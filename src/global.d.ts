@@ -1,4 +1,4 @@
-import type { ChatMessage, AutoEatOptions } from './types'
+import type { ChatMessage, AutoEatOptions, PathfinderOptions } from './types'
 
 export {}
 
@@ -19,6 +19,7 @@ declare global {
           armorManagerEnabled?: boolean
           autoEatEnabled?: boolean
           autoEatOptions?: Partial<AutoEatOptions>
+          pathfinder?: Partial<PathfinderOptions>
         }) => Promise<{ ok: boolean; message?: string }>
         disconnect: () => Promise<{ ok: boolean }>
         getSnapshot: () => Promise<
@@ -58,6 +59,11 @@ declare global {
           options: AutoEatOptions
         }>
         getAutoEatOptions: () => Promise<AutoEatOptions>
+        setPathfinderOptions: (options: Partial<PathfinderOptions>) => Promise<{
+          ok: boolean
+          options: PathfinderOptions
+        }>
+        getPathfinderOptions: () => Promise<PathfinderOptions>
       }
     }
   }

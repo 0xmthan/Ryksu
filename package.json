@@ -62,6 +62,7 @@
     "mineflayer": "^4.33.0",
     "mineflayer-armor-manager": "^2.0.1",
     "mineflayer-auto-eat": "^5.0.3",
+    "mineflayer-pathfinder": "^2.4.5",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   }

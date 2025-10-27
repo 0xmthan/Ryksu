@@ -5,6 +5,7 @@ const { normaliseError } = require('./bot/errors')
 const { ChatBridge } = require('./bot/chatBridge')
 const { ArmorManagerController } = require('./bot/plugins/armorManager')
 const { AutoEatController } = require('./bot/plugins/autoEat')
+const { PathfinderController } = require('./bot/plugins/pathfinder')
 
 class BotManager extends EventEmitter {
   constructor() {
@@ -14,6 +15,7 @@ class BotManager extends EventEmitter {
     this.chat = new ChatBridge(this)
     this.armorManager = new ArmorManagerController()
     this.autoEat = new AutoEatController()
+    this.pathfinder = new PathfinderController()
   }
 
   getSupportedVersions() {
@@ -34,6 +36,7 @@ class BotManager extends EventEmitter {
       armorManagerEnabled = false,
       autoEatEnabled = false,
       autoEatOptions = null,
+      pathfinder = { followEnabled: false, followTarget: '' },
     } = options
 
     let selectedVersion = version
@@ -65,6 +68,7 @@ class BotManager extends EventEmitter {
     this.armorManager.setEnabled(Boolean(armorManagerEnabled))
     this.autoEat.setOptions(autoEatOptions || {})
     this.autoEat.setEnabled(Boolean(autoEatEnabled))
+    this.pathfinder.setOptions(pathfinder)
 
     const connectingMessage = selectedVersion
       ? `Connecting with Minecraft ${selectedVersion}…`
@@ -87,6 +91,7 @@ class BotManager extends EventEmitter {
             this.chat.detach(this.bot)
             this.armorManager.detach()
             this.autoEat.detach()
+            this.pathfinder.detach()
           }
         }
       }
@@ -123,6 +128,7 @@ class BotManager extends EventEmitter {
 
       this.armorManager.attach(this.bot)
       this.autoEat.attach(this.bot)
+      this.pathfinder.attach(this.bot)
 
       const handleLogin = () => {
         this.emit('status', { stage: 'connected', message: 'Bot connected successfully.' })
@@ -157,6 +163,7 @@ class BotManager extends EventEmitter {
           this.chat.detach(this.bot)
           this.armorManager.detach()
           this.autoEat.detach()
+          this.pathfinder.detach()
         }
         this.bot = null
         if (!settled) {
@@ -190,6 +197,7 @@ class BotManager extends EventEmitter {
     this.chat.detach(this.bot)
     this.armorManager.detach()
     this.autoEat.detach()
+    this.pathfinder.detach()
     this.bot.removeAllListeners()
     this.bot = null
     this.emit('status', { stage: 'disconnected', message: 'Bot disconnected.' })
@@ -276,6 +284,14 @@ class BotManager extends EventEmitter {
 
   getAutoEatOptions() {
     return this.autoEat.getOptions()
+  }
+
+  setPathfinderOptions(options) {
+    return this.pathfinder.setOptions(options || {})
+  }
+
+  getPathfinderOptions() {
+    return this.pathfinder.getOptions()
   }
 }
 
