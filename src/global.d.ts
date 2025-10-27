@@ -1,4 +1,4 @@
-import type { ChatMessage } from './types'
+import type { ChatMessage, AutoEatOptions } from './types'
 
 export {}
 
@@ -16,6 +16,9 @@ declare global {
           password?: string
           offlinePassword?: string
           version?: string
+          armorManagerEnabled?: boolean
+          autoEatEnabled?: boolean
+          autoEatOptions?: Partial<AutoEatOptions>
         }) => Promise<{ ok: boolean; message?: string }>
         disconnect: () => Promise<{ ok: boolean }>
         getSnapshot: () => Promise<
@@ -48,6 +51,13 @@ declare global {
         onChatHistory: (callback: (entries: ChatMessage[]) => void) => () => void
         getChatHistory: () => Promise<ChatMessage[]>
         sendChat: (message: string) => Promise<{ ok: boolean; message?: string }>
+        setArmorManagerEnabled: (enabled: boolean) => Promise<{ ok: boolean; enabled: boolean }>
+        setAutoEatEnabled: (enabled: boolean) => Promise<{ ok: boolean; enabled: boolean }>
+        setAutoEatOptions: (options: Partial<AutoEatOptions>) => Promise<{
+          ok: boolean
+          options: AutoEatOptions
+        }>
+        getAutoEatOptions: () => Promise<AutoEatOptions>
       }
     }
   }

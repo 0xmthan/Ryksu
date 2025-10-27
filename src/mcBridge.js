@@ -78,6 +78,25 @@ const registerMinecraftIpc = (ipcMain) => {
     }
   })
 
+  ipcMain.handle('bot:setArmorManagerEnabled', (_event, enabled) => {
+    const result = botManager.setArmorManagerEnabled(enabled)
+    return { ok: true, enabled: result }
+  })
+
+  ipcMain.handle('bot:setAutoEatEnabled', (_event, enabled) => {
+    const result = botManager.setAutoEatEnabled(enabled)
+    return { ok: true, enabled: result }
+  })
+
+  ipcMain.handle('bot:setAutoEatOptions', (_event, options) => {
+    const updated = botManager.setAutoEatOptions(options)
+    return { ok: true, options: updated }
+  })
+
+  ipcMain.handle('bot:getAutoEatOptions', () => {
+    return botManager.getAutoEatOptions()
+  })
+
   ipcMain.on('bot:subscribe', (event) => {
     setActiveWebContents(event.sender)
     const snapshot = botManager.getSnapshot()

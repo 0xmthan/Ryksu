@@ -40,3 +40,16 @@ export type StoredTranscriptMeta = {
   label: string
   messages: ChatMessage[]
 }
+
+export type AutoEatPriority = 'foodPoints' | 'saturation' | 'effectiveQuality' | 'saturationRatio'
+
+export type AutoEatOptions = {
+  priority: AutoEatPriority
+  minHunger: number
+  minHealth: number
+  returnToLastItem: boolean
+  offhand: boolean
+  eatingTimeout: number
+  bannedFood: string[]
+  strictErrors: boolean
+}

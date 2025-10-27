@@ -3,10 +3,12 @@ import ConnectionForm from './components/ConnectionForm'
 import Dashboard from './components/Dashboard'
 import SavedChats from './components/SavedChats'
 import TitleBar from './components/TitleBar'
+import AutoEatSettingsModal from './components/AutoEatSettingsModal'
 import useChatHistory from './hooks/useChatHistory'
 import useConnectionPreferences from './hooks/useConnectionPreferences'
+import usePluginControls from './hooks/usePluginControls'
 import useSavedTranscripts from './hooks/useSavedTranscripts'
-import type { AccountType, BotSnapshot, BotStatus, ChatMessage } from './types'
+import type { AccountType, AutoEatOptions, BotSnapshot, BotStatus, ChatMessage } from './types'
 import { makeChatStorageKey, normalizeProtocolError } from './utils/chat'
 
 const App: React.FC = () => {
@@ -29,6 +31,15 @@ const App: React.FC = () => {
   const [chatInput, setChatInput] = useState('')
   const [activeConnectionKey, setActiveConnectionKey] = useState<string | null>(null)
   const [connectionStartTimestamp, setConnectionStartTimestamp] = useState<number | null>(null)
+  const [isAutoEatModalOpen, setIsAutoEatModalOpen] = useState(false)
+  const {
+    armorManagerEnabled,
+    autoEatEnabled,
+    autoEatOptions,
+    toggleArmorManager,
+    toggleAutoEat,
+    updateAutoEatOptions,
+  } = usePluginControls()
 
   const computedChatKey = useMemo(
     () => makeChatStorageKey(accountType, host, port),
@@ -93,6 +104,9 @@ const App: React.FC = () => {
       onlinePassword?: string
       offlinePassword?: string
       version: string
+      armorManagerEnabled: boolean
+      autoEatEnabled: boolean
+      autoEatOptions: AutoEatOptions
     }) => {
       setIsConnecting(true)
       setLastError(null)
@@ -105,6 +119,9 @@ const App: React.FC = () => {
         password: details.accountType === 'online' ? details.onlinePassword : undefined,
         offlinePassword: details.accountType === 'offline' ? details.offlinePassword : undefined,
         version: details.version,
+        armorManagerEnabled: details.armorManagerEnabled,
+        autoEatEnabled: details.autoEatEnabled,
+        autoEatOptions: details.autoEatOptions,
       })
 
       if (!response.ok) {
@@ -127,6 +144,9 @@ const App: React.FC = () => {
       onlinePassword,
       offlinePassword,
       version,
+      armorManagerEnabled,
+      autoEatEnabled,
+      autoEatOptions,
     })
   }, [
     accountType,
@@ -138,6 +158,9 @@ const App: React.FC = () => {
     port,
     username,
     version,
+    armorManagerEnabled,
+    autoEatEnabled,
+    autoEatOptions,
   ])
 
   const handleConnect: React.FormEventHandler<HTMLFormElement> = async (event) => {
@@ -191,6 +214,24 @@ const App: React.FC = () => {
       setIsSendingChat(false)
     }
   }, [chatInput, pushSystemChat])
+
+  const handleOpenAutoEatSettings = useCallback(() => {
+    setIsAutoEatModalOpen(true)
+  }, [])
+
+  const handleCloseAutoEatSettings = useCallback(() => {
+    setIsAutoEatModalOpen(false)
+  }, [])
+
+  const handleAutoEatOptionsSave = useCallback(
+    async (nextOptions: AutoEatOptions) => {
+      const resolvedOptions = await updateAutoEatOptions(nextOptions)
+      if (resolvedOptions) {
+        setIsAutoEatModalOpen(false)
+      }
+    },
+    [updateAutoEatOptions]
+  )
 
   const connectedState = isConnected ? (botState as Extract<BotSnapshot, { connected: true }>) : null
   const canAttemptConnect = host.trim().length > 0 && username.trim().length > 0
@@ -325,6 +366,11 @@ const App: React.FC = () => {
             onChatSubmit={handleChatSubmit}
             isSendingChat={isSendingChat}
             showChat={isChatPanelOpen}
+            armorManagerEnabled={armorManagerEnabled}
+            onArmorManagerToggle={toggleArmorManager}
+            autoEatEnabled={autoEatEnabled}
+            onAutoEatToggle={toggleAutoEat}
+            onAutoEatConfigure={handleOpenAutoEatSettings}
           />
         ) : isViewingSavedChats ? (
           <SavedChats transcripts={savedTranscripts} onDelete={handleDeleteTranscript} />
@@ -351,6 +397,13 @@ const App: React.FC = () => {
           />
         )}
       </main>
+      {isAutoEatModalOpen ? (
+        <AutoEatSettingsModal
+          options={autoEatOptions}
+          onClose={handleCloseAutoEatSettings}
+          onSave={handleAutoEatOptionsSave}
+        />
+      ) : null}
     </div>
   )
 }

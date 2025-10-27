@@ -13,6 +13,11 @@ type DashboardProps = {
   onChatSubmit: () => void
   isSendingChat: boolean
   showChat: boolean
+  armorManagerEnabled: boolean
+  onArmorManagerToggle: (value: boolean) => void
+  autoEatEnabled: boolean
+  onAutoEatToggle: (value: boolean) => void
+  onAutoEatConfigure: () => void
 }
 
 const Dashboard: React.FC<DashboardProps> = ({
@@ -23,11 +28,54 @@ const Dashboard: React.FC<DashboardProps> = ({
   onChatSubmit,
   isSendingChat,
   showChat,
+  armorManagerEnabled,
+  onArmorManagerToggle,
+  autoEatEnabled,
+  onAutoEatToggle,
+  onAutoEatConfigure,
 }) => {
+  const autoEatLabelId = 'dashboard-auto-eat-label'
+
   return (
     <div className="flex flex-1 flex-col bg-neutral-950/60 text-neutral-100">
-      <div className="flex items-start justify-between px-6 pt-6">
+      <div className="flex items-center justify-between px-6 pt-6">
         {!showChat ? <StatsSummary snapshot={snapshot} /> : null}
+        <div className="flex items-center gap-3">
+          <label
+            className="flex items-center gap-2 rounded-full border border-neutral-800 bg-neutral-900/70 px-4 py-2
+              text-xs font-semibold uppercase tracking-[0.2em] text-neutral-300"
+          >
+            <input
+              type="checkbox"
+              checked={armorManagerEnabled}
+              onChange={(event) => onArmorManagerToggle(event.target.checked)}
+              className="h-4 w-4 accent-sky-500"
+            />
+            <span className="tracking-normal text-neutral-200">Armor Manager</span>
+          </label>
+          <div
+            className="flex items-center gap-2 rounded-full border border-neutral-800 bg-neutral-900/70 px-4 py-2
+              text-xs font-semibold uppercase tracking-[0.2em] text-neutral-300"
+          >
+            <input
+              id="dashboard-auto-eat-toggle"
+              type="checkbox"
+              checked={autoEatEnabled}
+              onChange={(event) => onAutoEatToggle(event.target.checked)}
+              className="h-4 w-4 accent-sky-500"
+              aria-labelledby={autoEatLabelId}
+            />
+            <button
+              type="button"
+              id={autoEatLabelId}
+              onClick={onAutoEatConfigure}
+              className="tracking-normal text-neutral-200 transition hover:text-sky-300 focus-visible:outline
+                focus-visible:outline-offset-2 focus-visible:outline-sky-400"
+            >
+              Auto Eat
+            </button>
+          </div>
+        </div>
       </div>
 
       <div className="flex flex-1 px-6 py-6">

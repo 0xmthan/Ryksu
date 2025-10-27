@@ -14,6 +14,12 @@ importers:
       mineflayer:
         specifier: ^4.33.0
         version: 4.33.0(encoding@0.1.13)
+      mineflayer-armor-manager:
+        specifier: ^2.0.1
+        version: 2.0.1(mineflayer@4.33.0(encoding@0.1.13))
+      mineflayer-auto-eat:
+        specifier: ^5.0.3
+        version: 5.0.3(encoding@0.1.13)
       react:
         specifier: ^19.2.0
         version: 19.2.0
@@ -514,6 +520,9 @@ packages:
     resolution: {integrity: sha512-mJd2Z5TjYWq/ttPLLGqArdtnC74J6bOzg4rMDnN+p1xTacZ2yPRCk2y0oSWQtygLR9YVQXgOcONrwtnk3JupxQ==}
     engines: {node: ^12.13.0 || ^14.15.0 || >=16.0.0}
     deprecated: This functionality has been moved to @npmcli/fs
+
+  '@nxg-org/mineflayer-util-plugin@1.8.4':
+    resolution: {integrity: sha512-hPaCZxU0Aq+gUSi/l6x7n32hUG6bnDugAMoQXD2dFE/gyNkmRSpmgH5+Y6G41w3H8P3Nl++upGCOlaxvZ7RuoA==}
 
   '@pkgr/core@0.2.9':
     resolution: {integrity: sha512-QNqXyfVS2wm9hweSYD2O7F0G06uurj9kZ96TRQE5Y9hU7+tgdZwIkbAKc5Ocy1HxEY2kuDQa6cQ1WRs/O5LFKA==}
@@ -2648,6 +2657,15 @@ packages:
   minecraft-protocol@1.62.0:
     resolution: {integrity: sha512-+Rm7DdwgDiiq5ASXLNixs6TA7tsNn8zJAlhmOh0ccfuMYnlr/5+FliKacf87ZO6MPs5p/mJitIAwONbfqiX2+A==}
     engines: {node: '>=22'}
+
+  mineflayer-armor-manager@2.0.1:
+    resolution: {integrity: sha512-csxRcFOrif1pu9TyUVR8xfmzRxwsxLSfcFVQDnCfhhV5U0Cuy5b9GjFWM4036a75XaQ94qkZklXgBDAsgJMGaQ==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      mineflayer: ^4.10.0
+
+  mineflayer-auto-eat@5.0.3:
+    resolution: {integrity: sha512-N5tUv2rPPYsTUdIOlMb6k3GXVJjFRQ3uSW3B+jO82STnftU97tpAolSzVUvOUwoNtOBmFKwsrZlb0ov1DKrvQA==}
 
   mineflayer@4.33.0:
     resolution: {integrity: sha512-tysUKVhUpEvHKDn8Awex/wz8WYyRGYrl6EujOVLJsGOU775AwKcapBVAS1BrP0UbM2di6MDwb74muGAFytY+TQ==}
@@ -4915,6 +4933,8 @@ snapshots:
     dependencies:
       mkdirp: 1.0.4
       rimraf: 3.0.2
+
+  '@nxg-org/mineflayer-util-plugin@1.8.4': {}
 
   '@pkgr/core@0.2.9': {}
 
@@ -7388,6 +7408,19 @@ snapshots:
       readable-stream: 4.7.0
       uuid-1345: 1.0.2
       yggdrasil: 1.7.0(encoding@0.1.13)
+    transitivePeerDependencies:
+      - encoding
+      - supports-color
+
+  mineflayer-armor-manager@2.0.1(mineflayer@4.33.0(encoding@0.1.13)):
+    dependencies:
+      minecraft-data: 3.99.1
+      mineflayer: 4.33.0(encoding@0.1.13)
+
+  mineflayer-auto-eat@5.0.3(encoding@0.1.13):
+    dependencies:
+      '@nxg-org/mineflayer-util-plugin': 1.8.4
+      mineflayer: 4.33.0(encoding@0.1.13)
     transitivePeerDependencies:
       - encoding
       - supports-color

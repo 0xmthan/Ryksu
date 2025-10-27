@@ -26,5 +26,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onChatHistory: (callback) => registerListener('bot:chatHistory', callback),
     getChatHistory: () => ipcRenderer.invoke('bot:getChatHistory'),
     sendChat: (message) => ipcRenderer.invoke('bot:sendChat', message),
+    setArmorManagerEnabled: (enabled) => ipcRenderer.invoke('bot:setArmorManagerEnabled', enabled),
+    setAutoEatEnabled: (enabled) => ipcRenderer.invoke('bot:setAutoEatEnabled', enabled),
+    setAutoEatOptions: (options) => ipcRenderer.invoke('bot:setAutoEatOptions', options),
+    getAutoEatOptions: () => ipcRenderer.invoke('bot:getAutoEatOptions'),
   },
 });

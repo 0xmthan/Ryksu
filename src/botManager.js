@@ -3,6 +3,8 @@ const mineflayer = require('mineflayer')
 const { SUPPORTED_VERSIONS } = require('./bot/versions')
 const { normaliseError } = require('./bot/errors')
 const { ChatBridge } = require('./bot/chatBridge')
+const { ArmorManagerController } = require('./bot/plugins/armorManager')
+const { AutoEatController } = require('./bot/plugins/autoEat')
 
 class BotManager extends EventEmitter {
   constructor() {
@@ -10,6 +12,8 @@ class BotManager extends EventEmitter {
     this.bot = null
     this.stateInterval = null
     this.chat = new ChatBridge(this)
+    this.armorManager = new ArmorManagerController()
+    this.autoEat = new AutoEatController()
   }
 
   getSupportedVersions() {
@@ -19,7 +23,18 @@ class BotManager extends EventEmitter {
   async connect(options) {
     await this.disconnect()
 
-    const { host, port, username, accountType, password, version, offlinePassword } = options
+    const {
+      host,
+      port,
+      username,
+      accountType,
+      password,
+      version,
+      offlinePassword,
+      armorManagerEnabled = false,
+      autoEatEnabled = false,
+      autoEatOptions = null,
+    } = options
 
     let selectedVersion = version
 
@@ -47,6 +62,9 @@ class BotManager extends EventEmitter {
     }
 
     this.chat.prepareForConnection(accountType === 'offline' ? offlinePassword : null)
+    this.armorManager.setEnabled(Boolean(armorManagerEnabled))
+    this.autoEat.setOptions(autoEatOptions || {})
+    this.autoEat.setEnabled(Boolean(autoEatEnabled))
 
     const connectingMessage = selectedVersion
       ? `Connecting with Minecraft ${selectedVersion}…`
@@ -67,6 +85,8 @@ class BotManager extends EventEmitter {
             this.bot.removeListener('error', handleError)
             this.bot.removeListener('end', handleEnd)
             this.chat.detach(this.bot)
+            this.armorManager.detach()
+            this.autoEat.detach()
           }
         }
       }
@@ -101,6 +121,9 @@ class BotManager extends EventEmitter {
         return
       }
 
+      this.armorManager.attach(this.bot)
+      this.autoEat.attach(this.bot)
+
       const handleLogin = () => {
         this.emit('status', { stage: 'connected', message: 'Bot connected successfully.' })
         this._startStateStream()
@@ -132,6 +155,8 @@ class BotManager extends EventEmitter {
         this._stopStateStream()
         if (this.bot) {
           this.chat.detach(this.bot)
+          this.armorManager.detach()
+          this.autoEat.detach()
         }
         this.bot = null
         if (!settled) {
@@ -163,6 +188,8 @@ class BotManager extends EventEmitter {
     }
 
     this.chat.detach(this.bot)
+    this.armorManager.detach()
+    this.autoEat.detach()
     this.bot.removeAllListeners()
     this.bot = null
     this.emit('status', { stage: 'disconnected', message: 'Bot disconnected.' })
@@ -231,6 +258,24 @@ class BotManager extends EventEmitter {
     } catch (error) {
       throw normaliseError(error)
     }
+  }
+
+  setArmorManagerEnabled(enabled) {
+    this.armorManager.setEnabled(Boolean(enabled))
+    return this.armorManager.isEnabled()
+  }
+
+  setAutoEatEnabled(enabled) {
+    this.autoEat.setEnabled(Boolean(enabled))
+    return this.autoEat.isEnabled()
+  }
+
+  setAutoEatOptions(options) {
+    return this.autoEat.setOptions(options || {})
+  }
+
+  getAutoEatOptions() {
+    return this.autoEat.getOptions()
   }
 }
 
