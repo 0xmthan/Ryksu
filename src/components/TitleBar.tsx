@@ -1,6 +1,5 @@
 import React from 'react'
-
-import type { BotStatus } from '../types/bot'
+import type { BotStatus } from '../types'
 
 type TitleBarProps = {
   status: BotStatus
@@ -10,6 +9,8 @@ type TitleBarProps = {
   canConnect: boolean
   onConnect: () => void
   onDisconnect: () => void
+  onToggleChat: () => void
+  isChatActive: boolean
 }
 
 const TitleBar: React.FC<TitleBarProps> = ({
@@ -20,6 +21,8 @@ const TitleBar: React.FC<TitleBarProps> = ({
   canConnect,
   onConnect,
   onDisconnect,
+  onToggleChat,
+  isChatActive,
 }) => {
   const handleMinimize = () => {
     window.electronAPI?.minimize()
@@ -73,15 +76,46 @@ const TitleBar: React.FC<TitleBarProps> = ({
       className="app-region-drag flex h-12 items-center justify-between border-b border-neutral-800
         bg-neutral-950/70 px-4 backdrop-blur"
     >
-      <div className="flex flex-1 items-center gap-1">
+      <div className="flex flex-1 items-center gap-2">
         <span className={`h-2 w-2 rounded-full ${indicatorColor}`} />
-        <div className="flex items-baseline gap-2 overflow-hidden">
-          <span className="text-xl font-bold uppercase text-neutral-100">Ryksu</span>
+        <div className="flex items-center gap-3 overflow-hidden">
+          <div className="flex flex-col leading-none">
+            <span className="text-xl font-bold uppercase text-neutral-100">Ryksu</span>
+            <span className="text-[0.6rem] font-semibold tracking-[0.13em] uppercase text-neutral-500 -mt-1.5">
+              by 2mdtln
+            </span>
+          </div>
           <span className={`truncate text-xs font-italic uppercase ${messageTone}`}>{statusMessage}</span>
         </div>
       </div>
 
       <div className="app-region-no-drag flex items-center gap-2">
+        <button
+          type="button"
+          onClick={onToggleChat}
+          className={`group flex h-8 w-8 items-center justify-center rounded-full border border-neutral-700/60
+            bg-neutral-900/70 transition focus-visible:outline focus-visible:outline-offset-2
+            focus-visible:outline-sky-400 ${isChatActive ? 'border-sky-500/60' : 'hover:border-neutral-500'}`}
+          aria-label={
+            isChatActive
+              ? isConnected
+                ? 'Hide chat panel'
+                : 'Hide saved chats'
+              : isConnected
+                ? 'Show chat panel'
+                : 'Show saved chats'
+          }
+        >
+          <svg width="133px" height="133px" viewBox="-9 -9.5 42 42">
+            <path
+              d="M16 8H20C20.5523 8 21 8.44772 21 9V20L17.667 17.231C17.4875 17.0818 17.2608 17 17.0273 17H9C8.44771 17 8 16.5523 8 16V13M16 8V5C16 4.44772 15.5523 4 15 4H4C3.44772 4 3 4.44772 3 5V16.0003L6.33301 13.2308C6.51255 13.0817 6.73924 13 6.97266 13H8M16 8V12C16 12.5523 15.5523 13 15 13H8"
+              stroke="#ffffff"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            ></path>
+          </svg>
+        </button>
         <button
           type="button"
           onClick={handlePrimaryAction}

@@ -1,9 +1,6 @@
 const { app, BrowserWindow, ipcMain } = require('electron')
 const { registerMinecraftIpc } = require('./mcBridge')
 
-const WINDOW_BACKGROUND = '#09090f' // Keep in sync with --color-window-bg in colors.css
-
-// Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (require('electron-squirrel-startup')) {
   app.quit()
 }
@@ -38,7 +35,7 @@ const createWindow = () => {
     resizable: false,
     frame: false,
     titleBarStyle: 'hidden',
-    backgroundColor: WINDOW_BACKGROUND,
+    backgroundColor: '#0a0a0a',
     webPreferences: {
       preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY,
       contextIsolation: true,

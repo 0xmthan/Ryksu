@@ -1,11 +1,18 @@
-import React, { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { FormEvent, useCallback, useEffect, useMemo, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-
 import './index.css'
 import ConnectionForm from './components/ConnectionForm'
 import Dashboard from './components/Dashboard'
+import SavedChats from './components/SavedChats'
 import TitleBar from './components/TitleBar'
-import type { AccountType, BotSnapshot, BotStatus, LastConnection, ChatMessage } from './types/bot'
+import type {
+  AccountType,
+  BotSnapshot,
+  BotStatus,
+  LastConnection,
+  ChatMessage,
+  StoredTranscriptMeta,
+} from './types'
 
 const STORAGE_KEY = 'ryksu:lastConnection'
 const CHAT_STORAGE_PREFIX = 'ryksu:chat:'
@@ -67,6 +74,7 @@ const App: React.FC = () => {
   const [offlinePassword, setOfflinePassword] = useState('')
   const [status, setStatus] = useState<BotStatus>(null)
   const [botState, setBotState] = useState<BotSnapshot>({ connected: false })
+  const isConnected = botState.connected
   const [isConnecting, setIsConnecting] = useState(false)
   const [lastError, setLastError] = useState<string | null>(null)
   const [availableVersions, setAvailableVersions] = useState<string[]>([])
@@ -77,8 +85,11 @@ const App: React.FC = () => {
   const [chatVisibleCount, setChatVisibleCount] = useState<number>(0)
   const [chatInput, setChatInput] = useState('')
   const [isSendingChat, setIsSendingChat] = useState(false)
-  const chatLoadedRef = useRef(false)
   const [activeConnectionKey, setActiveConnectionKey] = useState<string | null>(null)
+  const [connectionStartTimestamp, setConnectionStartTimestamp] = useState<number | null>(null)
+  const [isChatPanelOpen, setIsChatPanelOpen] = useState(false)
+  const [isViewingSavedChats, setIsViewingSavedChats] = useState(false)
+  const [savedTranscripts, setSavedTranscripts] = useState<StoredTranscriptMeta[]>([])
 
   const computedChatKey = useMemo(
     () => makeChatStorageKey(accountType, host, port),
@@ -116,14 +127,92 @@ const App: React.FC = () => {
     return added
   }, [chatHistory.length])
 
-  const addChatMessages = useCallback((incoming: ChatMessage | ChatMessage[]) => {
-    const list = Array.isArray(incoming) ? incoming : [incoming]
-    if (list.length === 0) {
-      return
+  const addChatMessages = useCallback(
+    (incoming: ChatMessage | ChatMessage[]) => {
+      const list = (Array.isArray(incoming) ? incoming : [incoming]).filter((entry) => {
+        if (!connectionStartTimestamp) {
+          return false
+        }
+        return entry.timestamp >= connectionStartTimestamp
+      })
+
+      if (list.length === 0) {
+        return
+      }
+
+      setChatHistory((previous) => mergeChatHistory(previous, list))
+    },
+    [connectionStartTimestamp]
+  )
+
+  const loadSavedTranscripts = useCallback((): StoredTranscriptMeta[] => {
+    const transcripts: StoredTranscriptMeta[] = []
+
+    for (let index = 0; index < localStorage.length; index += 1) {
+      const key = localStorage.key(index)
+      if (!key || !key.startsWith(CHAT_STORAGE_PREFIX)) {
+        continue
+      }
+
+      try {
+        const raw = localStorage.getItem(key)
+        if (!raw) {
+          continue
+        }
+
+        const parsed = JSON.parse(raw) as ChatMessage[]
+        const remainder = key.slice(CHAT_STORAGE_PREFIX.length)
+        const parts = remainder.split(':')
+        if (parts.length < 3) {
+          continue
+        }
+        const typePart = parts[0] as AccountType
+        const portPart = parts[parts.length - 1]
+        const hostPart = parts.slice(1, -1).join(':') || 'unknown'
+        const typeLabel = typePart === 'online' ? 'Online' : 'Offline'
+        const label = `[${typeLabel}] ${hostPart}${portPart ? `:${portPart}` : ''}`
+
+        transcripts.push({ key, label, messages: parsed })
+      } catch (error) {
+        console.error('Failed to parse saved transcript', key, error)
+      }
     }
 
-    setChatHistory((previous) => mergeChatHistory(previous, list))
+    transcripts.sort((a, b) => a.label.localeCompare(b.label))
+    setSavedTranscripts(transcripts)
+    return transcripts
   }, [])
+
+  const handleTitleBarToggle = useCallback(() => {
+    if (isConnected) {
+      setIsChatPanelOpen((previous) => !previous)
+      setIsViewingSavedChats(false)
+    } else {
+      setIsChatPanelOpen(false)
+      setIsViewingSavedChats((previous) => {
+        if (previous) {
+          return false
+        }
+        loadSavedTranscripts()
+        return true
+      })
+    }
+  }, [isConnected, loadSavedTranscripts])
+
+  const handleDeleteTranscript = useCallback(
+    (key: string) => {
+      try {
+        localStorage.removeItem(key)
+      } catch (error) {
+        console.error('Failed to delete transcript', key, error)
+      }
+      const updated = loadSavedTranscripts()
+      if (updated.length === 0) {
+        setIsViewingSavedChats(false)
+      }
+    },
+    [loadSavedTranscripts]
+  )
 
   const persistCurrentConnection = useCallback(() => {
     if (!hasLoadedPreferences) {
@@ -188,34 +277,11 @@ const App: React.FC = () => {
   }, [])
 
   useEffect(() => {
-    chatLoadedRef.current = false
     try {
-      const raw = localStorage.getItem(chatStorageKey)
-      if (raw) {
-        const parsed = JSON.parse(raw) as ChatMessage[]
-        const truncated = mergeChatHistory([], parsed)
-        setChatHistory(truncated)
-        setChatVisibleCount(truncated.length === 0 ? 0 : Math.min(truncated.length, CHAT_PAGE_SIZE))
-      } else {
-        setChatHistory([])
-        setChatVisibleCount(0)
-      }
-    } catch (error) {
-      console.error('Failed to load chat history for server', error)
-      setChatHistory([])
-      setChatVisibleCount(0)
-    } finally {
-      chatLoadedRef.current = true
-    }
-  }, [chatStorageKey])
-
-  useEffect(() => {
-    if (!chatLoadedRef.current) {
-      return
-    }
-
-    try {
-      localStorage.setItem(chatStorageKey, JSON.stringify(chatHistory))
+      const existingRaw = localStorage.getItem(chatStorageKey)
+      const existing = existingRaw ? (JSON.parse(existingRaw) as ChatMessage[]) : []
+      const merged = mergeChatHistory(existing, chatHistory)
+      localStorage.setItem(chatStorageKey, JSON.stringify(merged))
     } catch (error) {
       console.error('Failed to persist chat history for server', error)
     }
@@ -257,10 +323,12 @@ const App: React.FC = () => {
       if (incomingStatus.stage === 'connected') {
         setIsConnecting(false)
         setLastError(null)
+        setConnectionStartTimestamp((previous) => previous ?? Date.now())
       }
 
       if (incomingStatus.stage === 'error' || incomingStatus.stage === 'kicked') {
         setIsConnecting(false)
+        setConnectionStartTimestamp(null)
         setLastError(resolvedMessage ?? 'The bot was kicked or encountered an error.')
         setBotState({ connected: false })
         pushSystemChat(
@@ -273,6 +341,7 @@ const App: React.FC = () => {
 
       if (incomingStatus.stage === 'disconnected') {
         setIsConnecting(false)
+        setConnectionStartTimestamp(null)
         setBotState({ connected: false })
         pushSystemChat(resolvedMessage ?? 'Bot disconnected.')
       }
@@ -453,9 +522,16 @@ const App: React.FC = () => {
     }
   }
 
-  const connectedState = botState.connected ? botState : null
-  const isConnected = Boolean(connectedState)
+  const connectedState = isConnected ? (botState as Extract<BotSnapshot, { connected: true }>) : null
   const canAttemptConnect = host.trim().length > 0 && username.trim().length > 0
+
+  useEffect(() => {
+    if (!isConnected) {
+      setIsChatPanelOpen(false)
+    } else {
+      setIsViewingSavedChats(false)
+    }
+  }, [isConnected])
 
   return (
     <div className="flex min-h-screen flex-col bg-app text-purple-100">
@@ -468,6 +544,8 @@ const App: React.FC = () => {
           canConnect={canAttemptConnect}
           onConnect={connectWithCurrentFields}
           onDisconnect={handleDisconnect}
+          onToggleChat={handleTitleBarToggle}
+          isChatActive={isConnected ? isChatPanelOpen : isViewingSavedChats}
         />
       </div>
       <main className="flex flex-1">
@@ -475,13 +553,14 @@ const App: React.FC = () => {
           <Dashboard
             snapshot={connectedState}
             chatMessages={visibleChatMessages}
-            hasOlderMessages={hasOlderChat}
-            onLoadOlderMessages={loadOlderChat}
             chatInput={chatInput}
             onChatInputChange={setChatInput}
             onChatSubmit={handleChatSubmit}
             isSendingChat={isSendingChat}
+            showChat={isChatPanelOpen}
           />
+        ) : isViewingSavedChats ? (
+          <SavedChats transcripts={savedTranscripts} onDelete={handleDeleteTranscript} />
         ) : (
           <ConnectionForm
             accountType={accountType}

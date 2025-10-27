@@ -34,3 +34,9 @@ export type ChatMessage = {
   position: string | null
   timestamp: number
 }
+
+export type StoredTranscriptMeta = {
+  key: string
+  label: string
+  messages: ChatMessage[]
+}

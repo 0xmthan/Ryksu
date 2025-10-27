@@ -1,6 +1,5 @@
 const { EventEmitter } = require('node:events')
 const mineflayer = require('mineflayer')
-
 const { SUPPORTED_VERSIONS } = require('./bot/versions')
 const { normaliseError } = require('./bot/errors')
 const { ChatBridge } = require('./bot/chatBridge')

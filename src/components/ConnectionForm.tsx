@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react'
-
-import type { AccountType, LastConnection } from '../types/bot'
+import type { AccountType, LastConnection } from '../types'
 
 type ConnectionFormProps = {
   accountType: AccountType
