@@ -1,0 +1,358 @@
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import ConnectionForm from './components/ConnectionForm'
+import Dashboard from './components/Dashboard'
+import SavedChats from './components/SavedChats'
+import TitleBar from './components/TitleBar'
+import useChatHistory from './hooks/useChatHistory'
+import useConnectionPreferences from './hooks/useConnectionPreferences'
+import useSavedTranscripts from './hooks/useSavedTranscripts'
+import type { AccountType, BotSnapshot, BotStatus, ChatMessage } from './types'
+import { makeChatStorageKey, normalizeProtocolError } from './utils/chat'
+
+const App: React.FC = () => {
+  const [accountType, setAccountType] = useState<AccountType>('offline')
+  const [host, setHost] = useState('localhost')
+  const [port, setPort] = useState('25565')
+  const [username, setUsername] = useState('')
+  const [onlinePassword, setOnlinePassword] = useState('')
+  const [offlinePassword, setOfflinePassword] = useState('')
+  const [status, setStatus] = useState<BotStatus>(null)
+  const [botState, setBotState] = useState<BotSnapshot>({ connected: false })
+  const isConnected = botState.connected
+  const [isConnecting, setIsConnecting] = useState(false)
+  const [lastError, setLastError] = useState<string | null>(null)
+  const [availableVersions, setAvailableVersions] = useState<string[]>([])
+  const [version, setVersion] = useState<string>('auto')
+  const [isChatPanelOpen, setIsChatPanelOpen] = useState(false)
+  const [isViewingSavedChats, setIsViewingSavedChats] = useState(false)
+  const [isSendingChat, setIsSendingChat] = useState(false)
+  const [chatInput, setChatInput] = useState('')
+  const [activeConnectionKey, setActiveConnectionKey] = useState<string | null>(null)
+  const [connectionStartTimestamp, setConnectionStartTimestamp] = useState<number | null>(null)
+
+  const computedChatKey = useMemo(
+    () => makeChatStorageKey(accountType, host, port),
+    [accountType, host, port]
+  )
+  const chatStorageKey = activeConnectionKey ?? computedChatKey
+
+  const { savedTranscripts, loadSavedTranscripts, deleteTranscript } = useSavedTranscripts()
+
+  const { visibleChatMessages, addChatMessages } = useChatHistory({
+    chatStorageKey,
+    connectionStartTimestamp,
+  })
+
+  const { lastConnection, persist: persistCurrentConnection } = useConnectionPreferences({
+    accountType,
+    host,
+    port,
+    username,
+    version,
+    offlinePassword,
+    setAccountType,
+    setHost,
+    setPort,
+    setUsername,
+    setVersion,
+    setOfflinePassword,
+  })
+
+  const handleTitleBarToggle = useCallback(() => {
+    if (isConnected) {
+      setIsChatPanelOpen((previous) => !previous)
+      setIsViewingSavedChats(false)
+    } else {
+      setIsChatPanelOpen(false)
+      setIsViewingSavedChats((previous) => {
+        if (previous) {
+          return false
+        }
+        loadSavedTranscripts()
+        return true
+      })
+    }
+  }, [isConnected, loadSavedTranscripts])
+
+  const handleDeleteTranscript = useCallback(
+    (key: string) => {
+      const hasTranscripts = deleteTranscript(key)
+      if (!hasTranscripts) {
+        setIsViewingSavedChats(false)
+      }
+    },
+    [deleteTranscript]
+  )
+
+  const attemptConnect = useCallback(
+    async (details: {
+      host: string
+      port: string
+      username: string
+      accountType: AccountType
+      onlinePassword?: string
+      offlinePassword?: string
+      version: string
+    }) => {
+      setIsConnecting(true)
+      setLastError(null)
+
+      const response = await window.electronAPI.bot.connect({
+        host: details.host,
+        port: details.port,
+        username: details.username,
+        accountType: details.accountType,
+        password: details.accountType === 'online' ? details.onlinePassword : undefined,
+        offlinePassword: details.accountType === 'offline' ? details.offlinePassword : undefined,
+        version: details.version,
+      })
+
+      if (!response.ok) {
+        setIsConnecting(false)
+        setLastError(normalizeProtocolError(response.message) ?? 'Failed to connect to the server.')
+      }
+    },
+    []
+  )
+
+  const connectWithCurrentFields = useCallback(async () => {
+    const nextKey = makeChatStorageKey(accountType, host, port)
+    setActiveConnectionKey(nextKey)
+    persistCurrentConnection()
+    await attemptConnect({
+      host,
+      port,
+      username,
+      accountType,
+      onlinePassword,
+      offlinePassword,
+      version,
+    })
+  }, [
+    accountType,
+    attemptConnect,
+    host,
+    offlinePassword,
+    onlinePassword,
+    persistCurrentConnection,
+    port,
+    username,
+    version,
+  ])
+
+  const handleConnect: React.FormEventHandler<HTMLFormElement> = async (event) => {
+    event.preventDefault()
+    await connectWithCurrentFields()
+  }
+
+  const handleDisconnect = useCallback(async () => {
+    await window.electronAPI.bot.disconnect()
+    setBotState({ connected: false })
+    setStatus({ stage: 'disconnected', message: 'Bot disconnected.' })
+    setIsConnecting(false)
+    setActiveConnectionKey(null)
+  }, [])
+
+  const pushSystemChat = useCallback(
+    (text: string) => {
+      const entry: ChatMessage = {
+        id: `${Date.now()}-local`,
+        text,
+        author: 'Ryksu',
+        type: 'system',
+        position: 'client',
+        timestamp: Date.now(),
+      }
+      addChatMessages(entry)
+    },
+    [addChatMessages]
+  )
+
+  const handleChatSubmit = useCallback(async () => {
+    const trimmed = chatInput.trim()
+    if (!trimmed) {
+      return
+    }
+
+    setIsSendingChat(true)
+    setLastError(null)
+    try {
+      const response = await window.electronAPI.bot.sendChat(trimmed)
+      if (!response?.ok) {
+        const errorMessage = response?.message ?? 'Failed to send chat message.'
+        pushSystemChat(errorMessage)
+        return
+      }
+      setChatInput('')
+    } catch (error) {
+      console.error('Failed to send chat message', error)
+      pushSystemChat('Failed to send chat message.')
+    } finally {
+      setIsSendingChat(false)
+    }
+  }, [chatInput, pushSystemChat])
+
+  const connectedState = isConnected ? (botState as Extract<BotSnapshot, { connected: true }>) : null
+  const canAttemptConnect = host.trim().length > 0 && username.trim().length > 0
+
+  useEffect(() => {
+    const unsubscribeChat = window.electronAPI.bot.onChat((entry: ChatMessage) => {
+      addChatMessages(entry)
+    })
+
+    const unsubscribeHistory = window.electronAPI.bot.onChatHistory((history: ChatMessage[]) => {
+      if (Array.isArray(history)) {
+        addChatMessages(history)
+      }
+    })
+
+    window.electronAPI.bot
+      .getChatHistory()
+      .then((history) => {
+        if (Array.isArray(history) && history.length > 0) {
+          addChatMessages(history)
+        }
+      })
+      .catch((error) => {
+        console.error('Failed to load chat history', error)
+      })
+
+    return () => {
+      unsubscribeChat()
+      unsubscribeHistory()
+    }
+  }, [addChatMessages])
+
+  useEffect(() => {
+    const unsubscribeStatus = window.electronAPI.bot.onStatus((incomingStatus) => {
+      const resolvedMessage = normalizeProtocolError(incomingStatus.message)
+      setStatus({ ...incomingStatus, message: resolvedMessage ?? undefined })
+
+      if (incomingStatus.stage === 'connected') {
+        setIsConnecting(false)
+        setLastError(null)
+        setConnectionStartTimestamp((previous) => previous ?? Date.now())
+      }
+
+      if (incomingStatus.stage === 'error' || incomingStatus.stage === 'kicked') {
+        setIsConnecting(false)
+        setConnectionStartTimestamp(null)
+        setLastError(resolvedMessage ?? 'The bot was kicked or encountered an error.')
+        setBotState({ connected: false })
+        pushSystemChat(
+          resolvedMessage ??
+            (incomingStatus.stage === 'kicked'
+              ? 'Bot was kicked from the server.'
+              : 'Bot encountered an error and disconnected.')
+        )
+      }
+
+      if (incomingStatus.stage === 'disconnected') {
+        setIsConnecting(false)
+        setConnectionStartTimestamp(null)
+        setBotState({ connected: false })
+        pushSystemChat(resolvedMessage ?? 'Bot disconnected.')
+      }
+    })
+
+    const unsubscribeState = window.electronAPI.bot.onState((state) => {
+      setBotState(state)
+    })
+
+    window.electronAPI.bot.subscribe()
+
+    return () => {
+      unsubscribeStatus()
+      unsubscribeState()
+    }
+  }, [pushSystemChat])
+
+  useEffect(() => {
+    let isMounted = true
+    const fetchVersions = async () => {
+      try {
+        const versions = await window.electronAPI.bot.getSupportedVersions()
+        if (!isMounted) {
+          return
+        }
+
+        setAvailableVersions(versions)
+        if (versions.length > 0) {
+          setVersion((current) => (current === 'auto' ? versions[0] : current))
+        }
+      } catch (error) {
+        console.error('Failed to load supported versions', error)
+      }
+    }
+
+    fetchVersions()
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!isConnected) {
+      setIsChatPanelOpen(false)
+    } else {
+      setIsViewingSavedChats(false)
+    }
+  }, [isConnected])
+
+  return (
+    <div className="flex min-h-screen flex-col bg-app text-purple-100">
+      <div className="sticky top-0 z-50">
+        <TitleBar
+          status={status}
+          lastError={lastError}
+          isConnecting={isConnecting}
+          isConnected={isConnected}
+          canConnect={canAttemptConnect}
+          onConnect={connectWithCurrentFields}
+          onDisconnect={handleDisconnect}
+          onToggleChat={handleTitleBarToggle}
+          isChatActive={isConnected ? isChatPanelOpen : isViewingSavedChats}
+        />
+      </div>
+      <main className="flex flex-1">
+        {isConnected && connectedState ? (
+          <Dashboard
+            snapshot={connectedState}
+            chatMessages={visibleChatMessages}
+            chatInput={chatInput}
+            onChatInputChange={setChatInput}
+            onChatSubmit={handleChatSubmit}
+            isSendingChat={isSendingChat}
+            showChat={isChatPanelOpen}
+          />
+        ) : isViewingSavedChats ? (
+          <SavedChats transcripts={savedTranscripts} onDelete={handleDeleteTranscript} />
+        ) : (
+          <ConnectionForm
+            accountType={accountType}
+            host={host}
+            port={port}
+            username={username}
+            onlinePassword={onlinePassword}
+            offlinePassword={offlinePassword}
+            version={version}
+            availableVersions={availableVersions}
+            lastConnection={lastConnection}
+            onAccountTypeChange={setAccountType}
+            onHostChange={setHost}
+            onPortChange={setPort}
+            onUsernameChange={setUsername}
+            onOnlinePasswordChange={setOnlinePassword}
+            onOfflinePasswordChange={setOfflinePassword}
+            onVersionChange={setVersion}
+            onSubmit={handleConnect}
+            onCommitEdit={persistCurrentConnection}
+          />
+        )}
+      </main>
+    </div>
+  )
+}
+
+export default App
