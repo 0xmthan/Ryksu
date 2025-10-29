@@ -58,3 +58,9 @@ export type PathfinderOptions = {
   followEnabled: boolean
   followTarget: string
 }
+
+export type PvpOptions = {
+  mobEnabled: boolean
+  playerEnabled: boolean
+  playerTarget: string
+}

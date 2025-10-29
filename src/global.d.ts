@@ -1,4 +1,4 @@
-import type { ChatMessage, AutoEatOptions, PathfinderOptions } from './types'
+import type { ChatMessage, AutoEatOptions, PathfinderOptions, PvpOptions } from './types'
 
 export {}
 
@@ -20,6 +20,7 @@ declare global {
           autoEatEnabled?: boolean
           autoEatOptions?: Partial<AutoEatOptions>
           pathfinder?: Partial<PathfinderOptions>
+          pvp?: Partial<PvpOptions>
         }) => Promise<{ ok: boolean; message?: string }>
         disconnect: () => Promise<{ ok: boolean }>
         getSnapshot: () => Promise<
@@ -64,6 +65,11 @@ declare global {
           options: PathfinderOptions
         }>
         getPathfinderOptions: () => Promise<PathfinderOptions>
+        setPvpOptions: (options: Partial<PvpOptions>) => Promise<{
+          ok: boolean
+          options: PvpOptions
+        }>
+        getPvpOptions: () => Promise<PvpOptions>
       }
     }
   }

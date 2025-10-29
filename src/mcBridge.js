@@ -106,6 +106,15 @@ const registerMinecraftIpc = (ipcMain) => {
     return botManager.getPathfinderOptions()
   })
 
+  ipcMain.handle('bot:setPvpOptions', (_event, options) => {
+    const updated = botManager.setPvpOptions(options)
+    return { ok: true, options: updated }
+  })
+
+  ipcMain.handle('bot:getPvpOptions', () => {
+    return botManager.getPvpOptions()
+  })
+
   ipcMain.on('bot:subscribe', (event) => {
     setActiveWebContents(event.sender)
     const snapshot = botManager.getSnapshot()

@@ -1,4 +1,4 @@
-import type { AutoEatOptions, AutoEatPriority, PathfinderOptions } from '../types'
+import type { AutoEatOptions, AutoEatPriority, PathfinderOptions, PvpOptions } from '../types'
 
 export const AUTO_EAT_DEFAULTS: AutoEatOptions = {
   priority: 'foodPoints',
@@ -18,8 +18,7 @@ const AUTO_EAT_PRIORITIES: AutoEatPriority[] = [
   'saturationRatio',
 ]
 
-const clamp = (value: number, minimum: number, maximum: number) =>
-  Math.min(Math.max(value, minimum), maximum)
+const clamp = (value: number, minimum: number, maximum: number) => Math.min(Math.max(value, minimum), maximum)
 
 const normalizeAutoEatOptions = (incoming?: Partial<AutoEatOptions>): AutoEatOptions => {
   if (!incoming || typeof incoming !== 'object') {
@@ -44,8 +43,7 @@ const normalizeAutoEatOptions = (incoming?: Partial<AutoEatOptions>): AutoEatOpt
       ? incoming.returnToLastItem
       : AUTO_EAT_DEFAULTS.returnToLastItem
 
-  const offhand =
-    typeof incoming.offhand === 'boolean' ? incoming.offhand : AUTO_EAT_DEFAULTS.offhand
+  const offhand = typeof incoming.offhand === 'boolean' ? incoming.offhand : AUTO_EAT_DEFAULTS.offhand
 
   const eatingTimeout = Number.isFinite(Number(incoming.eatingTimeout))
     ? Math.max(0, Number(incoming.eatingTimeout))
@@ -61,14 +59,10 @@ const normalizeAutoEatOptions = (incoming?: Partial<AutoEatOptions>): AutoEatOpt
     bannedFoodCandidates = [...AUTO_EAT_DEFAULTS.bannedFood]
   }
 
-  const bannedFood = bannedFoodCandidates
-    .map((entry) => entry.trim())
-    .filter((entry) => entry.length > 0)
+  const bannedFood = bannedFoodCandidates.map((entry) => entry.trim()).filter((entry) => entry.length > 0)
 
   const strictErrors =
-    typeof incoming.strictErrors === 'boolean'
-      ? incoming.strictErrors
-      : AUTO_EAT_DEFAULTS.strictErrors
+    typeof incoming.strictErrors === 'boolean' ? incoming.strictErrors : AUTO_EAT_DEFAULTS.strictErrors
 
   return {
     priority,
@@ -87,6 +81,7 @@ export type PluginPreferences = {
   autoEatEnabled: boolean
   autoEatOptions: AutoEatOptions
   pathfinder: PathfinderOptions
+  pvp: PvpOptions
 }
 
 const DEFAULT_PLUGIN_PREFERENCES: PluginPreferences = {
@@ -94,6 +89,7 @@ const DEFAULT_PLUGIN_PREFERENCES: PluginPreferences = {
   autoEatEnabled: false,
   autoEatOptions: AUTO_EAT_DEFAULTS,
   pathfinder: { followEnabled: false, followTarget: '' },
+  pvp: { mobEnabled: false, playerEnabled: false, playerTarget: '' },
 }
 
 const STORAGE_KEY = 'ryksu:pluginPreferences'
@@ -106,6 +102,7 @@ export const loadPluginPreferences = (): PluginPreferences => {
         ...DEFAULT_PLUGIN_PREFERENCES,
         autoEatOptions: { ...AUTO_EAT_DEFAULTS },
         pathfinder: { ...DEFAULT_PLUGIN_PREFERENCES.pathfinder },
+        pvp: { ...DEFAULT_PLUGIN_PREFERENCES.pvp },
       }
     }
 
@@ -128,6 +125,14 @@ export const loadPluginPreferences = (): PluginPreferences => {
               followTarget: String((parsed.pathfinder as PathfinderOptions).followTarget ?? '').trim(),
             }
           : { ...DEFAULT_PLUGIN_PREFERENCES.pathfinder },
+      pvp:
+        parsed.pvp && typeof parsed.pvp === 'object'
+          ? {
+              mobEnabled: Boolean((parsed.pvp as PvpOptions).mobEnabled),
+              playerEnabled: Boolean((parsed.pvp as PvpOptions).playerEnabled),
+              playerTarget: String((parsed.pvp as PvpOptions).playerTarget ?? '').trim(),
+            }
+          : { ...DEFAULT_PLUGIN_PREFERENCES.pvp },
     }
   } catch (error) {
     console.error('Failed to load plugin preferences', error)
@@ -135,6 +140,7 @@ export const loadPluginPreferences = (): PluginPreferences => {
       ...DEFAULT_PLUGIN_PREFERENCES,
       autoEatOptions: { ...AUTO_EAT_DEFAULTS },
       pathfinder: { ...DEFAULT_PLUGIN_PREFERENCES.pathfinder },
+      pvp: { ...DEFAULT_PLUGIN_PREFERENCES.pvp },
     }
   }
 }
@@ -147,6 +153,11 @@ export const savePluginPreferences = (preferences: PluginPreferences) => {
     pathfinder: {
       followEnabled: Boolean(preferences.pathfinder?.followEnabled),
       followTarget: String(preferences.pathfinder?.followTarget ?? '').trim(),
+    },
+    pvp: {
+      mobEnabled: Boolean(preferences.pvp?.mobEnabled),
+      playerEnabled: Boolean(preferences.pvp?.playerEnabled),
+      playerTarget: String(preferences.pvp?.playerTarget ?? '').trim(),
     },
   }
 

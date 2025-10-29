@@ -48,6 +48,12 @@ const App: React.FC = () => {
     updateAutoEatOptions,
     pathfinder,
     updatePathfinder,
+    pvpEnabled,
+    togglePvp,
+    pvpPlayerEnabled,
+    pvpPlayerTarget,
+    togglePvpPlayer,
+    updatePvpPlayerTarget,
   } = usePluginControls()
 
   const computedChatKey = useMemo(
@@ -117,6 +123,7 @@ const App: React.FC = () => {
       autoEatEnabled: boolean
       autoEatOptions: AutoEatOptions
       pathfinder: PathfinderOptions
+      pvpEnabled: boolean
     }) => {
       setIsConnecting(true)
       setLastError(null)
@@ -133,6 +140,7 @@ const App: React.FC = () => {
         autoEatEnabled: details.autoEatEnabled,
         autoEatOptions: details.autoEatOptions,
         pathfinder: details.pathfinder,
+        // TOTO: handle PVP options properly
       })
 
       if (!response.ok) {
@@ -158,6 +166,7 @@ const App: React.FC = () => {
       armorManagerEnabled,
       autoEatEnabled,
       autoEatOptions,
+      pvpEnabled,
       pathfinder,
     })
   }, [
@@ -173,6 +182,7 @@ const App: React.FC = () => {
     armorManagerEnabled,
     autoEatEnabled,
     autoEatOptions,
+    pvpEnabled,
     pathfinder,
   ])
 
@@ -402,6 +412,12 @@ const App: React.FC = () => {
             pathfinderTarget={pathfinder.followTarget}
             onPathfinderToggle={handlePathfinderToggle}
             onPathfinderTargetChange={handlePathfinderTargetChange}
+            pvpEnabled={pvpEnabled}
+            onPvpToggle={togglePvp}
+            pvpPlayerEnabled={pvpPlayerEnabled}
+            pvpPlayerTarget={pvpPlayerTarget}
+            onPvpPlayerToggle={togglePvpPlayer}
+            onPvpPlayerTargetChange={updatePvpPlayerTarget}
           />
         ) : isViewingSavedChats ? (
           <SavedChats transcripts={savedTranscripts} onDelete={handleDeleteTranscript} />

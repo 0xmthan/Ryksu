@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react'
-import type { AutoEatOptions, PathfinderOptions } from '../types'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import type { AutoEatOptions, PathfinderOptions, PvpOptions } from '../types'
 import { AUTO_EAT_DEFAULTS, loadPluginPreferences, savePluginPreferences } from '../utils/plugins'
 
 const usePluginControls = () => {
@@ -7,6 +7,65 @@ const usePluginControls = () => {
   const [autoEatEnabled, setAutoEatEnabled] = useState(false)
   const [autoEatOptions, setAutoEatOptions] = useState<AutoEatOptions>(AUTO_EAT_DEFAULTS)
   const [pathfinder, setPathfinder] = useState<PathfinderOptions>({ followEnabled: false, followTarget: '' })
+  const [pvpOptions, setPvpOptions] = useState<PvpOptions>({
+    mobEnabled: false,
+    playerEnabled: false,
+    playerTarget: '',
+  })
+  const stateRef = useRef({
+    armorManagerEnabled,
+    autoEatEnabled,
+    autoEatOptions,
+    pathfinder,
+    pvp: pvpOptions,
+  })
+
+  const pushPreferences = useCallback(
+    async ({
+      armorManagerEnabled: mgrEnabled,
+      autoEatEnabled: eatEnabled,
+      autoEatOptions: eatOptions,
+      pathfinder: pathfinderOptions,
+      pvp,
+    }: {
+      armorManagerEnabled: boolean
+      autoEatEnabled: boolean
+      autoEatOptions: AutoEatOptions
+      pathfinder: PathfinderOptions
+      pvp: PvpOptions
+    }) => {
+      try {
+        await window.electronAPI.bot.setArmorManagerEnabled(mgrEnabled)
+      } catch (error) {
+        console.error('Failed to apply armor manager preference', error)
+      }
+
+      try {
+        await window.electronAPI.bot.setAutoEatEnabled(eatEnabled)
+      } catch (error) {
+        console.error('Failed to apply auto eat enabled preference', error)
+      }
+
+      try {
+        await window.electronAPI.bot.setAutoEatOptions(eatOptions)
+      } catch (error) {
+        console.error('Failed to apply auto eat options preference', error)
+      }
+
+      try {
+        await window.electronAPI.bot.setPathfinderOptions(pathfinderOptions)
+      } catch (error) {
+        console.error('Failed to apply pathfinder preferences', error)
+      }
+
+      try {
+        await window.electronAPI.bot.setPvpOptions(pvp)
+      } catch (error) {
+        console.error('Failed to apply pvp preference', error)
+      }
+    },
+    []
+  )
 
   useEffect(() => {
     const preferences = loadPluginPreferences()
@@ -14,35 +73,33 @@ const usePluginControls = () => {
     setAutoEatEnabled(preferences.autoEatEnabled)
     setAutoEatOptions(preferences.autoEatOptions)
     setPathfinder(preferences.pathfinder)
+    setPvpOptions(preferences.pvp)
+    pushPreferences(preferences)
+  }, [pushPreferences])
 
-    const applyPreferences = async () => {
-      try {
-        await window.electronAPI.bot.setArmorManagerEnabled(preferences.armorManagerEnabled)
-      } catch (error) {
-        console.error('Failed to apply armor manager preference', error)
+  useEffect(() => {
+    stateRef.current = {
+      armorManagerEnabled,
+      autoEatEnabled,
+      autoEatOptions,
+      pathfinder,
+      pvp: pvpOptions,
+    }
+  }, [armorManagerEnabled, autoEatEnabled, autoEatOptions, pathfinder, pvpOptions])
+
+  useEffect(() => {
+    const unsubscribe = window.electronAPI.bot.onStatus((incoming) => {
+      if (incoming?.stage === 'connected') {
+        pushPreferences(stateRef.current)
       }
+    })
 
-      try {
-        await window.electronAPI.bot.setAutoEatEnabled(preferences.autoEatEnabled)
-      } catch (error) {
-        console.error('Failed to apply auto eat enabled preference', error)
-      }
-
-      try {
-        await window.electronAPI.bot.setAutoEatOptions(preferences.autoEatOptions)
-      } catch (error) {
-        console.error('Failed to apply auto eat options preference', error)
-      }
-
-      try {
-        await window.electronAPI.bot.setPathfinderOptions(preferences.pathfinder)
-      } catch (error) {
-        console.error('Failed to apply pathfinder preferences', error)
+    return () => {
+      if (unsubscribe) {
+        unsubscribe()
       }
     }
-
-    applyPreferences()
-  }, [])
+  }, [pushPreferences])
 
   const persist = useCallback(
     (
@@ -51,6 +108,7 @@ const usePluginControls = () => {
         autoEatEnabled: boolean
         autoEatOptions: AutoEatOptions
         pathfinder: PathfinderOptions
+        pvp: PvpOptions
       }>
     ) => {
       savePluginPreferences({
@@ -58,9 +116,10 @@ const usePluginControls = () => {
         autoEatEnabled: next.autoEatEnabled ?? autoEatEnabled,
         autoEatOptions: next.autoEatOptions ?? autoEatOptions,
         pathfinder: next.pathfinder ?? pathfinder,
+        pvp: next.pvp ?? pvpOptions,
       })
     },
-    [armorManagerEnabled, autoEatEnabled, autoEatOptions, pathfinder]
+    [armorManagerEnabled, autoEatEnabled, autoEatOptions, pathfinder, pvpOptions]
   )
 
   const toggleArmorManager = useCallback(
@@ -129,6 +188,48 @@ const usePluginControls = () => {
     [pathfinder, persist]
   )
 
+  const updatePvpOptions = useCallback(
+    async (next: Partial<PvpOptions>) => {
+      const merged: PvpOptions = {
+        mobEnabled: next.mobEnabled ?? pvpOptions.mobEnabled,
+        playerEnabled: next.playerEnabled ?? pvpOptions.playerEnabled,
+        playerTarget:
+          typeof next.playerTarget === 'string' ? next.playerTarget.trim() : pvpOptions.playerTarget,
+      }
+
+      setPvpOptions(merged)
+      try {
+        await window.electronAPI.bot.setPvpOptions(merged)
+        persist({ pvp: merged })
+      } catch (error) {
+        console.error('Failed to update pvp options', error)
+        setPvpOptions(pvpOptions)
+      }
+    },
+    [persist, pvpOptions]
+  )
+
+  const togglePvp = useCallback(
+    async (enabled: boolean) => {
+      await updatePvpOptions({ mobEnabled: enabled })
+    },
+    [updatePvpOptions]
+  )
+
+  const togglePvpPlayer = useCallback(
+    async (enabled: boolean) => {
+      await updatePvpOptions({ playerEnabled: enabled })
+    },
+    [updatePvpOptions]
+  )
+
+  const updatePvpPlayerTarget = useCallback(
+    async (target: string) => {
+      await updatePvpOptions({ playerTarget: target })
+    },
+    [updatePvpOptions]
+  )
+
   return {
     armorManagerEnabled,
     autoEatEnabled,
@@ -138,6 +239,14 @@ const usePluginControls = () => {
     updateAutoEatOptions,
     pathfinder,
     updatePathfinder,
+    pvpEnabled: pvpOptions.mobEnabled,
+    togglePvp,
+    pvpPlayerEnabled: pvpOptions.playerEnabled,
+    pvpPlayerTarget: pvpOptions.playerTarget,
+    togglePvpPlayer,
+    updatePvpPlayerTarget,
+    pvpOptions,
+    updatePvpOptions,
   }
 }
 

@@ -6,6 +6,8 @@ const { ChatBridge } = require('./bot/chatBridge')
 const { ArmorManagerController } = require('./bot/plugins/armorManager')
 const { AutoEatController } = require('./bot/plugins/autoEat')
 const { PathfinderController } = require('./bot/plugins/pathfinder')
+const { PvpController } = require('./bot/plugins/pvp')
+const { BehaviorManager } = require('./bot/plugins/behaviorManager')
 
 class BotManager extends EventEmitter {
   constructor() {
@@ -16,6 +18,8 @@ class BotManager extends EventEmitter {
     this.armorManager = new ArmorManagerController()
     this.autoEat = new AutoEatController()
     this.pathfinder = new PathfinderController()
+    this.pvp = new PvpController()
+    this.behavior = new BehaviorManager({ pathfinder: this.pathfinder, pvp: this.pvp })
   }
 
   getSupportedVersions() {
@@ -37,6 +41,7 @@ class BotManager extends EventEmitter {
       autoEatEnabled = false,
       autoEatOptions = null,
       pathfinder = { followEnabled: false, followTarget: '' },
+      pvp = { mobEnabled: false, playerEnabled: false, playerTarget: '' },
     } = options
 
     let selectedVersion = version
@@ -68,7 +73,8 @@ class BotManager extends EventEmitter {
     this.armorManager.setEnabled(Boolean(armorManagerEnabled))
     this.autoEat.setOptions(autoEatOptions || {})
     this.autoEat.setEnabled(Boolean(autoEatEnabled))
-    this.pathfinder.setOptions(pathfinder)
+    this.behavior.setPathfinderOptions(pathfinder)
+    this.behavior.setPvpOptions(pvp)
 
     const connectingMessage = selectedVersion
       ? `Connecting with Minecraft ${selectedVersion}…`
@@ -92,6 +98,7 @@ class BotManager extends EventEmitter {
             this.armorManager.detach()
             this.autoEat.detach()
             this.pathfinder.detach()
+            this.pvp.detach()
           }
         }
       }
@@ -129,6 +136,8 @@ class BotManager extends EventEmitter {
       this.armorManager.attach(this.bot)
       this.autoEat.attach(this.bot)
       this.pathfinder.attach(this.bot)
+      this.pvp.attach(this.bot)
+      this.behavior.applyCurrentState()
 
       const handleLogin = () => {
         this.emit('status', { stage: 'connected', message: 'Bot connected successfully.' })
@@ -164,6 +173,7 @@ class BotManager extends EventEmitter {
           this.armorManager.detach()
           this.autoEat.detach()
           this.pathfinder.detach()
+          this.pvp.detach()
         }
         this.bot = null
         if (!settled) {
@@ -198,6 +208,7 @@ class BotManager extends EventEmitter {
     this.armorManager.detach()
     this.autoEat.detach()
     this.pathfinder.detach()
+    this.pvp.detach()
     this.bot.removeAllListeners()
     this.bot = null
     this.emit('status', { stage: 'disconnected', message: 'Bot disconnected.' })
@@ -287,11 +298,19 @@ class BotManager extends EventEmitter {
   }
 
   setPathfinderOptions(options) {
-    return this.pathfinder.setOptions(options || {})
+    return this.behavior.setPathfinderOptions(options || {})
   }
 
   getPathfinderOptions() {
-    return this.pathfinder.getOptions()
+    return this.behavior.getPathfinderOptions()
+  }
+
+  setPvpOptions(options) {
+    return this.behavior.setPvpOptions(options || {})
+  }
+
+  getPvpOptions() {
+    return this.behavior.getPvpOptions()
   }
 }
 

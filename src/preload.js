@@ -32,5 +32,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getAutoEatOptions: () => ipcRenderer.invoke('bot:getAutoEatOptions'),
     setPathfinderOptions: (options) => ipcRenderer.invoke('bot:setPathfinderOptions', options),
     getPathfinderOptions: () => ipcRenderer.invoke('bot:getPathfinderOptions'),
+    setPvpOptions: (options) => ipcRenderer.invoke('bot:setPvpOptions', options),
+    getPvpOptions: () => ipcRenderer.invoke('bot:getPvpOptions'),
   },
 });
