@@ -1,6 +1,8 @@
 import React from 'react'
 import ChatPanel from './ChatPanel'
+import LocationManager from './LocationManager'
 import StatsSummary from './StatsSummary'
+import { useSavedLocations } from '../hooks/useSavedLocations'
 import type { BotSnapshot, ChatMessage } from '../types'
 
 type ConnectedSnapshot = Extract<BotSnapshot, { connected: true }>
@@ -20,10 +22,13 @@ type DashboardProps = {
   onAutoEatConfigure: () => void
   pathfinderEnabled: boolean
   pathfinderTarget: string
+  pathfinder: import('../types').PathfinderOptions
   onPathfinderToggle: (value: boolean) => void
   onPathfinderTargetChange: (value: string) => void
+  updatePathfinder: (options: import('../types').PathfinderOptions) => void
   pvpEnabled: boolean
   onPvpToggle: (value: boolean) => void
+  onPvpConfigure: () => void
   pvpPlayerEnabled: boolean
   pvpPlayerTarget: string
   onPvpPlayerToggle: (value: boolean) => void
@@ -31,6 +36,7 @@ type DashboardProps = {
 }
 
 const Dashboard: React.FC<DashboardProps> = ({
+  pathfinder,
   snapshot,
   chatMessages,
   chatInput,
@@ -47,13 +53,16 @@ const Dashboard: React.FC<DashboardProps> = ({
   pathfinderTarget,
   onPathfinderToggle,
   onPathfinderTargetChange,
+  updatePathfinder,
   pvpEnabled,
   onPvpToggle,
+  onPvpConfigure,
   pvpPlayerEnabled,
   pvpPlayerTarget,
   onPvpPlayerToggle,
   onPvpPlayerTargetChange,
 }) => {
+  const { locations, saveLocation, deleteLocation } = useSavedLocations()
   const autoEatLabelId = 'dashboard-auto-eat-label'
   const pathfinderLabelId = 'dashboard-pathfinder-label'
 
@@ -61,115 +70,153 @@ const Dashboard: React.FC<DashboardProps> = ({
     <div className="flex flex-1 flex-col bg-neutral-950/60 text-neutral-100">
       <div className="flex items-center justify-between px-6 pt-6">
         {!showChat ? <StatsSummary snapshot={snapshot} /> : null}
-        <div className="flex flex-wrap items-center justify-end gap-3">
-          <label
-            className="flex items-center gap-2 rounded-full border border-neutral-800 bg-neutral-900/70 px-4
-              py-2 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-300"
-          >
-            <input
-              type="checkbox"
-              checked={armorManagerEnabled}
-              onChange={(event) => onArmorManagerToggle(event.target.checked)}
-              className="h-4 w-4 accent-sky-500"
-            />
-            <span className="tracking-normal text-neutral-200">Armor Manager</span>
-          </label>
-          <div
-            className="flex items-center gap-2 rounded-full border border-neutral-800 bg-neutral-900/70 px-4
-              py-2 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-300"
-          >
-            <input
-              id="dashboard-auto-eat-toggle"
-              type="checkbox"
-              checked={autoEatEnabled}
-              onChange={(event) => onAutoEatToggle(event.target.checked)}
-              className="h-4 w-4 accent-sky-500"
-              aria-labelledby={autoEatLabelId}
-            />
-            <button
-              type="button"
-              id={autoEatLabelId}
-              onClick={onAutoEatConfigure}
-              className="tracking-normal text-neutral-200 transition hover:text-sky-300 focus-visible:outline
-                focus-visible:outline-offset-2 focus-visible:outline-sky-400"
+        {!showChat ? (
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            <label
+              className="flex items-center gap-2 rounded-full border border-neutral-800 bg-neutral-900/70 px-4
+                py-2 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-300"
             >
-              Auto Eat
-            </button>
-          </div>
-          <div
-            className="flex items-center gap-2 rounded-full border border-neutral-800 bg-neutral-900/70 px-4
-              py-2 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-300"
-          >
-            <label className="flex items-center gap-2">
-              <span className="text-[0.68rem] uppercase tracking-[0.2em] text-neutral-400">Follow</span>
               <input
-                type="text"
-                value={pathfinderTarget}
-                onChange={(event) => onPathfinderTargetChange(event.target.value)}
-                placeholder="Player username"
-                className="w-32 rounded-md border border-neutral-700 bg-neutral-950/70 px-2 py-1 text-xs
-                  text-neutral-100 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/30"
-              />
-            </label>
-            <label className="flex items-center gap-2" htmlFor="dashboard-pathfinder-toggle">
-              <input
-                id="dashboard-pathfinder-toggle"
                 type="checkbox"
-                checked={pathfinderEnabled}
-                onChange={(event) => onPathfinderToggle(event.target.checked)}
+                checked={armorManagerEnabled}
+                onChange={(event) => onArmorManagerToggle(event.target.checked)}
                 className="h-4 w-4 accent-sky-500"
-                aria-labelledby={pathfinderLabelId}
               />
-              <span id={pathfinderLabelId} className="tracking-normal text-neutral-200">
-                Pathfinder
-              </span>
+              <span className="tracking-normal text-neutral-200">Armor Manager</span>
             </label>
-          </div>
-          <div
-            className="flex items-center gap-2 rounded-full border border-neutral-800 bg-neutral-900/70 px-4
-              py-2 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-300"
-          >
-            <label className="flex items-center gap-2">
+            <div
+              className="flex items-center gap-2 rounded-full border border-neutral-800 bg-neutral-900/70 px-4
+                py-2 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-300"
+            >
               <input
+                id="dashboard-auto-eat-toggle"
+                type="checkbox"
+                checked={autoEatEnabled}
+                onChange={(event) => onAutoEatToggle(event.target.checked)}
+                className="h-4 w-4 accent-sky-500"
+                aria-labelledby={autoEatLabelId}
+              />
+              <button
+                type="button"
+                id={autoEatLabelId}
+                onClick={onAutoEatConfigure}
+                className="tracking-normal text-neutral-200 transition hover:text-sky-300
+                  focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-sky-400"
+              >
+                Auto Eat
+              </button>
+            </div>
+            <div
+              className="flex items-center gap-2 rounded-full border border-neutral-800 bg-neutral-900/70 px-4
+                py-2 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-300"
+            >
+              <label className="flex items-center gap-2">
+                <span className="text-[0.68rem] uppercase tracking-[0.2em] text-neutral-400">Follow</span>
+                <input
+                  type="text"
+                  value={pathfinderTarget}
+                  onChange={(event) => onPathfinderTargetChange(event.target.value)}
+                  placeholder="Player username"
+                  className="w-32 rounded-md border border-neutral-700 bg-neutral-950/70 px-2 py-1 text-xs
+                    text-neutral-100 focus:border-sky-500 focus:outline-none focus:ring-2
+                    focus:ring-sky-500/30"
+                />
+              </label>
+              <label className="flex items-center gap-2" htmlFor="dashboard-pathfinder-toggle">
+                <input
+                  id="dashboard-pathfinder-toggle"
+                  type="checkbox"
+                  checked={pathfinderEnabled}
+                  onChange={(event) => onPathfinderToggle(event.target.checked)}
+                  className="h-4 w-4 accent-sky-500"
+                  aria-labelledby={pathfinderLabelId}
+                />
+                <span id={pathfinderLabelId} className="tracking-normal text-neutral-200">
+                  Follow
+                </span>
+              </label>
+            </div>
+            <div
+              className="flex items-center gap-2 rounded-full border border-neutral-800 bg-neutral-900/70 px-4
+                py-2 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-300"
+            >
+              <input
+                id="dashboard-pvp-mob-toggle"
                 type="checkbox"
                 checked={pvpEnabled}
                 onChange={(event) => onPvpToggle(event.target.checked)}
                 className="h-4 w-4 accent-sky-500"
+                aria-labelledby="dashboard-pvp-mob-label"
               />
-              <span className="tracking-normal text-neutral-200">Attack Mobs</span>
-            </label>
+              <button
+                type="button"
+                id="dashboard-pvp-mob-label"
+                onClick={onPvpConfigure}
+                className="tracking-normal text-neutral-200 transition hover:text-sky-300
+                  focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-sky-400"
+              >
+                Attack Mobs
+              </button>
+            </div>
+            <div
+              className="flex items-center gap-2 rounded-full border border-neutral-800 bg-neutral-900/70 px-4
+                py-2 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-300"
+            >
+              <label className="flex items-center gap-2">
+                <span className="text-[0.68rem] uppercase tracking-[0.2em] text-neutral-400">
+                  Attack Player
+                </span>
+                <input
+                  type="text"
+                  value={pvpPlayerTarget}
+                  onChange={(event) => onPvpPlayerTargetChange(event.target.value)}
+                  placeholder="Player username"
+                  className="w-32 rounded-md border border-neutral-700 bg-neutral-950/70 px-2 py-1 text-xs
+                    text-neutral-100 focus:border-sky-500 focus:outline-none focus:ring-2
+                    focus:ring-sky-500/30"
+                />
+              </label>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={pvpPlayerEnabled}
+                  onChange={(event) => onPvpPlayerToggle(event.target.checked)}
+                  className="h-4 w-4 accent-sky-500"
+                />
+                <span className="tracking-normal text-neutral-200">Enable</span>
+              </label>
+            </div>
+            <LocationManager
+              currentPosition={snapshot.position}
+              savedLocations={locations}
+              onSaveLocation={saveLocation}
+              onDeleteLocation={deleteLocation}
+              onGoToLocation={(location) => {
+                // Send a single update that disables follow and issues a one-shot
+                // goToLocation so the backend receives both instructions atomically.
+                updatePathfinder({
+                  followEnabled: false,
+                  followTarget: pathfinder.followTarget,
+                  goToLocation: {
+                    x: location.x,
+                    y: location.y,
+                    z: location.z,
+                  },
+                })
+              }}
+              onCancelTravel={() => {
+                updatePathfinder({
+                  followEnabled: false,
+                  followTarget: pathfinder.followTarget,
+                  cancelGoTo: true,
+                })
+              }}
+            />
           </div>
-          <div
-            className="flex items-center gap-2 rounded-full border border-neutral-800 bg-neutral-900/70 px-4
-              py-2 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-300"
-          >
-            <label className="flex items-center gap-2">
-              <span className="text-[0.68rem] uppercase tracking-[0.2em] text-neutral-400">
-                Attack Player
-              </span>
-              <input
-                type="text"
-                value={pvpPlayerTarget}
-                onChange={(event) => onPvpPlayerTargetChange(event.target.value)}
-                placeholder="Player username"
-                className="w-32 rounded-md border border-neutral-700 bg-neutral-950/70 px-2 py-1 text-xs
-                  text-neutral-100 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/30"
-              />
-            </label>
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={pvpPlayerEnabled}
-                onChange={(event) => onPvpPlayerToggle(event.target.checked)}
-                className="h-4 w-4 accent-sky-500"
-              />
-              <span className="tracking-normal text-neutral-200">Enable</span>
-            </label>
-          </div>
-        </div>
+        ) : null}
       </div>
 
-      <div className="flex flex-1 px-6 py-6">
+      <div className="flex flex-1 px-6">
         {showChat ? (
           <ChatPanel
             chatMessages={chatMessages}

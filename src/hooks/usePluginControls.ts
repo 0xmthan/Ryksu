@@ -11,6 +11,8 @@ const usePluginControls = () => {
     mobEnabled: false,
     playerEnabled: false,
     playerTarget: '',
+    mobMovementEnabled: true,
+    allowBlockBreak: true,
   })
   const stateRef = useRef({
     armorManagerEnabled,
@@ -195,6 +197,8 @@ const usePluginControls = () => {
         playerEnabled: next.playerEnabled ?? pvpOptions.playerEnabled,
         playerTarget:
           typeof next.playerTarget === 'string' ? next.playerTarget.trim() : pvpOptions.playerTarget,
+        mobMovementEnabled: next.mobMovementEnabled ?? pvpOptions.mobMovementEnabled,
+        allowBlockBreak: next.allowBlockBreak ?? pvpOptions.allowBlockBreak,
       }
 
       setPvpOptions(merged)

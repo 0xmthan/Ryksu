@@ -14,6 +14,12 @@ export type BotSnapshot =
       food: number
       saturation: number
       position: { x: number; y: number; z: number } | null
+      xp: {
+        level: number
+        points: number
+        progress: number
+      }
+      ping: number | null
     }
   | { connected: false }
 
@@ -57,10 +63,18 @@ export type AutoEatOptions = {
 export type PathfinderOptions = {
   followEnabled: boolean
   followTarget: string
+  goToLocation?: {
+    x: number
+    y: number
+    z: number
+  }
+  cancelGoTo?: boolean
 }
 
 export type PvpOptions = {
   mobEnabled: boolean
   playerEnabled: boolean
   playerTarget: string
+  mobMovementEnabled: boolean
+  allowBlockBreak: boolean
 }

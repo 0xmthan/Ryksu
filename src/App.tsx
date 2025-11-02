@@ -4,6 +4,7 @@ import Dashboard from './components/Dashboard'
 import SavedChats from './components/SavedChats'
 import TitleBar from './components/TitleBar'
 import AutoEatSettingsModal from './components/AutoEatSettingsModal'
+import PvpSettingsModal from './components/PvpSettingsModal'
 import useChatHistory from './hooks/useChatHistory'
 import useConnectionPreferences from './hooks/useConnectionPreferences'
 import usePluginControls from './hooks/usePluginControls'
@@ -39,6 +40,7 @@ const App: React.FC = () => {
   const [activeConnectionKey, setActiveConnectionKey] = useState<string | null>(null)
   const [connectionStartTimestamp, setConnectionStartTimestamp] = useState<number | null>(null)
   const [isAutoEatModalOpen, setIsAutoEatModalOpen] = useState(false)
+  const [isPvpSettingsModalOpen, setIsPvpSettingsModalOpen] = useState(false)
   const {
     armorManagerEnabled,
     autoEatEnabled,
@@ -54,6 +56,8 @@ const App: React.FC = () => {
     pvpPlayerTarget,
     togglePvpPlayer,
     updatePvpPlayerTarget,
+    pvpOptions,
+    updatePvpOptions,
   } = usePluginControls()
 
   const computedChatKey = useMemo(
@@ -124,6 +128,10 @@ const App: React.FC = () => {
       autoEatOptions: AutoEatOptions
       pathfinder: PathfinderOptions
       pvpEnabled: boolean
+      pvpPlayerEnabled: boolean
+      pvpPlayerTarget: string
+      mobMovementEnabled: boolean
+      allowBlockBreak: boolean
     }) => {
       setIsConnecting(true)
       setLastError(null)
@@ -140,7 +148,13 @@ const App: React.FC = () => {
         autoEatEnabled: details.autoEatEnabled,
         autoEatOptions: details.autoEatOptions,
         pathfinder: details.pathfinder,
-        // TOTO: handle PVP options properly
+        pvp: {
+          mobEnabled: details.pvpEnabled,
+          playerEnabled: details.pvpEnabled && details.pvpPlayerEnabled,
+          playerTarget: details.pvpPlayerEnabled ? details.pvpPlayerTarget : undefined,
+          mobMovementEnabled: details.mobMovementEnabled,
+          allowBlockBreak: details.allowBlockBreak,
+        },
       })
 
       if (!response.ok) {
@@ -167,6 +181,10 @@ const App: React.FC = () => {
       autoEatEnabled,
       autoEatOptions,
       pvpEnabled,
+      pvpPlayerEnabled,
+      pvpPlayerTarget,
+      mobMovementEnabled: pvpOptions.mobMovementEnabled,
+      allowBlockBreak: pvpOptions.allowBlockBreak,
       pathfinder,
     })
   }, [
@@ -183,6 +201,10 @@ const App: React.FC = () => {
     autoEatEnabled,
     autoEatOptions,
     pvpEnabled,
+    pvpPlayerEnabled,
+    pvpPlayerTarget,
+    pvpOptions.mobMovementEnabled,
+    pvpOptions.allowBlockBreak,
     pathfinder,
   ])
 
@@ -246,6 +268,14 @@ const App: React.FC = () => {
     setIsAutoEatModalOpen(false)
   }, [])
 
+  const handleOpenPvpSettings = useCallback(() => {
+    setIsPvpSettingsModalOpen(true)
+  }, [])
+
+  const handleClosePvpSettings = useCallback(() => {
+    setIsPvpSettingsModalOpen(false)
+  }, [])
+
   const handleAutoEatOptionsSave = useCallback(
     async (nextOptions: AutoEatOptions) => {
       const resolvedOptions = await updateAutoEatOptions(nextOptions)
@@ -254,6 +284,14 @@ const App: React.FC = () => {
       }
     },
     [updateAutoEatOptions]
+  )
+
+  const handlePvpSettingsSave = useCallback(
+    async (settings: { mobMovementEnabled: boolean; allowBlockBreak: boolean }) => {
+      await updatePvpOptions(settings)
+      setIsPvpSettingsModalOpen(false)
+    },
+    [updatePvpOptions]
   )
 
   const handlePathfinderTargetChange = useCallback(
@@ -410,10 +448,13 @@ const App: React.FC = () => {
             onAutoEatConfigure={handleOpenAutoEatSettings}
             pathfinderEnabled={pathfinder.followEnabled}
             pathfinderTarget={pathfinder.followTarget}
+            pathfinder={pathfinder}
             onPathfinderToggle={handlePathfinderToggle}
             onPathfinderTargetChange={handlePathfinderTargetChange}
+            updatePathfinder={updatePathfinder}
             pvpEnabled={pvpEnabled}
             onPvpToggle={togglePvp}
+            onPvpConfigure={handleOpenPvpSettings}
             pvpPlayerEnabled={pvpPlayerEnabled}
             pvpPlayerTarget={pvpPlayerTarget}
             onPvpPlayerToggle={togglePvpPlayer}
@@ -449,6 +490,13 @@ const App: React.FC = () => {
           options={autoEatOptions}
           onClose={handleCloseAutoEatSettings}
           onSave={handleAutoEatOptionsSave}
+        />
+      ) : null}
+      {isPvpSettingsModalOpen ? (
+        <PvpSettingsModal
+          options={pvpOptions}
+          onClose={handleClosePvpSettings}
+          onSave={handlePvpSettingsSave}
         />
       ) : null}
     </div>

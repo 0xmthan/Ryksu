@@ -6,6 +6,7 @@ const DEFAULT_CONFIG = {
   attackRange: 3.2,
   followRange: 1.75,
   cooldownPadding: 2,
+  allowBlockBreak: true,
 }
 
 class PvpController {
@@ -21,6 +22,7 @@ class PvpController {
     this.mobsEnabled = false
     this.playerEnabled = false
     this.playerTarget = ''
+    this.isControllingPathfinder = false
   }
 
   attach(bot) {
@@ -61,16 +63,35 @@ class PvpController {
     }
 
     // Update config if any valid config options are provided
-    if (
-      typeof options.viewDistance === 'number' ||
-      typeof options.attackRange === 'number' ||
-      typeof options.followRange === 'number' ||
-      typeof options.cooldownPadding === 'number'
-    ) {
-      this.config = {
-        ...this.config,
-        ...options,
+    const nextConfig = { ...this.config }
+    let configChanged = false
+
+    if (typeof options.viewDistance === 'number') {
+      nextConfig.viewDistance = options.viewDistance
+      configChanged = true
+    }
+    if (typeof options.attackRange === 'number') {
+      nextConfig.attackRange = options.attackRange
+      configChanged = true
+    }
+    if (typeof options.followRange === 'number') {
+      nextConfig.followRange = options.followRange
+      configChanged = true
+    }
+    if (typeof options.cooldownPadding === 'number') {
+      nextConfig.cooldownPadding = options.cooldownPadding
+      configChanged = true
+    }
+    if (typeof options.allowBlockBreak === 'boolean') {
+      nextConfig.allowBlockBreak = options.allowBlockBreak
+      configChanged = true
+      if (this.movements) {
+        this.movements.canDig = options.allowBlockBreak
       }
+    }
+
+    if (configChanged) {
+      this.config = nextConfig
     }
 
     // Handle mob and player targeting options
@@ -95,11 +116,13 @@ class PvpController {
 
   setMovementAllowed(allowed) {
     this.movementAllowed = Boolean(allowed)
-    if (!this.movementAllowed && this.bot?.pathfinder) {
+    if (!this.movementAllowed && this.bot?.pathfinder && this.isControllingPathfinder) {
       try {
         this.bot.pathfinder.setGoal(null)
       } catch (error) {
         console.error('Failed to clear goal when disabling pvp movement', error)
+      } finally {
+        this.isControllingPathfinder = false
       }
     }
   }
@@ -120,6 +143,9 @@ class PvpController {
 
     if (!this.movements && this.bot.pathfinder) {
       this.movements = new Movements(this.bot)
+      this.movements.canDig = this.config.allowBlockBreak
+    } else if (this.movements) {
+      this.movements.canDig = this.config.allowBlockBreak
     }
 
     return Boolean(this.bot.pathfinder)
@@ -142,11 +168,27 @@ class PvpController {
       }
     }
 
-    const distance = this.bot.entity.position.distanceTo(this.target.position)
+    let distance = this.bot.entity.position.distanceTo(this.target.position)
 
     if (distance > this.config.viewDistance) {
       this._clearTarget()
       return
+    }
+
+    if (!this.movementAllowed) {
+      const withinAttackRange =
+        Number.isFinite(distance) && distance <= this.config.attackRange + 0.5
+
+      if (!withinAttackRange) {
+        const closerTarget = this._findTarget(this.config.attackRange + 0.5)
+        if (closerTarget) {
+          this.target = closerTarget
+          distance = this.bot.entity.position.distanceTo(closerTarget.position)
+        } else {
+          this._clearTarget()
+          return
+        }
+      }
     }
 
     if (this.movementAllowed && distance > this.config.attackRange) {
@@ -158,7 +200,7 @@ class PvpController {
     this._attemptAttack(this.target)
   }
 
-  _findTarget() {
+  _findTarget(maxDistance = this.config.viewDistance) {
     if (!this.bot?.entity?.position) {
       return null
     }
@@ -166,7 +208,7 @@ class PvpController {
     const candidates = Object.values(this.bot.entities)
       .filter((entity) => this._isValidTarget(entity))
       .map((entity) => ({ entity, distance: entity.position.distanceTo(this.bot.entity.position) }))
-      .filter((item) => Number.isFinite(item.distance) && item.distance <= this.config.viewDistance)
+      .filter((item) => Number.isFinite(item.distance) && item.distance <= maxDistance)
       .sort((a, b) => a.distance - b.distance)
 
     return candidates[0]?.entity ?? null
@@ -236,6 +278,7 @@ class PvpController {
     try {
       this.bot.pathfinder.setMovements(this.movements)
       this.bot.pathfinder.setGoal(new goals.GoalFollow(target, this.config.followRange), true)
+      this.isControllingPathfinder = true
     } catch (error) {
       console.error('Failed to set PvP follow goal', error)
     }
@@ -247,9 +290,13 @@ class PvpController {
     }
 
     try {
-      this.bot.pathfinder.setGoal(null)
+      if (this.isControllingPathfinder) {
+        this.bot.pathfinder.setGoal(null)
+      }
     } catch (error) {
       console.error('Failed to clear PvP follow goal', error)
+    } finally {
+      this.isControllingPathfinder = false
     }
   }
 
@@ -293,13 +340,14 @@ class PvpController {
   }
 
   _clearTarget() {
-    if (this.bot?.pathfinder && this.movementAllowed) {
+    if (this.bot?.pathfinder && this.movementAllowed && this.isControllingPathfinder) {
       try {
         this.bot.pathfinder.setGoal(null)
       } catch (error) {
         console.error('Failed to clear PvP goal', error)
       }
     }
+    this.isControllingPathfinder = false
     this.target = null
   }
 }

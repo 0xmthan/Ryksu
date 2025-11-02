@@ -13,8 +13,10 @@ const useChatHistory = ({ chatStorageKey, connectionStartTimestamp }: UseChatHis
   const addChatMessages = useCallback(
     (incoming: ChatMessage | ChatMessage[]) => {
       const list = (Array.isArray(incoming) ? incoming : [incoming]).filter((entry) => {
+        // If we don't have a connection start timestamp yet, accept incoming messages.
+        // Otherwise only accept messages that occurred at/after the connection start.
         if (!connectionStartTimestamp) {
-          return false
+          return true
         }
         return entry.timestamp >= connectionStartTimestamp
       })

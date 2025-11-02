@@ -4,7 +4,13 @@ class BehaviorManager {
     this.pvp = pvp
     this.state = {
       pathfinder: { followEnabled: false, followTarget: '' },
-      pvp: { mobEnabled: false, playerEnabled: false, playerTarget: '' },
+      pvp: {
+        mobEnabled: false,
+        playerEnabled: false,
+        playerTarget: '',
+        mobMovementEnabled: true,
+        allowBlockBreak: true,
+      },
     }
   }
 
@@ -14,6 +20,8 @@ class BehaviorManager {
 
   setPathfinderOptions(options = {}) {
     const next = { ...this.state.pathfinder }
+    let goToLocation = null
+    const cancelGoTo = options.cancelGoTo === true
 
     if (typeof options.followEnabled === 'boolean') {
       next.followEnabled = options.followEnabled
@@ -23,9 +31,21 @@ class BehaviorManager {
       next.followTarget = options.followTarget.trim()
     }
 
+    if (options.goToLocation && typeof options.goToLocation === 'object') {
+      const { x, y, z } = options.goToLocation
+      const coordsAreNumbers = [x, y, z].every((value) => Number.isFinite(Number(value)))
+      if (coordsAreNumbers) {
+        goToLocation = {
+          x: Number(x),
+          y: Number(y),
+          z: Number(z),
+        }
+      }
+    }
+
     this.state.pathfinder = next
-    this._apply()
-    return this.state.pathfinder
+    this._apply({ goToLocation, cancelGoTo })
+    return { ...this.state.pathfinder }
   }
 
   getPathfinderOptions() {
@@ -47,6 +67,14 @@ class BehaviorManager {
       next.playerTarget = options.playerTarget.trim()
     }
 
+    if (typeof options.mobMovementEnabled === 'boolean') {
+      next.mobMovementEnabled = options.mobMovementEnabled
+    }
+
+    if (typeof options.allowBlockBreak === 'boolean') {
+      next.allowBlockBreak = options.allowBlockBreak
+    }
+
     this.state.pvp = next
     this._apply()
     return { ...this.state.pvp }
@@ -56,13 +84,20 @@ class BehaviorManager {
     return { ...this.state.pvp }
   }
 
-  _apply() {
+  _apply(extra = {}) {
     if (this.pathfinder) {
-      this.pathfinder.setOptions(this.state.pathfinder)
+      const mergedOptions = { ...this.state.pathfinder }
+      if (extra.goToLocation) {
+        mergedOptions.goToLocation = extra.goToLocation
+      }
+      if (extra.cancelGoTo) {
+        mergedOptions.cancelGoTo = true
+      }
+      this.pathfinder.setOptions(mergedOptions)
     }
 
     if (this.pvp) {
-      const allowMovement = !this.state.pathfinder.followEnabled
+      const allowMovement = !this.state.pathfinder.followEnabled && this.state.pvp.mobMovementEnabled
       this.pvp.setMovementAllowed(allowMovement)
       this.pvp.setOptions({ ...this.state.pvp, movementAllowed: allowMovement })
     }

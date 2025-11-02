@@ -88,8 +88,14 @@ const DEFAULT_PLUGIN_PREFERENCES: PluginPreferences = {
   armorManagerEnabled: false,
   autoEatEnabled: false,
   autoEatOptions: AUTO_EAT_DEFAULTS,
-  pathfinder: { followEnabled: false, followTarget: '' },
-  pvp: { mobEnabled: false, playerEnabled: false, playerTarget: '' },
+  pathfinder: { followEnabled: false, followTarget: '', goToLocation: undefined },
+  pvp: {
+    mobEnabled: false,
+    playerEnabled: false,
+    playerTarget: '',
+    mobMovementEnabled: true,
+    allowBlockBreak: true,
+  },
 }
 
 const STORAGE_KEY = 'ryksu:pluginPreferences'
@@ -131,6 +137,14 @@ export const loadPluginPreferences = (): PluginPreferences => {
               mobEnabled: Boolean((parsed.pvp as PvpOptions).mobEnabled),
               playerEnabled: Boolean((parsed.pvp as PvpOptions).playerEnabled),
               playerTarget: String((parsed.pvp as PvpOptions).playerTarget ?? '').trim(),
+              mobMovementEnabled:
+                typeof (parsed.pvp as PvpOptions).mobMovementEnabled === 'boolean'
+                  ? (parsed.pvp as PvpOptions).mobMovementEnabled
+                  : DEFAULT_PLUGIN_PREFERENCES.pvp.mobMovementEnabled,
+              allowBlockBreak:
+                typeof (parsed.pvp as PvpOptions).allowBlockBreak === 'boolean'
+                  ? (parsed.pvp as PvpOptions).allowBlockBreak
+                  : DEFAULT_PLUGIN_PREFERENCES.pvp.allowBlockBreak,
             }
           : { ...DEFAULT_PLUGIN_PREFERENCES.pvp },
     }
@@ -158,6 +172,14 @@ export const savePluginPreferences = (preferences: PluginPreferences) => {
       mobEnabled: Boolean(preferences.pvp?.mobEnabled),
       playerEnabled: Boolean(preferences.pvp?.playerEnabled),
       playerTarget: String(preferences.pvp?.playerTarget ?? '').trim(),
+      mobMovementEnabled:
+        typeof preferences.pvp?.mobMovementEnabled === 'boolean'
+          ? preferences.pvp.mobMovementEnabled
+          : DEFAULT_PLUGIN_PREFERENCES.pvp.mobMovementEnabled,
+      allowBlockBreak:
+        typeof preferences.pvp?.allowBlockBreak === 'boolean'
+          ? preferences.pvp.allowBlockBreak
+          : DEFAULT_PLUGIN_PREFERENCES.pvp.allowBlockBreak,
     },
   }
 

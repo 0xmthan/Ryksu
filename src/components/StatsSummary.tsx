@@ -14,6 +14,12 @@ const StatsSummary: React.FC<StatsSummaryProps> = ({ snapshot }) => {
       )}`
     : 'Waiting for spawn…'
 
+  const xpLevel = snapshot.xp?.level ?? 0
+  const xpProgress = snapshot.xp?.progress ?? 0
+  const xpPoints = snapshot.xp?.points ?? 0
+  const xpPercent = Math.round(Math.max(0, Math.min(1, xpProgress)) * 100)
+  const pingLabel = snapshot.ping != null ? `${Math.round(snapshot.ping)} ms` : '—'
+
   return (
     <section
       className="w-full max-w-xs rounded-2xl border border-neutral-800 bg-neutral-900/70 p-4 text-xs
@@ -45,6 +51,16 @@ const StatsSummary: React.FC<StatsSummaryProps> = ({ snapshot }) => {
           >
             {positionLabel}
           </dd>
+        </div>
+        <div className="flex items-center justify-between gap-4">
+          <dt className="text-neutral-500 uppercase tracking-[0.18em] text-[0.62rem] sm:text-xs">XP</dt>
+          <dd className="font-semibold text-neutral-100">
+            Lv {xpLevel} &middot; {xpPercent}% ({Math.floor(xpPoints)} pts)
+          </dd>
+        </div>
+        <div className="flex items-center justify-between gap-4">
+          <dt className="text-neutral-500 uppercase tracking-[0.18em] text-[0.62rem] sm:text-xs">Ping</dt>
+          <dd className="font-semibold text-neutral-100">{pingLabel}</dd>
         </div>
       </dl>
     </section>

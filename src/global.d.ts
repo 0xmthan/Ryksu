@@ -30,6 +30,8 @@ declare global {
               food: number
               saturation: number
               position: { x: number; y: number; z: number } | null
+              xp: { level: number; points: number; progress: number }
+              ping: number | null
             }
           | { connected: false }
         >
@@ -45,6 +47,8 @@ declare global {
                   food: number
                   saturation: number
                   position: { x: number; y: number; z: number } | null
+                  xp: { level: number; points: number; progress: number }
+                  ping: number | null
                 }
               | { connected: false }
           ) => void

@@ -226,6 +226,14 @@ class BotManager extends EventEmitter {
     const saturation = Number.isFinite(this.bot.foodSaturation) ? this.bot.foodSaturation : 0
     const position = entity?.position
 
+    const experience = this.bot.experience ?? {}
+    const xpLevel = Number.isFinite(experience.level) ? experience.level : 0
+    const xpPoints = Number.isFinite(experience.points) ? experience.points : 0
+    const xpProgress = Number.isFinite(experience.progress) ? experience.progress : 0
+
+    const pingRaw = this.bot.player?.ping
+    const ping = Number.isFinite(pingRaw) ? pingRaw : null
+
     return {
       connected: true,
       health,
@@ -238,6 +246,12 @@ class BotManager extends EventEmitter {
             z: Number(position.z.toFixed(2)),
           }
         : null,
+      xp: {
+        level: xpLevel,
+        points: xpPoints,
+        progress: xpProgress,
+      },
+      ping,
     }
   }
 
