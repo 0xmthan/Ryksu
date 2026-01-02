@@ -77,4 +77,5 @@ export type PvpOptions = {
   playerTarget: string
   mobMovementEnabled: boolean
   allowBlockBreak: boolean
+  jumpAttackEnabled: boolean
 }

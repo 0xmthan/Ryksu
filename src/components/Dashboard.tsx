@@ -20,6 +20,10 @@ type DashboardProps = {
   autoEatEnabled: boolean
   onAutoEatToggle: (value: boolean) => void
   onAutoEatConfigure: () => void
+  autoToolEnabled: boolean
+  onAutoToolToggle: (value: boolean) => void
+  autoShieldEnabled: boolean
+  onAutoShieldToggle: (value: boolean) => void
   pathfinderEnabled: boolean
   pathfinderTarget: string
   pathfinder: import('../types').PathfinderOptions
@@ -29,6 +33,10 @@ type DashboardProps = {
   pvpEnabled: boolean
   onPvpToggle: (value: boolean) => void
   onPvpConfigure: () => void
+  allowBlockBreak: boolean
+  onAllowBlockBreakToggle: (value: boolean) => void
+  jumpAttackEnabled: boolean
+  onJumpAttackToggle: (value: boolean) => void
   pvpPlayerEnabled: boolean
   pvpPlayerTarget: string
   onPvpPlayerToggle: (value: boolean) => void
@@ -49,6 +57,10 @@ const Dashboard: React.FC<DashboardProps> = ({
   autoEatEnabled,
   onAutoEatToggle,
   onAutoEatConfigure,
+  autoToolEnabled,
+  onAutoToolToggle,
+  autoShieldEnabled,
+  onAutoShieldToggle,
   pathfinderEnabled,
   pathfinderTarget,
   onPathfinderToggle,
@@ -57,6 +69,10 @@ const Dashboard: React.FC<DashboardProps> = ({
   pvpEnabled,
   onPvpToggle,
   onPvpConfigure,
+  allowBlockBreak,
+  onAllowBlockBreakToggle,
+  jumpAttackEnabled,
+  onJumpAttackToggle,
   pvpPlayerEnabled,
   pvpPlayerTarget,
   onPvpPlayerToggle,
@@ -83,6 +99,30 @@ const Dashboard: React.FC<DashboardProps> = ({
                 className="h-4 w-4 accent-sky-500"
               />
               <span className="tracking-normal text-neutral-200">Armor Manager</span>
+            </label>
+            <label
+              className="flex items-center gap-2 rounded-full border border-neutral-800 bg-neutral-900/70 px-4
+                py-2 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-300"
+            >
+              <input
+                type="checkbox"
+                checked={autoToolEnabled}
+                onChange={(event) => onAutoToolToggle(event.target.checked)}
+                className="h-4 w-4 accent-sky-500"
+              />
+              <span className="tracking-normal text-neutral-200">Auto Tool</span>
+            </label>
+            <label
+              className="flex items-center gap-2 rounded-full border border-neutral-800 bg-neutral-900/70 px-4
+                py-2 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-300"
+            >
+              <input
+                type="checkbox"
+                checked={autoShieldEnabled}
+                onChange={(event) => onAutoShieldToggle(event.target.checked)}
+                className="h-4 w-4 accent-sky-500"
+              />
+              <span className="tracking-normal text-neutral-200">Auto Shield</span>
             </label>
             <div
               className="flex items-center gap-2 rounded-full border border-neutral-800 bg-neutral-900/70 px-4
@@ -157,6 +197,42 @@ const Dashboard: React.FC<DashboardProps> = ({
               >
                 Attack Mobs
               </button>
+            </div>
+            <div
+              className="flex items-center gap-2 rounded-full border border-neutral-800 bg-neutral-900/70 px-4
+                py-2 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-300"
+            >
+              <input
+                id="dashboard-break-blocks-toggle"
+                type="checkbox"
+                checked={allowBlockBreak}
+                onChange={(event) => onAllowBlockBreakToggle(event.target.checked)}
+                className="h-4 w-4 accent-sky-500"
+              />
+              <label
+                htmlFor="dashboard-break-blocks-toggle"
+                className="tracking-normal text-neutral-200 cursor-pointer select-none"
+              >
+                Break Blocks
+              </label>
+            </div>
+            <div
+              className="flex items-center gap-2 rounded-full border border-neutral-800 bg-neutral-900/70 px-4
+                py-2 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-300"
+            >
+              <input
+                id="dashboard-jump-attack-toggle"
+                type="checkbox"
+                checked={jumpAttackEnabled}
+                onChange={(event) => onJumpAttackToggle(event.target.checked)}
+                className="h-4 w-4 accent-sky-500"
+              />
+              <label
+                htmlFor="dashboard-jump-attack-toggle"
+                className="tracking-normal text-neutral-200 cursor-pointer select-none"
+              >
+                Jump Attack
+              </label>
             </div>
             <div
               className="flex items-center gap-2 rounded-full border border-neutral-800 bg-neutral-900/70 px-4

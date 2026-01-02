@@ -47,6 +47,10 @@ const App: React.FC = () => {
     autoEatOptions,
     toggleArmorManager,
     toggleAutoEat,
+    autoToolEnabled,
+    toggleAutoTool,
+    autoShieldEnabled,
+    toggleAutoShield,
     updateAutoEatOptions,
     pathfinder,
     updatePathfinder,
@@ -132,6 +136,9 @@ const App: React.FC = () => {
       pvpPlayerTarget: string
       mobMovementEnabled: boolean
       allowBlockBreak: boolean
+      jumpAttackEnabled: boolean
+      autoToolEnabled: boolean
+      autoShieldEnabled: boolean
     }) => {
       setIsConnecting(true)
       setLastError(null)
@@ -147,6 +154,8 @@ const App: React.FC = () => {
         armorManagerEnabled: details.armorManagerEnabled,
         autoEatEnabled: details.autoEatEnabled,
         autoEatOptions: details.autoEatOptions,
+        autoToolEnabled: details.autoToolEnabled,
+        autoShieldEnabled: details.autoShieldEnabled,
         pathfinder: details.pathfinder,
         pvp: {
           mobEnabled: details.pvpEnabled,
@@ -154,6 +163,7 @@ const App: React.FC = () => {
           playerTarget: details.pvpPlayerEnabled ? details.pvpPlayerTarget : undefined,
           mobMovementEnabled: details.mobMovementEnabled,
           allowBlockBreak: details.allowBlockBreak,
+          jumpAttackEnabled: details.jumpAttackEnabled,
         },
       })
 
@@ -180,6 +190,9 @@ const App: React.FC = () => {
       armorManagerEnabled,
       autoEatEnabled,
       autoEatOptions,
+      jumpAttackEnabled: pvpOptions.jumpAttackEnabled,
+      autoToolEnabled,
+      autoShieldEnabled,
       pvpEnabled,
       pvpPlayerEnabled,
       pvpPlayerTarget,
@@ -200,6 +213,9 @@ const App: React.FC = () => {
     armorManagerEnabled,
     autoEatEnabled,
     autoEatOptions,
+    pvpOptions.jumpAttackEnabled,
+    autoToolEnabled,
+    autoShieldEnabled,
     pvpEnabled,
     pvpPlayerEnabled,
     pvpPlayerTarget,
@@ -287,9 +303,23 @@ const App: React.FC = () => {
   )
 
   const handlePvpSettingsSave = useCallback(
-    async (settings: { mobMovementEnabled: boolean; allowBlockBreak: boolean }) => {
+    async (settings: { mobMovementEnabled: boolean }) => {
       await updatePvpOptions(settings)
       setIsPvpSettingsModalOpen(false)
+    },
+    [updatePvpOptions]
+  )
+
+  const handleAllowBlockBreakToggle = useCallback(
+    async (enabled: boolean) => {
+      await updatePvpOptions({ allowBlockBreak: enabled })
+    },
+    [updatePvpOptions]
+  )
+
+  const handleJumpAttackToggle = useCallback(
+    async (enabled: boolean) => {
+      await updatePvpOptions({ jumpAttackEnabled: enabled })
     },
     [updatePvpOptions]
   )
@@ -446,6 +476,10 @@ const App: React.FC = () => {
             autoEatEnabled={autoEatEnabled}
             onAutoEatToggle={toggleAutoEat}
             onAutoEatConfigure={handleOpenAutoEatSettings}
+            autoToolEnabled={autoToolEnabled}
+            onAutoToolToggle={toggleAutoTool}
+            autoShieldEnabled={autoShieldEnabled}
+            onAutoShieldToggle={toggleAutoShield}
             pathfinderEnabled={pathfinder.followEnabled}
             pathfinderTarget={pathfinder.followTarget}
             pathfinder={pathfinder}
@@ -455,6 +489,10 @@ const App: React.FC = () => {
             pvpEnabled={pvpEnabled}
             onPvpToggle={togglePvp}
             onPvpConfigure={handleOpenPvpSettings}
+            allowBlockBreak={pvpOptions.allowBlockBreak}
+            onAllowBlockBreakToggle={handleAllowBlockBreakToggle}
+            jumpAttackEnabled={pvpOptions.jumpAttackEnabled}
+            onJumpAttackToggle={handleJumpAttackToggle}
             pvpPlayerEnabled={pvpPlayerEnabled}
             pvpPlayerTarget={pvpPlayerTarget}
             onPvpPlayerToggle={togglePvpPlayer}

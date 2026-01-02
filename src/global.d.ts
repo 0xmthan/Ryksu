@@ -18,6 +18,8 @@ declare global {
           version?: string
           armorManagerEnabled?: boolean
           autoEatEnabled?: boolean
+          autoToolEnabled?: boolean
+          autoShieldEnabled?: boolean
           autoEatOptions?: Partial<AutoEatOptions>
           pathfinder?: Partial<PathfinderOptions>
           pvp?: Partial<PvpOptions>
@@ -59,6 +61,8 @@ declare global {
         sendChat: (message: string) => Promise<{ ok: boolean; message?: string }>
         setArmorManagerEnabled: (enabled: boolean) => Promise<{ ok: boolean; enabled: boolean }>
         setAutoEatEnabled: (enabled: boolean) => Promise<{ ok: boolean; enabled: boolean }>
+        setAutoToolEnabled: (enabled: boolean) => Promise<{ ok: boolean; enabled: boolean }>
+        setAutoShieldEnabled: (enabled: boolean) => Promise<{ ok: boolean; enabled: boolean }>
         setAutoEatOptions: (options: Partial<AutoEatOptions>) => Promise<{
           ok: boolean
           options: AutoEatOptions

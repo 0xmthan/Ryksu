@@ -80,6 +80,8 @@ export type PluginPreferences = {
   armorManagerEnabled: boolean
   autoEatEnabled: boolean
   autoEatOptions: AutoEatOptions
+  autoToolEnabled: boolean
+  autoShieldEnabled: boolean
   pathfinder: PathfinderOptions
   pvp: PvpOptions
 }
@@ -88,6 +90,8 @@ const DEFAULT_PLUGIN_PREFERENCES: PluginPreferences = {
   armorManagerEnabled: false,
   autoEatEnabled: false,
   autoEatOptions: AUTO_EAT_DEFAULTS,
+  autoToolEnabled: false,
+  autoShieldEnabled: false,
   pathfinder: { followEnabled: false, followTarget: '', goToLocation: undefined },
   pvp: {
     mobEnabled: false,
@@ -95,6 +99,7 @@ const DEFAULT_PLUGIN_PREFERENCES: PluginPreferences = {
     playerTarget: '',
     mobMovementEnabled: true,
     allowBlockBreak: true,
+    jumpAttackEnabled: true,
   },
 }
 
@@ -119,10 +124,18 @@ export const loadPluginPreferences = (): PluginPreferences => {
         typeof parsed.armorManagerEnabled === 'boolean'
           ? parsed.armorManagerEnabled
           : DEFAULT_PLUGIN_PREFERENCES.armorManagerEnabled,
+      autoToolEnabled:
+        typeof parsed.autoToolEnabled === 'boolean'
+          ? parsed.autoToolEnabled
+          : DEFAULT_PLUGIN_PREFERENCES.autoToolEnabled,
       autoEatEnabled:
         typeof parsed.autoEatEnabled === 'boolean'
           ? parsed.autoEatEnabled
           : DEFAULT_PLUGIN_PREFERENCES.autoEatEnabled,
+      autoShieldEnabled:
+        typeof parsed.autoShieldEnabled === 'boolean'
+          ? parsed.autoShieldEnabled
+          : DEFAULT_PLUGIN_PREFERENCES.autoShieldEnabled,
       autoEatOptions: normalizeAutoEatOptions(parsed.autoEatOptions),
       pathfinder:
         parsed.pathfinder && typeof parsed.pathfinder === 'object'
@@ -145,6 +158,10 @@ export const loadPluginPreferences = (): PluginPreferences => {
                 typeof (parsed.pvp as PvpOptions).allowBlockBreak === 'boolean'
                   ? (parsed.pvp as PvpOptions).allowBlockBreak
                   : DEFAULT_PLUGIN_PREFERENCES.pvp.allowBlockBreak,
+              jumpAttackEnabled:
+                typeof (parsed.pvp as PvpOptions).jumpAttackEnabled === 'boolean'
+                  ? (parsed.pvp as PvpOptions).jumpAttackEnabled
+                  : DEFAULT_PLUGIN_PREFERENCES.pvp.jumpAttackEnabled,
             }
           : { ...DEFAULT_PLUGIN_PREFERENCES.pvp },
     }
@@ -153,6 +170,8 @@ export const loadPluginPreferences = (): PluginPreferences => {
     return {
       ...DEFAULT_PLUGIN_PREFERENCES,
       autoEatOptions: { ...AUTO_EAT_DEFAULTS },
+      autoToolEnabled: DEFAULT_PLUGIN_PREFERENCES.autoToolEnabled,
+      autoShieldEnabled: DEFAULT_PLUGIN_PREFERENCES.autoShieldEnabled,
       pathfinder: { ...DEFAULT_PLUGIN_PREFERENCES.pathfinder },
       pvp: { ...DEFAULT_PLUGIN_PREFERENCES.pvp },
     }
@@ -164,6 +183,8 @@ export const savePluginPreferences = (preferences: PluginPreferences) => {
     armorManagerEnabled: preferences.armorManagerEnabled,
     autoEatEnabled: preferences.autoEatEnabled,
     autoEatOptions: normalizeAutoEatOptions(preferences.autoEatOptions),
+    autoToolEnabled: preferences.autoToolEnabled,
+    autoShieldEnabled: preferences.autoShieldEnabled,
     pathfinder: {
       followEnabled: Boolean(preferences.pathfinder?.followEnabled),
       followTarget: String(preferences.pathfinder?.followTarget ?? '').trim(),
@@ -180,6 +201,10 @@ export const savePluginPreferences = (preferences: PluginPreferences) => {
         typeof preferences.pvp?.allowBlockBreak === 'boolean'
           ? preferences.pvp.allowBlockBreak
           : DEFAULT_PLUGIN_PREFERENCES.pvp.allowBlockBreak,
+      jumpAttackEnabled:
+        typeof preferences.pvp?.jumpAttackEnabled === 'boolean'
+          ? preferences.pvp.jumpAttackEnabled
+          : DEFAULT_PLUGIN_PREFERENCES.pvp.jumpAttackEnabled,
     },
   }
 

@@ -5,6 +5,8 @@ const { normaliseError } = require('./bot/errors')
 const { ChatBridge } = require('./bot/chatBridge')
 const { ArmorManagerController } = require('./bot/plugins/armorManager')
 const { AutoEatController } = require('./bot/plugins/autoEat')
+const { AutoToolController } = require('./bot/plugins/autoTool')
+const { AutoShieldController } = require('./bot/plugins/autoShield')
 const { PathfinderController } = require('./bot/plugins/pathfinder')
 const { PvpController } = require('./bot/plugins/pvp')
 const { BehaviorManager } = require('./bot/plugins/behaviorManager')
@@ -17,8 +19,10 @@ class BotManager extends EventEmitter {
     this.chat = new ChatBridge(this)
     this.armorManager = new ArmorManagerController()
     this.autoEat = new AutoEatController()
+    this.autoTool = new AutoToolController()
+    this.autoShield = new AutoShieldController()
     this.pathfinder = new PathfinderController()
-    this.pvp = new PvpController()
+    this.pvp = new PvpController({ autoTool: this.autoTool, autoShield: this.autoShield })
     this.behavior = new BehaviorManager({ pathfinder: this.pathfinder, pvp: this.pvp })
   }
 
@@ -40,6 +44,8 @@ class BotManager extends EventEmitter {
       armorManagerEnabled = false,
       autoEatEnabled = false,
       autoEatOptions = null,
+      autoToolEnabled = false,
+      autoShieldEnabled = false,
       pathfinder = { followEnabled: false, followTarget: '' },
       pvp = { mobEnabled: false, playerEnabled: false, playerTarget: '' },
     } = options
@@ -73,6 +79,8 @@ class BotManager extends EventEmitter {
     this.armorManager.setEnabled(Boolean(armorManagerEnabled))
     this.autoEat.setOptions(autoEatOptions || {})
     this.autoEat.setEnabled(Boolean(autoEatEnabled))
+    this.autoTool.setEnabled(Boolean(autoToolEnabled))
+    this.autoShield.setEnabled(Boolean(autoShieldEnabled))
     this.behavior.setPathfinderOptions(pathfinder)
     this.behavior.setPvpOptions(pvp)
 
@@ -97,6 +105,8 @@ class BotManager extends EventEmitter {
             this.chat.detach(this.bot)
             this.armorManager.detach()
             this.autoEat.detach()
+            this.autoTool.detach()
+            this.autoShield.detach()
             this.pathfinder.detach()
             this.pvp.detach()
           }
@@ -135,6 +145,8 @@ class BotManager extends EventEmitter {
 
       this.armorManager.attach(this.bot)
       this.autoEat.attach(this.bot)
+      this.autoTool.attach(this.bot)
+      this.autoShield.attach(this.bot)
       this.pathfinder.attach(this.bot)
       this.pvp.attach(this.bot)
       this.behavior.applyCurrentState()
@@ -172,6 +184,8 @@ class BotManager extends EventEmitter {
           this.chat.detach(this.bot)
           this.armorManager.detach()
           this.autoEat.detach()
+          this.autoTool.detach()
+          this.autoShield.detach()
           this.pathfinder.detach()
           this.pvp.detach()
         }
@@ -207,6 +221,8 @@ class BotManager extends EventEmitter {
     this.chat.detach(this.bot)
     this.armorManager.detach()
     this.autoEat.detach()
+    this.autoTool.detach()
+    this.autoShield.detach()
     this.pathfinder.detach()
     this.pvp.detach()
     this.bot.removeAllListeners()
@@ -301,6 +317,16 @@ class BotManager extends EventEmitter {
   setAutoEatEnabled(enabled) {
     this.autoEat.setEnabled(Boolean(enabled))
     return this.autoEat.isEnabled()
+  }
+
+  setAutoToolEnabled(enabled) {
+    this.autoTool.setEnabled(Boolean(enabled))
+    return this.autoTool.isEnabled()
+  }
+
+  setAutoShieldEnabled(enabled) {
+    this.autoShield.setEnabled(Boolean(enabled))
+    return this.autoShield.isEnabled()
   }
 
   setAutoEatOptions(options) {

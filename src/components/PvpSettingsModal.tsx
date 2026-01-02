@@ -4,16 +4,14 @@ import type { PvpOptions } from '../types'
 type PvpSettingsModalProps = {
   options: PvpOptions
   onClose: () => void
-  onSave: (settings: Pick<PvpOptions, 'mobMovementEnabled' | 'allowBlockBreak'>) => void
+  onSave: (settings: Pick<PvpOptions, 'mobMovementEnabled'>) => void
 }
 
 const PvpSettingsModal: React.FC<PvpSettingsModalProps> = ({ options, onClose, onSave }) => {
   const [mobMovementEnabled, setMobMovementEnabled] = useState(options.mobMovementEnabled)
-  const [allowBlockBreak, setAllowBlockBreak] = useState(options.allowBlockBreak)
 
   useEffect(() => {
     setMobMovementEnabled(options.mobMovementEnabled)
-    setAllowBlockBreak(options.allowBlockBreak)
   }, [options])
 
   useEffect(() => {
@@ -37,7 +35,7 @@ const PvpSettingsModal: React.FC<PvpSettingsModalProps> = ({ options, onClose, o
 
   const handleSubmit: React.FormEventHandler<HTMLFormElement> = (event) => {
     event.preventDefault()
-    onSave({ mobMovementEnabled, allowBlockBreak })
+    onSave({ mobMovementEnabled })
     onClose()
   }
 
@@ -86,22 +84,6 @@ const PvpSettingsModal: React.FC<PvpSettingsModalProps> = ({ options, onClose, o
               </span>
               The bot will strafe and approach mobs if this is enabled. Turn it off to make the bot stand
               still and attack only when mobs come close.
-            </span>
-          </label>
-
-          <label className="flex items-start gap-3 rounded-xl border border-neutral-800 bg-neutral-900/40 p-4 text-sm text-neutral-200">
-            <input
-              type="checkbox"
-              checked={allowBlockBreak}
-              onChange={(event) => setAllowBlockBreak(event.target.checked)}
-              className="mt-1 h-4 w-4 accent-sky-500"
-            />
-            <span>
-              <span className="block text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500">
-                Allow Breaking Blocks
-              </span>
-              Let the bot mine blocks that obstruct its path while chasing mobs. Disable this to keep the
-              terrain untouched.
             </span>
           </label>
         </div>

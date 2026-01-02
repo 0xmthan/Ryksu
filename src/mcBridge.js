@@ -88,6 +88,16 @@ const registerMinecraftIpc = (ipcMain) => {
     return { ok: true, enabled: result }
   })
 
+  ipcMain.handle('bot:setAutoToolEnabled', (_event, enabled) => {
+    const result = botManager.setAutoToolEnabled(enabled)
+    return { ok: true, enabled: result }
+  })
+
+  ipcMain.handle('bot:setAutoShieldEnabled', (_event, enabled) => {
+    const result = botManager.setAutoShieldEnabled(enabled)
+    return { ok: true, enabled: result }
+  })
+
   ipcMain.handle('bot:setAutoEatOptions', (_event, options) => {
     const updated = botManager.setAutoEatOptions(options)
     return { ok: true, options: updated }

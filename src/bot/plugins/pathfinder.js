@@ -13,6 +13,7 @@ class PathfinderController {
     this.pathResetListener = null
     this._handleGoalReached = this._handleGoalReached.bind(this)
     this._handlePathReset = this._handlePathReset.bind(this)
+    this.allowBlockBreak = true
   }
 
   attach(bot) {
@@ -30,6 +31,14 @@ class PathfinderController {
     this._unbindPathfinderEvents()
     this.movements = null
     this.bot = null
+  }
+
+  setBlockBreakingAllowed(allowed) {
+    this.allowBlockBreak = Boolean(allowed)
+    if (this.movements) {
+      this.movements.canDig = this.allowBlockBreak
+    }
+    return this.allowBlockBreak
   }
 
   getOptions() {
@@ -90,6 +99,10 @@ class PathfinderController {
 
     if (!this.movements && this.bot.pathfinder) {
       this.movements = new Movements(this.bot)
+    }
+
+    if (this.movements) {
+      this.movements.canDig = this.allowBlockBreak
     }
 
     return Boolean(this.bot.pathfinder)
@@ -156,6 +169,9 @@ class PathfinderController {
     if (!this.movements) {
       this.movements = new Movements(this.bot)
     }
+    if (this.movements) {
+      this.movements.canDig = this.allowBlockBreak
+    }
 
     try {
       this.bot.pathfinder.setMovements(this.movements)
@@ -215,6 +231,9 @@ class PathfinderController {
 
     if (!this.movements) {
       this.movements = new Movements(this.bot)
+    }
+    if (this.movements) {
+      this.movements.canDig = this.allowBlockBreak
     }
 
     this._cancelGoTo('replace-goal')

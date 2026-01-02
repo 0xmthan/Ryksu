@@ -6,6 +6,8 @@ const usePluginControls = () => {
   const [armorManagerEnabled, setArmorManagerEnabled] = useState(false)
   const [autoEatEnabled, setAutoEatEnabled] = useState(false)
   const [autoEatOptions, setAutoEatOptions] = useState<AutoEatOptions>(AUTO_EAT_DEFAULTS)
+  const [autoToolEnabled, setAutoToolEnabled] = useState(false)
+  const [autoShieldEnabled, setAutoShieldEnabled] = useState(false)
   const [pathfinder, setPathfinder] = useState<PathfinderOptions>({ followEnabled: false, followTarget: '' })
   const [pvpOptions, setPvpOptions] = useState<PvpOptions>({
     mobEnabled: false,
@@ -13,11 +15,14 @@ const usePluginControls = () => {
     playerTarget: '',
     mobMovementEnabled: true,
     allowBlockBreak: true,
+    jumpAttackEnabled: true,
   })
   const stateRef = useRef({
     armorManagerEnabled,
     autoEatEnabled,
     autoEatOptions,
+    autoToolEnabled,
+    autoShieldEnabled,
     pathfinder,
     pvp: pvpOptions,
   })
@@ -27,12 +32,16 @@ const usePluginControls = () => {
       armorManagerEnabled: mgrEnabled,
       autoEatEnabled: eatEnabled,
       autoEatOptions: eatOptions,
+      autoToolEnabled: toolEnabled,
+      autoShieldEnabled: shieldEnabled,
       pathfinder: pathfinderOptions,
       pvp,
     }: {
       armorManagerEnabled: boolean
       autoEatEnabled: boolean
       autoEatOptions: AutoEatOptions
+      autoToolEnabled: boolean
+      autoShieldEnabled: boolean
       pathfinder: PathfinderOptions
       pvp: PvpOptions
     }) => {
@@ -55,6 +64,18 @@ const usePluginControls = () => {
       }
 
       try {
+        await window.electronAPI.bot.setAutoToolEnabled(toolEnabled)
+      } catch (error) {
+        console.error('Failed to apply auto tool preference', error)
+      }
+
+      try {
+        await window.electronAPI.bot.setAutoShieldEnabled(shieldEnabled)
+      } catch (error) {
+        console.error('Failed to apply auto shield preference', error)
+      }
+
+      try {
         await window.electronAPI.bot.setPathfinderOptions(pathfinderOptions)
       } catch (error) {
         console.error('Failed to apply pathfinder preferences', error)
@@ -74,6 +95,8 @@ const usePluginControls = () => {
     setArmorManagerEnabled(preferences.armorManagerEnabled)
     setAutoEatEnabled(preferences.autoEatEnabled)
     setAutoEatOptions(preferences.autoEatOptions)
+    setAutoToolEnabled(preferences.autoToolEnabled)
+    setAutoShieldEnabled(preferences.autoShieldEnabled)
     setPathfinder(preferences.pathfinder)
     setPvpOptions(preferences.pvp)
     pushPreferences(preferences)
@@ -84,10 +107,20 @@ const usePluginControls = () => {
       armorManagerEnabled,
       autoEatEnabled,
       autoEatOptions,
+      autoToolEnabled,
+      autoShieldEnabled,
       pathfinder,
       pvp: pvpOptions,
     }
-  }, [armorManagerEnabled, autoEatEnabled, autoEatOptions, pathfinder, pvpOptions])
+  }, [
+    armorManagerEnabled,
+    autoEatEnabled,
+    autoEatOptions,
+    autoToolEnabled,
+    autoShieldEnabled,
+    pathfinder,
+    pvpOptions,
+  ])
 
   useEffect(() => {
     const unsubscribe = window.electronAPI.bot.onStatus((incoming) => {
@@ -109,6 +142,8 @@ const usePluginControls = () => {
         armorManagerEnabled: boolean
         autoEatEnabled: boolean
         autoEatOptions: AutoEatOptions
+        autoToolEnabled: boolean
+        autoShieldEnabled: boolean
         pathfinder: PathfinderOptions
         pvp: PvpOptions
       }>
@@ -117,11 +152,21 @@ const usePluginControls = () => {
         armorManagerEnabled: next.armorManagerEnabled ?? armorManagerEnabled,
         autoEatEnabled: next.autoEatEnabled ?? autoEatEnabled,
         autoEatOptions: next.autoEatOptions ?? autoEatOptions,
+        autoToolEnabled: next.autoToolEnabled ?? autoToolEnabled,
+        autoShieldEnabled: next.autoShieldEnabled ?? autoShieldEnabled,
         pathfinder: next.pathfinder ?? pathfinder,
         pvp: next.pvp ?? pvpOptions,
       })
     },
-    [armorManagerEnabled, autoEatEnabled, autoEatOptions, pathfinder, pvpOptions]
+    [
+      armorManagerEnabled,
+      autoEatEnabled,
+      autoEatOptions,
+      autoToolEnabled,
+      autoShieldEnabled,
+      pathfinder,
+      pvpOptions,
+    ]
   )
 
   const toggleArmorManager = useCallback(
@@ -152,6 +197,36 @@ const usePluginControls = () => {
       }
     },
     [autoEatEnabled, persist]
+  )
+
+  const toggleAutoTool = useCallback(
+    async (nextValue: boolean) => {
+      const previousValue = autoToolEnabled
+      setAutoToolEnabled(nextValue)
+      try {
+        await window.electronAPI.bot.setAutoToolEnabled(nextValue)
+        persist({ autoToolEnabled: nextValue })
+      } catch (error) {
+        console.error('Failed to update auto tool preference', error)
+        setAutoToolEnabled(previousValue)
+      }
+    },
+    [autoToolEnabled, persist]
+  )
+
+  const toggleAutoShield = useCallback(
+    async (nextValue: boolean) => {
+      const previousValue = autoShieldEnabled
+      setAutoShieldEnabled(nextValue)
+      try {
+        await window.electronAPI.bot.setAutoShieldEnabled(nextValue)
+        persist({ autoShieldEnabled: nextValue })
+      } catch (error) {
+        console.error('Failed to update auto shield preference', error)
+        setAutoShieldEnabled(previousValue)
+      }
+    },
+    [autoShieldEnabled, persist]
   )
 
   const updateAutoEatOptions = useCallback(
@@ -199,6 +274,7 @@ const usePluginControls = () => {
           typeof next.playerTarget === 'string' ? next.playerTarget.trim() : pvpOptions.playerTarget,
         mobMovementEnabled: next.mobMovementEnabled ?? pvpOptions.mobMovementEnabled,
         allowBlockBreak: next.allowBlockBreak ?? pvpOptions.allowBlockBreak,
+        jumpAttackEnabled: next.jumpAttackEnabled ?? pvpOptions.jumpAttackEnabled,
       }
 
       setPvpOptions(merged)
@@ -240,6 +316,10 @@ const usePluginControls = () => {
     autoEatOptions,
     toggleArmorManager,
     toggleAutoEat,
+    autoToolEnabled,
+    toggleAutoTool,
+    autoShieldEnabled,
+    toggleAutoShield,
     updateAutoEatOptions,
     pathfinder,
     updatePathfinder,

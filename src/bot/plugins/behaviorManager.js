@@ -10,6 +10,7 @@ class BehaviorManager {
         playerTarget: '',
         mobMovementEnabled: true,
         allowBlockBreak: true,
+        jumpAttackEnabled: true,
       },
     }
   }
@@ -75,6 +76,10 @@ class BehaviorManager {
       next.allowBlockBreak = options.allowBlockBreak
     }
 
+    if (typeof options.jumpAttackEnabled === 'boolean') {
+      next.jumpAttackEnabled = options.jumpAttackEnabled
+    }
+
     this.state.pvp = next
     this._apply()
     return { ...this.state.pvp }
@@ -92,6 +97,9 @@ class BehaviorManager {
       }
       if (extra.cancelGoTo) {
         mergedOptions.cancelGoTo = true
+      }
+      if (typeof this.pathfinder.setBlockBreakingAllowed === 'function') {
+        this.pathfinder.setBlockBreakingAllowed(this.state.pvp.allowBlockBreak)
       }
       this.pathfinder.setOptions(mergedOptions)
     }

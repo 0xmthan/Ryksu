@@ -10,7 +10,7 @@ const DEFAULT_CONFIG = {
 }
 
 class PvpController {
-  constructor() {
+  constructor({ autoTool, autoShield } = {}) {
     this.bot = null
     this.enabled = false
     this.movements = null
@@ -23,6 +23,10 @@ class PvpController {
     this.playerEnabled = false
     this.playerTarget = ''
     this.isControllingPathfinder = false
+    this.autoTool = autoTool ?? null
+    this.autoShield = autoShield ?? null
+    this.jumpAttackEnabled = true
+    this.jumpReleaseTimer = null
   }
 
   attach(bot) {
@@ -42,6 +46,17 @@ class PvpController {
     this.tickListener = null
     this._clearTarget()
     this.movements = null
+    if (this.jumpReleaseTimer) {
+      clearTimeout(this.jumpReleaseTimer)
+      this.jumpReleaseTimer = null
+    }
+    if (this.bot) {
+      try {
+        this.bot.setControlState('jump', false)
+      } catch {
+        // ignore
+      }
+    }
     this.bot = null
   }
 
@@ -111,6 +126,10 @@ class PvpController {
 
     if (typeof options.movementAllowed === 'boolean') {
       this.setMovementAllowed(options.movementAllowed)
+    }
+
+    if (typeof options.jumpAttackEnabled === 'boolean') {
+      this.jumpAttackEnabled = options.jumpAttackEnabled
     }
   }
 
@@ -315,20 +334,41 @@ class PvpController {
     }
 
     const aimPosition = target.position.offset(0, target.height ? target.height * 0.6 : 1, 0)
+    const performAttack = () => {
+      this.bot
+        .lookAt(aimPosition, true)
+        .then(() => {
+          if (!target.isValid) {
+            return
+          }
+          this.bot.attack(target)
+          const heldName = this.bot.heldItem?.name ?? 'other'
+          this.cooldownTicks = this._getCooldownTicks(heldName) + this.config.cooldownPadding
+          if (this.autoShield?.isEnabled?.()) {
+            this.autoShield.requestBlockAfterAttack(target)
+          }
+        })
+        .catch(() => {
+          this.cooldownTicks = 5
+        })
+    }
 
-    this.bot
-      .lookAt(aimPosition, true)
-      .then(() => {
-        if (!target.isValid) {
-          return
-        }
-        this.bot.attack(target)
-        const heldName = this.bot.heldItem?.name ?? 'other'
-        this.cooldownTicks = this._getCooldownTicks(heldName) + this.config.cooldownPadding
-      })
-      .catch(() => {
-        this.cooldownTicks = 5
-      })
+    const executeAttack = () => {
+      this._triggerJumpAttack()
+      performAttack()
+    }
+
+    if (this.autoTool?.isEnabled?.() && typeof this.autoTool.equipBestWeapon === 'function') {
+      this.autoTool
+        .equipBestWeapon()
+        .catch(() => {})
+        .finally(() => {
+          executeAttack()
+        })
+      return
+    }
+
+    executeAttack()
   }
 
   _getCooldownTicks(weaponName) {
@@ -349,6 +389,31 @@ class PvpController {
     }
     this.isControllingPathfinder = false
     this.target = null
+  }
+
+  _triggerJumpAttack() {
+    if (!this.jumpAttackEnabled || !this.bot?.entity || !this.bot.entity.onGround) {
+      return
+    }
+
+    try {
+      this.bot.setControlState('jump', true)
+      if (this.jumpReleaseTimer) {
+        clearTimeout(this.jumpReleaseTimer)
+      }
+      this.jumpReleaseTimer = setTimeout(() => {
+        this.jumpReleaseTimer = null
+        if (this.bot) {
+          try {
+            this.bot.setControlState('jump', false)
+          } catch {
+            // ignore
+          }
+        }
+      }, 250)
+    } catch (error) {
+      console.error('Failed to trigger jump attack', error)
+    }
   }
 }
 

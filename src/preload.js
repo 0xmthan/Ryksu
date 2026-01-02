@@ -28,6 +28,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     sendChat: (message) => ipcRenderer.invoke('bot:sendChat', message),
     setArmorManagerEnabled: (enabled) => ipcRenderer.invoke('bot:setArmorManagerEnabled', enabled),
     setAutoEatEnabled: (enabled) => ipcRenderer.invoke('bot:setAutoEatEnabled', enabled),
+    setAutoToolEnabled: (enabled) => ipcRenderer.invoke('bot:setAutoToolEnabled', enabled),
+    setAutoShieldEnabled: (enabled) => ipcRenderer.invoke('bot:setAutoShieldEnabled', enabled),
     setAutoEatOptions: (options) => ipcRenderer.invoke('bot:setAutoEatOptions', options),
     getAutoEatOptions: () => ipcRenderer.invoke('bot:getAutoEatOptions'),
     setPathfinderOptions: (options) => ipcRenderer.invoke('bot:setPathfinderOptions', options),
