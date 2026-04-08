@@ -14,6 +14,7 @@ const registerListener = (channel, callback) => {
 contextBridge.exposeInMainWorld('electronAPI', {
   minimize: () => ipcRenderer.send('window-controls', 'minimize'),
   close: () => ipcRenderer.send('window-controls', 'close'),
+  openExternal: (url) => ipcRenderer.invoke('system:openExternal', url),
   bot: {
     connect: (options) => ipcRenderer.invoke('bot:connect', options),
     disconnect: () => ipcRenderer.invoke('bot:disconnect'),

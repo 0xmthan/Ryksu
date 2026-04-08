@@ -10,6 +10,17 @@ const { AutoShieldController } = require('./bot/plugins/autoShield')
 const { PathfinderController } = require('./bot/plugins/pathfinder')
 const { PvpController } = require('./bot/plugins/pvp')
 const { BehaviorManager } = require('./bot/plugins/behaviorManager')
+const MICROSOFT_LINK_URL = 'https://www.microsoft.com/link'
+const PLUGIN_PACKET_WARNING = 'The server or one of its plugins sent a packet Ryksu could not parse.'
+
+const isIgnorablePluginPacketError = (error) => {
+  const message = typeof error?.message === 'string' ? error.message : typeof error === 'string' ? error : ''
+  return (
+    message.includes('Chunk size is') &&
+    message.includes('partial packet') &&
+    message.includes('player_info')
+  )
+}
 
 class BotManager extends EventEmitter {
   constructor() {
@@ -50,11 +61,8 @@ class BotManager extends EventEmitter {
       pvp = { mobEnabled: false, playerEnabled: false, playerTarget: '' },
     } = options
 
-    let selectedVersion = version
-
-    if (!selectedVersion || selectedVersion === 'auto') {
-      selectedVersion = SUPPORTED_VERSIONS[0]
-    }
+    const shouldAutoDetectVersion = !version || version === 'auto'
+    const selectedVersion = shouldAutoDetectVersion ? null : version
 
     if (selectedVersion && !SUPPORTED_VERSIONS.includes(selectedVersion)) {
       throw new Error(`Unsupported client version "${selectedVersion}". Select one from the list.`)
@@ -75,6 +83,33 @@ class BotManager extends EventEmitter {
       botOptions.password = password
     }
 
+    if (accountType === 'online') {
+      botOptions.onMsaCode = (data) => {
+        const verificationUri =
+          typeof data?.verification_uri === 'string' && data.verification_uri.trim()
+            ? data.verification_uri.trim()
+            : MICROSOFT_LINK_URL
+        const userCode =
+          typeof data?.user_code === 'string' && data.user_code.trim() ? data.user_code.trim() : ''
+        const directVerificationUri =
+          typeof data?.message === 'string'
+            ? data.message.match(/https?:\/\/\S+/i)?.[0]?.trim()
+            : undefined
+
+        this.emit('status', {
+          stage: 'auth-required',
+          message: userCode
+            ? `Microsoft sign-in required. Open the link and enter code ${userCode}.`
+            : 'Microsoft sign-in required.',
+          microsoftAuth: {
+            verificationUri,
+            directVerificationUri,
+            userCode,
+          },
+        })
+      }
+    }
+
     this.chat.prepareForConnection(accountType === 'offline' ? offlinePassword : null)
     this.armorManager.setEnabled(Boolean(armorManagerEnabled))
     this.autoEat.setOptions(autoEatOptions || {})
@@ -86,11 +121,12 @@ class BotManager extends EventEmitter {
 
     const connectingMessage = selectedVersion
       ? `Connecting with Minecraft ${selectedVersion}…`
-      : 'Connecting to server…'
+      : 'Connecting to server with automatic version detection…'
     this.emit('status', { stage: 'connecting', message: connectingMessage })
 
     return new Promise((resolve, reject) => {
       let settled = false
+      let pluginPacketWarningShown = false
 
       const cleanup = (removePersistentHandlers = true) => {
         if (this.bot) {
@@ -126,6 +162,7 @@ class BotManager extends EventEmitter {
           return
         }
 
+        console.error('[BotManager] rejectOnce input:', error)
         settled = true
         cleanup()
 
@@ -174,10 +211,21 @@ class BotManager extends EventEmitter {
       }
 
       const handleError = (error) => {
+        if (settled && isIgnorablePluginPacketError(error)) {
+          if (!pluginPacketWarningShown) {
+            pluginPacketWarningShown = true
+            this.emit('status', { stage: 'warning', message: PLUGIN_PACKET_WARNING })
+            this.chat.pushSystemMessage(PLUGIN_PACKET_WARNING)
+          }
+          return
+        }
+
+        console.error('[BotManager] Raw bot error:', error)
         rejectOnce(error)
       }
 
       const handleEnd = () => {
+        console.error('[BotManager] Bot end event:', this.bot?._client?._endReason ?? 'socketClosed')
         this.emit('status', { stage: 'disconnected', message: 'Bot disconnected.' })
         this._stopStateStream()
         if (this.bot) {

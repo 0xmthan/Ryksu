@@ -44,6 +44,14 @@ export const normalizeProtocolError = (message?: string | null): string | null =
     return message ?? null
   }
 
+  if (
+    message.includes('Chunk size is') &&
+    message.includes('partial packet') &&
+    message.includes('"name":"player_info"')
+  ) {
+    return 'The server or one of its plugins sent a packet Ryksu could not parse.'
+  }
+
   if (message.includes('Unsupported protocol version')) {
     return 'The server is running a newer Minecraft version. Pick the matching version above and try again.'
   }

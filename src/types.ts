@@ -3,6 +3,11 @@ export type AccountType = 'offline' | 'online'
 export type BotStatusPayload = {
   stage: string
   message?: string
+  microsoftAuth?: {
+    verificationUri: string
+    directVerificationUri?: string
+    userCode: string
+  }
 }
 
 export type BotStatus = BotStatusPayload | null

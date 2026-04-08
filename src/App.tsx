@@ -423,9 +423,6 @@ const App: React.FC = () => {
         }
 
         setAvailableVersions(versions)
-        if (versions.length > 0) {
-          setVersion((current) => (current === 'auto' ? versions[0] : current))
-        }
       } catch (error) {
         console.error('Failed to load supported versions', error)
       }
@@ -502,6 +499,7 @@ const App: React.FC = () => {
           <SavedChats transcripts={savedTranscripts} onDelete={handleDeleteTranscript} />
         ) : (
           <ConnectionForm
+            status={status}
             accountType={accountType}
             host={host}
             port={port}

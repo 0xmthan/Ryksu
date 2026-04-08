@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react'
-import type { AccountType, LastConnection } from '../types'
+import type { AccountType, BotStatus, LastConnection } from '../types'
 
 type ConnectionFormProps = {
+  status: BotStatus
   accountType: AccountType
   host: string
   port: string
@@ -23,6 +24,7 @@ type ConnectionFormProps = {
 }
 
 const ConnectionForm: React.FC<ConnectionFormProps> = ({
+  status,
   accountType,
   host,
   port,
@@ -60,7 +62,17 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
 
   const hasRequiredFields = Boolean(host.trim() && username.trim())
   const accountLabel = accountType === 'online' ? 'Online (Microsoft)' : 'Offline'
-  const versionLabel = version === 'auto' ? 'Auto (latest supported)' : version || 'Not set'
+  const versionLabel = version === 'auto' ? 'Auto (detect server version)' : version || 'Not set'
+  const microsoftAuth = status?.stage === 'auth-required' ? status.microsoftAuth : undefined
+
+  const handleOpenMicrosoftLink = async (url: string) => {
+    try {
+      await window.electronAPI.openExternal(url)
+    } catch (error) {
+      console.error('Failed to open external URL', error)
+    }
+  }
+
   const handleToggleEditing = () => {
     if (isEditing) {
       onCommitEdit()
@@ -78,6 +90,49 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
         onSubmit={onSubmit}
         className="flex flex-col gap-6 rounded-2xl border border-neutral-800 bg-neutral-950/70 p-6 shadow-md"
       >
+        {microsoftAuth ? (
+          <section className="rounded-xl border border-sky-500/30 bg-sky-500/10 p-4 text-sm text-sky-50">
+            <div className="flex flex-col gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-sky-200/80">
+                  Microsoft Sign-In
+                </p>
+                <p className="mt-2 text-sm text-sky-50">
+                  Click the link below, then enter code{' '}
+                  <span className="rounded bg-sky-950/60 px-2 py-1 font-mono tracking-[0.2em]">
+                    {microsoftAuth.userCode}
+                  </span>
+                  .
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleOpenMicrosoftLink(
+                      microsoftAuth.directVerificationUri || microsoftAuth.verificationUri
+                    )
+                  }
+                  className="rounded-full border border-sky-300/40 bg-sky-300/15 px-4 py-2 text-xs
+                    font-semibold uppercase tracking-[0.18em] text-sky-50 transition
+                    hover:bg-sky-300/25 focus-visible:outline focus-visible:outline-offset-2
+                    focus-visible:outline-sky-300"
+                >
+                  Open Microsoft Login
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleOpenMicrosoftLink(microsoftAuth.verificationUri)}
+                  className="text-xs font-medium text-sky-100/80 underline decoration-sky-300/50
+                    underline-offset-4 transition hover:text-sky-50"
+                >
+                  {microsoftAuth.verificationUri}
+                </button>
+              </div>
+            </div>
+          </section>
+        ) : null}
+
         <section className="overflow-hidden rounded-xl border border-neutral-800 bg-neutral-900/60">
           <div className="flex items-center justify-between border-b border-neutral-800 px-4 py-3">
             <h3 className="text-sm font-medium text-neutral-200">Connection Details</h3>
@@ -212,7 +267,7 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
                     text-neutral-100 transition focus:border-sky-500 focus:outline-none focus:ring-2
                     focus:ring-sky-500/40"
                 >
-                  <option value="auto">Auto (latest supported)</option>
+                  <option value="auto">Auto (detect server version)</option>
                   {availableVersions.map((entry) => (
                     <option key={entry} value={entry}>
                       {entry}

@@ -1,8 +1,20 @@
-const { app, BrowserWindow, ipcMain } = require('electron')
+const { app, BrowserWindow, ipcMain, shell } = require('electron')
 const { registerMinecraftIpc } = require('./mcBridge')
 
 if (require('electron-squirrel-startup')) {
   app.quit()
+}
+
+const originalConsoleLog = console.log.bind(console)
+
+console.log = (...args) => {
+  const firstArg = typeof args[0] === 'string' ? args[0] : ''
+  if (firstArg.startsWith('Chunk size is ') && firstArg.includes('partial packet')) {
+    originalConsoleLog('[Protocol] Server/plugin compatibility issue while parsing a packet.')
+    return
+  }
+
+  originalConsoleLog(...args)
 }
 
 registerMinecraftIpc(ipcMain)
@@ -26,6 +38,15 @@ ipcMain.on('window-controls', (event, action) => {
     default:
       break
   }
+})
+
+ipcMain.handle('system:openExternal', async (_event, url) => {
+  if (typeof url !== 'string' || !/^https?:\/\//i.test(url)) {
+    return { ok: false, message: 'Invalid URL.' }
+  }
+
+  await shell.openExternal(url)
+  return { ok: true }
 })
 
 const createWindow = () => {

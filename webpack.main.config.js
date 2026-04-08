@@ -4,8 +4,11 @@ module.exports = {
    * that runs in the main process.
    */
   entry: './src/main.js',
+  externals: {
+    'node-fetch': 'commonjs2 node-fetch',
+  },
   // Put your normal webpack config below here
   module: {
     rules: require('./webpack.rules'),
   },
-};
+}

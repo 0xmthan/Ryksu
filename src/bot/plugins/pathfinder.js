@@ -399,7 +399,10 @@ class PathfinderController {
     this.activeGoTo = null
 
     try {
-      this.bot.pathfinder.stop()
+      const hasEntityVelocity = Boolean(this.bot.entity?.velocity)
+      if (hasEntityVelocity) {
+        this.bot.pathfinder.stop()
+      }
       this.bot.pathfinder.setGoal(null)
     } catch (error) {
       console.error('[Pathfinder] Failed to clear pathfinder goal', error)

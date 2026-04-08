@@ -7,6 +7,7 @@ declare global {
     electronAPI: {
       minimize: () => void
       close: () => void
+      openExternal: (url: string) => Promise<{ ok: boolean; message?: string }>
       bot: {
         connect: (options: {
           host: string
@@ -39,7 +40,15 @@ declare global {
         >
         getSupportedVersions: () => Promise<string[]>
         subscribe: () => void
-        onStatus: (callback: (status: { stage: string; message?: string }) => void) => () => void
+        onStatus: (callback: (status: {
+          stage: string
+          message?: string
+          microsoftAuth?: {
+            verificationUri: string
+            directVerificationUri?: string
+            userCode: string
+          }
+        }) => void) => () => void
         onState: (
           callback: (
             state:
