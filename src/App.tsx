@@ -237,19 +237,28 @@ const App: React.FC = () => {
     setActiveConnectionKey(null)
   }, [])
 
+  const getRyksuAuthor = useCallback(() => {
+    const normalized = username.trim()
+    if (!normalized || normalized.toLowerCase() === 'ryksu') {
+      return 'Ryksu'
+    }
+
+    return `Ryksu (${normalized})`
+  }, [username])
+
   const pushSystemChat = useCallback(
     (text: string) => {
       const entry: ChatMessage = {
         id: `${Date.now()}-local`,
         text,
-        author: 'Ryksu',
+        author: getRyksuAuthor(),
         type: 'system',
         position: 'client',
         timestamp: Date.now(),
       }
       addChatMessages(entry)
     },
-    [addChatMessages]
+    [addChatMessages, getRyksuAuthor]
   )
 
   const handleChatSubmit = useCallback(async () => {

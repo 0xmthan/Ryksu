@@ -110,7 +110,7 @@ class BotManager extends EventEmitter {
       }
     }
 
-    this.chat.prepareForConnection(accountType === 'offline' ? offlinePassword : null)
+    this.chat.prepareForConnection(accountType === 'offline' ? offlinePassword : null, username)
     this.armorManager.setEnabled(Boolean(armorManagerEnabled))
     this.autoEat.setOptions(autoEatOptions || {})
     this.autoEat.setEnabled(Boolean(autoEatEnabled))

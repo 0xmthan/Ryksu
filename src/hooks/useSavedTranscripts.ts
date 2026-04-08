@@ -39,7 +39,16 @@ const useSavedTranscripts = () => {
       }
     }
 
-    transcripts.sort((a, b) => a.label.localeCompare(b.label))
+    transcripts.sort((a, b) => {
+      const aLastTimestamp = a.messages[a.messages.length - 1]?.timestamp ?? 0
+      const bLastTimestamp = b.messages[b.messages.length - 1]?.timestamp ?? 0
+
+      if (aLastTimestamp !== bLastTimestamp) {
+        return bLastTimestamp - aLastTimestamp
+      }
+
+      return a.label.localeCompare(b.label)
+    })
     setSavedTranscripts(transcripts)
     return transcripts
   }, [])

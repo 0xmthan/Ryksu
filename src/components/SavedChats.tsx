@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
+import { Trash2 } from 'lucide-react'
 import type { StoredTranscriptMeta } from '../types'
 
 type SavedChatsProps = {
@@ -83,13 +84,13 @@ const SavedChats: React.FC<SavedChatsProps> = ({ transcripts, onDelete }) => {
                 <button
                   type="button"
                   onClick={() => onDelete(selectedTranscript.key)}
-                  className="inline-flex items-center gap-2 rounded-full border border-rose-500/60 px-3 py-1
-                    text-[0.75rem] font-semibold uppercase tracking-[0.2em] text-rose-200 transition
-                    hover:bg-rose-500/10 focus-visible:outline focus-visible:outline-offset-2
-                    focus-visible:outline-rose-400"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-full border
+                    border-rose-500/60 text-rose-200 transition hover:bg-rose-500/10
+                    focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-rose-400"
+                  aria-label="Delete transcript"
+                  title="Delete transcript"
                 >
-                  <span aria-hidden="true">🗑️</span>
-                  <span>Delete</span>
+                  <Trash2 aria-hidden="true" className="h-4 w-4" strokeWidth={1.9} />
                 </button>
               </div>
 

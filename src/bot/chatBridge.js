@@ -9,9 +9,10 @@ class ChatBridge {
     this.chatLog = []
     this.authConfig = null
     this.handlers = null
+    this.botUsername = ''
   }
 
-  prepareForConnection(password) {
+  prepareForConnection(password, botUsername = '') {
     if (typeof password === 'string' && password.trim().length > 0) {
       this.authConfig = {
         password: password.trim(),
@@ -21,6 +22,7 @@ class ChatBridge {
     } else {
       this.authConfig = null
     }
+    this.botUsername = typeof botUsername === 'string' ? botUsername.trim() : ''
     this.chatLog = []
   }
 
@@ -28,6 +30,7 @@ class ChatBridge {
     this.chatLog = []
     this.authConfig = null
     this.handlers = null
+    this.botUsername = ''
   }
 
   attach(bot) {
@@ -137,12 +140,21 @@ class ChatBridge {
     const entry = {
       id: createEntryId('system'),
       text,
-      author: 'Ryksu',
+      author: this._getRyksuAuthor(),
       type: 'system',
       position: 'client',
       timestamp: Date.now(),
     }
     this._pushEntry(entry)
+  }
+
+  _getRyksuAuthor() {
+    const normalized = this.botUsername.trim()
+    if (!normalized || normalized.toLowerCase() === 'ryksu') {
+      return 'Ryksu'
+    }
+
+    return `Ryksu (${normalized})`
   }
 
   _pushEntry(entry) {
