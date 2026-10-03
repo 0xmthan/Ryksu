@@ -1,0 +1,14 @@
+diff --git a/src/index.js b/src/index.js
+index b4a2abe473808307d513c25b1ed59c842879ba91..ca4181cef1f6a838b2878e086a5ca2b5bbac5bf3 100644
+--- a/src/index.js
++++ b/src/index.js
+@@ -14,7 +14,8 @@ const chunkImplementations = {
+     1.19: require('./pc/1.18/chunk'),
+     '1.20': require('./pc/1.18/chunk'),
+     1.21: require('./pc/1.18/chunk'),
+-    26.1: require('./pc/1.18/chunk')
++    26.1: require('./pc/1.18/chunk'),
++    26.2: require('./pc/1.18/chunk')
+   },
+   bedrock: {
+     0.14: require('./bedrock/0.14/chunk'),

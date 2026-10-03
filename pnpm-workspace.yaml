@@ -7,4 +7,10 @@ allowBuilds:
   macos-alias: true
 
 overrides:
-  minecraft-data: ^3.117.0
+  minecraft-data: file:../minecraft-data-26.2
+
+patchedDependencies:
+  minecraft-protocol: patches/minecraft-protocol.patch
+  mineflayer: patches/mineflayer.patch
+  prismarine-chunk: patches/prismarine-chunk.patch
+  prismarine-physics: patches/prismarine-physics.patch
