@@ -75,6 +75,8 @@ export const createTracked = (
 ): Tracked => {
   const object = new THREE.Group()
   object.userData.name = options.bot ? 'Bot' : (entity.item ?? entity.name)
+  // For picking it out with the mouse; the bot is never a target.
+  if (!options.bot) object.userData.entityId = entity.id
   const model = buildEntityModel(entity)
   const spinner = !model && entity.kind === 'item' && entity.item ? droppedItem(entity.item) : null
   object.add(model?.root ?? spinner ?? placeholder(entity.kind))

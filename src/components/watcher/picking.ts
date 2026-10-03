@@ -8,7 +8,7 @@ export type Pickable = { mesh: THREE.Mesh; quads: number[]; blocks: Blocks }
 
 export type Pick =
   | { kind: 'block'; name: string; position: THREE.Vector3; normal: THREE.Vector3 }
-  | { kind: 'entity'; name: string; position: THREE.Vector3 }
+  | { kind: 'entity'; name: string; position: THREE.Vector3; id: number | null }
 
 const raycaster = new THREE.Raycaster()
 const pointer = new THREE.Vector2()
@@ -54,7 +54,12 @@ export const pickAt = (
     object = object.parent
   }
   if (!object) return null
-  return { kind: 'entity', name: String(object.userData.name), position: object.position.clone().add(anchor) }
+  return {
+    kind: 'entity',
+    name: String(object.userData.name),
+    position: object.position.clone().add(anchor),
+    id: typeof object.userData.entityId === 'number' ? object.userData.entityId : null,
+  }
 }
 
 // Where the bot should stand for a click: on top of a block clicked from above, next to it when a side

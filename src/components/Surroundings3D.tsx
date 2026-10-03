@@ -16,6 +16,8 @@ type Blocks = WorldView['blocks']
 
 // How quickly shown positions catch up with the latest update (per second); higher is snappier.
 const FOLLOW_RATE = 12
+// Two clicks on the same entity within this long make a double click (attack).
+const DOUBLE_CLICK_MS = 280
 // Scene coordinates are world coordinates minus an anchor, to keep float precision far from 0,0.
 const REANCHOR_DISTANCE = 2000
 
@@ -252,10 +254,11 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
         const { x, y, z } = picked.position
         onHoverRef.current(`${prettyName(picked.name)} at ${x} / ${y} / ${z} · click to walk here`)
       } else {
-        onHoverRef.current(prettyName(picked.name))
+        onHoverRef.current(`${prettyName(picked.name)} · double-click to attack`)
       }
     }
     // A click is a press and release without dragging (dragging orbits the camera).
+    let pendingClick: { id: number; timer: number } | null = null
     let pressed: { x: number; y: number } | null = null
     const handlePointerDown = (event: PointerEvent) => {
       pressed = event.button === 0 ? { x: event.clientX, y: event.clientY } : null
@@ -268,9 +271,28 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
       }
       const picked = pick(event)
       if (!picked || !state.anchor) return
-      const target = walkTarget(picked)
-      walkMarker.show(target.clone().sub(state.anchor), clock.elapsedTime)
-      onWalkToRef.current({ x: target.x, y: target.y, z: target.z })
+      const walk = () => {
+        if (!state.anchor) return
+        const target = walkTarget(picked)
+        walkMarker.show(target.clone().sub(state.anchor), clock.elapsedTime)
+        onWalkToRef.current({ x: target.x, y: target.y, z: target.z })
+      }
+      // On a mob or player, wait a moment for a second click: a double click attacks it instead.
+      if (picked.kind === 'entity' && picked.id !== null) {
+        if (pendingClick && pendingClick.id === picked.id) {
+          clearTimeout(pendingClick.timer)
+          pendingClick = null
+          window.electronAPI.bot.attackEntity(picked.id).catch(() => {})
+          return
+        }
+        if (pendingClick) clearTimeout(pendingClick.timer)
+        pendingClick = {
+          id: picked.id,
+          timer: window.setTimeout(() => ((pendingClick = null), walk()), DOUBLE_CLICK_MS),
+        }
+        return
+      }
+      walk()
     }
     const handlePointerLeave = () => onHoverRef.current(null)
     renderer.domElement.addEventListener('pointermove', handlePointerMove)

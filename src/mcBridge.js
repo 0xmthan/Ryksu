@@ -134,6 +134,10 @@ const registerMinecraftIpc = (ipcMain) => {
     }
   })
 
+  ipcMain.handle('bot:attackEntity', (_event, entityId) =>
+    Number.isInteger(entityId) ? botManager.attackEntity(entityId) : { ok: false, message: 'Invalid entity.' }
+  )
+
   // Player skins for the watcher, fetched here since the page can't load other sites' images into WebGL.
   const skinCache = new Map()
   ipcMain.handle('bot:getSkin', async (_event, url) => {

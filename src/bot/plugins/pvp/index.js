@@ -188,6 +188,22 @@ class PvpController {
     return Boolean(this.bot.pathfinder)
   }
 
+  // Attacks one entity on request (chasing it until it dies or gets out of view), whatever the PvP
+  // settings say; it rides on the same target slot as fighting back.
+  attackEntity(entity) {
+    this.defendTarget = entity
+    this.defendUntil = Infinity
+    this.target = entity
+  }
+
+  // Drops a requested attack (or fight-back) target.
+  stopAttacking() {
+    if (!this.defendTarget) return
+    this.defendTarget = null
+    this.defendUntil = 0
+    this._clearTarget()
+  }
+
   // Fight back against any mob that hurts the bot, even when mob attacking is turned off.
   _handleHurt(entity, source) {
     if (!this.bot?.entity || entity !== this.bot.entity || !source || source === this.bot.entity) {
@@ -259,8 +275,7 @@ class PvpController {
     }
 
     if (!this.movementAllowed) {
-      const withinAttackRange =
-        Number.isFinite(distance) && distance <= this.config.attackRange + 0.5
+      const withinAttackRange = Number.isFinite(distance) && distance <= this.config.attackRange + 0.5
 
       if (!withinAttackRange) {
         const closerTarget = this._findTarget(this.config.attackRange + 0.5)

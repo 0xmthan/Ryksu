@@ -557,7 +557,27 @@ class BotManager extends EventEmitter {
   }
 
   setPathfinderOptions(options) {
+    // Being sent somewhere calls off an attack.
+    if (options?.goToLocation) {
+      this.pvp.stopAttacking()
+    }
     return this.behavior.setPathfinderOptions(options || {})
+  }
+
+  // Chases and attacks one entity (picked in the watcher) until it dies or gets away.
+  attackEntity(entityId) {
+    const entity = this.bot?.entities?.[entityId]
+    if (!entity || entity === this.bot.entity) {
+      return { ok: false, message: 'That entity is gone.' }
+    }
+    if (this.behavior.getPathfinderOptions().followEnabled) {
+      this.emit('pathfinderOptions', this.behavior.setPathfinderOptions({ followEnabled: false }))
+    }
+    this.pvp.attackEntity(entity)
+    this.chat.pushSystemMessage(
+      `Attacking ${entity.username ?? entity.displayName ?? entity.name ?? 'entity'}.`
+    )
+    return { ok: true }
   }
 
   getPathfinderOptions() {
