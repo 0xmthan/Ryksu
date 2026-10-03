@@ -105,6 +105,14 @@ const Dashboard: React.FC<DashboardProps> = ({
         blocks={worldView?.blocks ?? null}
         chest={snapshot.mining?.chest ?? null}
         status={snapshot.mining?.active ? snapshot.mining.status : null}
+        onWalkTo={(target) =>
+          // Same as going to a saved location: follow off, then a one-shot go-to.
+          updatePathfinder({
+            followEnabled: false,
+            followTarget: pathfinder.followTarget,
+            goToLocation: target,
+          })
+        }
         onClose={closePage}
       />
     )

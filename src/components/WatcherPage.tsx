@@ -7,10 +7,11 @@ type WatcherPageProps = {
   blocks: WorldView['blocks'] | null
   chest: { x: number; y: number; z: number } | null
   status: string | null
+  onWalkTo: (target: { x: number; y: number; z: number }) => void
   onClose: () => void
 }
 
-const WatcherPage: React.FC<WatcherPageProps> = ({ blocks, chest, status, onClose }) => {
+const WatcherPage: React.FC<WatcherPageProps> = ({ blocks, chest, status, onWalkTo, onClose }) => {
   const [hover, setHover] = useState<string | null>(null)
 
   useEffect(() => {
@@ -26,7 +27,13 @@ const WatcherPage: React.FC<WatcherPageProps> = ({ blocks, chest, status, onClos
   return (
     <div className="fixed inset-x-0 bottom-0 top-12 z-40 flex flex-col bg-neutral-950">
       <div className="relative min-h-0 flex-1">
-        <Surroundings3D blocks={blocks} chest={chest} onHover={setHover} className="h-full w-full" />
+        <Surroundings3D
+          blocks={blocks}
+          chest={chest}
+          onHover={setHover}
+          onWalkTo={onWalkTo}
+          className="h-full w-full"
+        />
         {/* Controls float over the view instead of taking a bar of their own. */}
         {status ? (
           <span
@@ -51,7 +58,7 @@ const WatcherPage: React.FC<WatcherPageProps> = ({ blocks, chest, status, onClos
           <span className="rounded-md bg-neutral-950/80 px-2.5 py-1.5 text-neutral-200">
             {hover ??
               (blocks
-                ? 'Drag to orbit, scroll to zoom, right-drag to pan. Hover to see what something is.'
+                ? 'Click to walk there. Drag to orbit, scroll to zoom, right-drag to pan.'
                 : 'Waiting for the bot to spawn…')}
           </span>
         </div>

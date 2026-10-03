@@ -302,8 +302,13 @@ class PathfinderController {
       }
     }
 
+    // This go-to's own record; a newer go-to replaces it, and then this one must leave everything alone
+    // (its promise fails with GoalChanged as the new goal takes over).
+    const run = { target, goal: null, promise: null }
+    const isCurrent = () => this.activeGoTo === run
+
     const attemptGoal = (index) => {
-      if (!this.activeGoTo) {
+      if (!isCurrent()) {
         return Promise.resolve()
       }
 
@@ -313,10 +318,10 @@ class PathfinderController {
       }
 
       const { label, goal } = goalsToTry[index]
-      this.activeGoTo.goal = goal
+      run.goal = goal
 
       return this.bot.pathfinder.goto(goal).catch((error) => {
-        if (!this.activeGoTo || this.activeGoTo.goal !== goal) {
+        if (!isCurrent() || run.goal !== goal) {
           return Promise.reject(error)
         }
 
@@ -340,32 +345,28 @@ class PathfinderController {
       })
     }
 
-    this.activeGoTo = { target, goal: null, promise: null }
+    this.activeGoTo = run
 
-    const gotoPromise = new Promise((resolve, reject) => {
+    run.promise = new Promise((resolve, reject) => {
+      // Only the go-to that's still current cleans up; a replaced one would stop its successor.
+      const finish = () => {
+        if (!isCurrent()) return false
+        this.activeGoTo = null
+        this.bot?.pathfinder?.setGoal(null)
+        return true
+      }
       attemptGoal(0)
         .then((result) => {
-          if (this.activeGoTo) {
-            this.activeGoTo = null
-          }
+          finish()
           resolve(result)
         })
         .catch((error) => {
-          if (this.activeGoTo) {
-            this.activeGoTo = null
-          }
+          finish()
           reject(error)
         })
-        .finally(() => {
-          if (!this.activeGoTo && this.bot?.pathfinder) {
-            this.bot.pathfinder.setGoal(null)
-          }
-        })
     })
-
-    if (this.activeGoTo) {
-      this.activeGoTo.promise = gotoPromise
-    }
+    // Failures are expected (replaced, unreachable); nothing waits on this.
+    run.promise.catch(() => {})
   }
 
   _cancelGoTo(reason = 'cancel') {
@@ -391,9 +392,9 @@ class PathfinderController {
     this._clearGoal()
   }
 
-  _handlePathReset() {
-    this.activeGoTo = null
-  }
+  // The pathfinder re-plans on its own (new goal, blocks changing, getting stuck), so a go-to carries on
+  // through a reset.
+  _handlePathReset() {}
 
   _bindPathfinderEvents() {
     if (!this.bot?.pathfinder) {

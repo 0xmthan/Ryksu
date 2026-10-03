@@ -367,4 +367,4 @@ class BedController {
   }
 }
 
-module.exports = { BedController }
+module.exports = { BedController, canSleepNow }

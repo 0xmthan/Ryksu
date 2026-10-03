@@ -11,6 +11,7 @@ const { AutoShieldController } = require('./bot/plugins/autoShield')
 const { PathfinderController } = require('./bot/plugins/pathfinder')
 const { PvpController } = require('./bot/plugins/pvp')
 const { BehaviorManager } = require('./bot/plugins/behaviorManager')
+const { AutoSleep } = require('./bot/plugins/autoSleep')
 const { BedController } = require('./bot/plugins/bed')
 const { GestureController } = require('./bot/plugins/gestures')
 const { CreeperWatch } = require('./bot/plugins/creeperWatch')
@@ -62,6 +63,15 @@ class BotManager extends EventEmitter {
     this.bed = new BedController({
       pathfinder: this.pathfinder,
       isFollowing: () => this.behavior.getPathfinderOptions().followEnabled,
+    })
+    this.autoSleep = new AutoSleep({
+      bed: this.bed,
+      isBusy: () =>
+        this.behavior.getPathfinderOptions().followEnabled ||
+        this.mining.getState().active ||
+        this.creeperWatch.isFleeing() ||
+        Boolean(this.pvp.target),
+      onMessage: (text) => this.chat.pushSystemMessage(text),
     })
     this.mining = new MiningController({
       pathfinder: this.pathfinder,
@@ -187,6 +197,7 @@ class BotManager extends EventEmitter {
             this.pathfinder.detach()
             this.pvp.detach()
             this.bed.detach()
+            this.autoSleep.detach()
             this.gestures.detach()
             this.creeperWatch.detach()
             this.mining.detach()
@@ -248,6 +259,7 @@ class BotManager extends EventEmitter {
       this.pathfinder.attach(this.bot)
       this.pvp.attach(this.bot)
       this.bed.attach(this.bot)
+      this.autoSleep.attach(this.bot)
       this.gestures.attach(this.bot)
       this.creeperWatch.attach(this.bot)
       this.mining.attach(this.bot)
@@ -303,6 +315,7 @@ class BotManager extends EventEmitter {
           this.pathfinder.detach()
           this.pvp.detach()
           this.bed.detach()
+          this.autoSleep.detach()
           this.gestures.detach()
           this.creeperWatch.detach()
           this.mining.detach()
@@ -344,6 +357,7 @@ class BotManager extends EventEmitter {
     this.pathfinder.detach()
     this.pvp.detach()
     this.bed.detach()
+    this.autoSleep.detach()
     this.gestures.detach()
     this.creeperWatch.detach()
     this.mining.detach()

@@ -7,8 +7,10 @@ import { loadBlockAtlas, type BlockAtlas } from '../utils/blockAtlas'
 import { buildBlockMeshes } from '../utils/blockMesher'
 import { modeFor, type ViewMode } from '../utils/viewMode'
 import { createTracked, stepTracked, syncTracked, type Tracked } from './watcher/entityObjects'
+import { pickAt, walkTarget, type Pickable } from './watcher/picking'
 import { disposeObject, makeLabel } from './watcher/sceneUtils'
 import { createSky } from './watcher/sky'
+import { createWalkMarker } from './watcher/walkMarker'
 
 type Blocks = WorldView['blocks']
 
@@ -21,6 +23,8 @@ type Surroundings3DProps = {
   blocks: Blocks | null
   chest: { x: number; y: number; z: number } | null
   onHover: (text: string | null) => void
+  // A click (not a drag) on a block or mob: the world block the bot should walk to.
+  onWalkTo: (target: { x: number; y: number; z: number }) => void
   // Sizes the view; the canvas fills it.
   className?: string
 }
@@ -30,7 +34,7 @@ type SceneState = {
   anchor: THREE.Vector3 | null
   blockGroup: THREE.Group | null
   chestOutline: THREE.Object3D | null
-  pickable: { mesh: THREE.Mesh; quads: number[]; blocks: Blocks }[]
+  pickable: Pickable[]
   materials: { opaque: THREE.Material; translucent: THREE.Material; ghost: THREE.Material }
   mode: ViewMode
   // Bumped when the anchor moves, so blocks and the chest get placed again.
@@ -41,6 +45,7 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
   blocks,
   chest,
   onHover,
+  onWalkTo,
   className = 'mt-3 h-[360px] w-full',
 }) => {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -59,6 +64,8 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
   }, [])
   const onHoverRef = useRef(onHover)
   onHoverRef.current = onHover
+  const onWalkToRef = useRef(onWalkTo)
+  onWalkToRef.current = onWalkTo
 
   useEffect(() => {
     const container = containerRef.current
@@ -115,8 +122,9 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
     }
     stateRef.current = state
 
-    // The bot is drawn like any other player, plus a marker; the camera follows it.
+    // The bot is drawn like any other player; the camera follows it.
     let bot: Tracked | null = null
+    const walkMarker = createWalkMarker(scene)
     const north = makeLabel('N', '#f87171')
     scene.add(north)
     const entities = new Map<number, Tracked>()
@@ -147,6 +155,7 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
             object.position.add(shift)
           }
           controls.target.add(shift)
+          walkMarker.shift(shift)
           for (const entry of tracked) entry.target.add(shift)
         }
         state.anchorVersion++
@@ -209,6 +218,7 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
       for (const entry of entities.values()) {
         stepTracked(entry, blend, delta, now)
       }
+      walkMarker.update(now, bot ? bot.object.position : null)
 
       controls.update()
       renderer.render(scene, camera)
@@ -223,46 +233,50 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
     })
     resizeObserver.observe(container)
 
-    const raycaster = new THREE.Raycaster()
-    const pointer = new THREE.Vector2()
+    const pick = (event: PointerEvent) =>
+      state.anchor
+        ? pickAt(
+            event,
+            renderer.domElement,
+            camera,
+            [...(bot ? [bot.object] : []), ...[...entities.values()].map((entry) => entry.object)],
+            state.pickable,
+            state.anchor
+          )
+        : null
     const handlePointerMove = (event: PointerEvent) => {
-      const rect = renderer.domElement.getBoundingClientRect()
-      pointer.set(
-        ((event.clientX - rect.left) / rect.width) * 2 - 1,
-        -((event.clientY - rect.top) / rect.height) * 2 + 1
-      )
-      raycaster.setFromCamera(pointer, camera)
-      const targets: THREE.Object3D[] = [
-        ...(bot ? [bot.object] : []),
-        ...[...entities.values()].map((entry) => entry.object),
-        ...state.pickable.map((entry) => entry.mesh),
-      ]
-      const hit = raycaster.intersectObjects(targets, true)[0]
-      if (!hit) {
+      const picked = pick(event)
+      if (!picked) {
         onHoverRef.current(null)
+      } else if (picked.kind === 'block') {
+        const { x, y, z } = picked.position
+        onHoverRef.current(`${prettyName(picked.name)} at ${x} / ${y} / ${z} · click to walk here`)
+      } else {
+        onHoverRef.current(prettyName(picked.name))
+      }
+    }
+    // A click is a press and release without dragging (dragging orbits the camera).
+    let pressed: { x: number; y: number } | null = null
+    const handlePointerDown = (event: PointerEvent) => {
+      pressed = event.button === 0 ? { x: event.clientX, y: event.clientY } : null
+    }
+    const handlePointerUp = (event: PointerEvent) => {
+      const start = pressed
+      pressed = null
+      if (!start || event.button !== 0 || Math.hypot(event.clientX - start.x, event.clientY - start.y) > 5) {
         return
       }
-      const picked = state.pickable.find((entry) => entry.mesh === hit.object)
-      if (picked && hit.faceIndex != null) {
-        // Two triangles per quad.
-        const index = picked.quads[Math.floor(hit.faceIndex / 2)]
-        const { origin, palette, positions } = picked.blocks
-        onHoverRef.current(
-          `${prettyName(palette[picked.blocks.blocks[index]])} at ${origin.x + positions[index * 3]} / ${
-            origin.y + positions[index * 3 + 1]
-          } / ${origin.z + positions[index * 3 + 2]}`
-        )
-        return
-      }
-      let object: THREE.Object3D | null = hit.object
-      while (object && !object.userData.name) {
-        object = object.parent
-      }
-      onHoverRef.current(object ? prettyName(String(object.userData.name)) : null)
+      const picked = pick(event)
+      if (!picked || !state.anchor) return
+      const target = walkTarget(picked)
+      walkMarker.show(target.clone().sub(state.anchor), clock.elapsedTime)
+      onWalkToRef.current({ x: target.x, y: target.y, z: target.z })
     }
     const handlePointerLeave = () => onHoverRef.current(null)
     renderer.domElement.addEventListener('pointermove', handlePointerMove)
     renderer.domElement.addEventListener('pointerleave', handlePointerLeave)
+    renderer.domElement.addEventListener('pointerdown', handlePointerDown)
+    renderer.domElement.addEventListener('pointerup', handlePointerUp)
 
     return () => {
       cancelAnimationFrame(frame)
@@ -270,6 +284,8 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
       resizeObserver.disconnect()
       renderer.domElement.removeEventListener('pointermove', handlePointerMove)
       renderer.domElement.removeEventListener('pointerleave', handlePointerLeave)
+      renderer.domElement.removeEventListener('pointerdown', handlePointerDown)
+      renderer.domElement.removeEventListener('pointerup', handlePointerUp)
       controls.dispose()
       for (const child of [...scene.children]) {
         disposeObject(child)

@@ -48,17 +48,6 @@ export type Tracked = {
   look: string
 }
 
-// The bot gets a small marker floating above its head to tell it apart.
-const addBotMarker = (object: THREE.Object3D) => {
-  const marker = new THREE.Mesh(
-    new THREE.ConeGeometry(0.18, 0.35, 4),
-    new THREE.MeshBasicMaterial({ color: '#38bdf8' })
-  )
-  marker.rotation.x = Math.PI
-  marker.position.y = 2.35
-  object.add(marker)
-}
-
 const droppedItem = (name: string) => {
   const item = buildItemMesh(name)
   if (!item) return null
@@ -89,7 +78,6 @@ export const createTracked = (
   const model = buildEntityModel(entity)
   const spinner = !model && entity.kind === 'item' && entity.item ? droppedItem(entity.item) : null
   object.add(model?.root ?? spinner ?? placeholder(entity.kind))
-  if (options.bot) addBotMarker(object)
 
   object.position.copy(previous ? previous.object.position : target)
   object.rotation.y = previous ? previous.object.rotation.y : entity.yaw
