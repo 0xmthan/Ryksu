@@ -13,6 +13,7 @@ const { PvpController } = require('./bot/plugins/pvp')
 const { BehaviorManager } = require('./bot/plugins/behaviorManager')
 const { BedController } = require('./bot/plugins/bed')
 const { GestureController } = require('./bot/plugins/gestures')
+const { CreeperWatch } = require('./bot/plugins/creeperWatch')
 const MICROSOFT_LINK_URL = 'https://www.microsoft.com/link'
 const PLUGIN_PACKET_WARNING = 'The server or one of its plugins sent a packet Ryksu could not parse.'
 
@@ -38,7 +39,16 @@ class BotManager extends EventEmitter {
     this.autoTool = new AutoToolController()
     this.autoShield = new AutoShieldController()
     this.pathfinder = new PathfinderController()
-    this.pvp = new PvpController({ autoTool: this.autoTool, autoShield: this.autoShield })
+    this.creeperWatch = new CreeperWatch({
+      pathfinder: this.pathfinder,
+      onAlert: (message) => this.chat.pushSystemMessage(message),
+    })
+    this.pvp = new PvpController({
+      autoTool: this.autoTool,
+      autoShield: this.autoShield,
+      isFleeing: () => this.creeperWatch.isFleeing(),
+      onDefend: (mob) => this.chat.pushSystemMessage(`Attacked by ${mob.displayName ?? mob.name ?? 'a mob'}, fighting back.`),
+    })
     this.behavior = new BehaviorManager({ pathfinder: this.pathfinder, pvp: this.pvp })
     this.bed = new BedController({
       pathfinder: this.pathfinder,
@@ -164,6 +174,7 @@ class BotManager extends EventEmitter {
             this.pvp.detach()
             this.bed.detach()
             this.gestures.detach()
+            this.creeperWatch.detach()
           }
         }
       }
@@ -222,6 +233,7 @@ class BotManager extends EventEmitter {
       this.pvp.attach(this.bot)
       this.bed.attach(this.bot)
       this.gestures.attach(this.bot)
+      this.creeperWatch.attach(this.bot)
       this.behavior.applyCurrentState()
 
       const handleLogin = () => {
@@ -275,6 +287,7 @@ class BotManager extends EventEmitter {
           this.pvp.detach()
           this.bed.detach()
           this.gestures.detach()
+          this.creeperWatch.detach()
         }
         this.bot = null
         if (!settled) {
@@ -314,6 +327,7 @@ class BotManager extends EventEmitter {
     this.pvp.detach()
     this.bed.detach()
     this.gestures.detach()
+    this.creeperWatch.detach()
     this.bot.removeAllListeners()
     this.bot = null
     this.emit('status', { stage: 'disconnected', message: 'Bot disconnected.' })

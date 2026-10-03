@@ -14,6 +14,7 @@ class PathfinderController {
     this._handleGoalReached = this._handleGoalReached.bind(this)
     this._handlePathReset = this._handlePathReset.bind(this)
     this.allowBlockBreak = true
+    this.followPausedUntil = 0
   }
 
   attach(bot) {
@@ -81,6 +82,30 @@ class PathfinderController {
     }
 
     return this.getOptions()
+  }
+
+  // Let another behavior (e.g. fleeing a creeper) drive the bot for a moment without follow overriding it.
+  pauseFollow(ms) {
+    this.followPausedUntil = Date.now() + ms
+  }
+
+  resumeFollow() {
+    this.followPausedUntil = 0
+    this._applyFollowGoal()
+  }
+
+  setTemporaryGoal(goal) {
+    if (!this.bot || !this._ensurePlugin()) {
+      return false
+    }
+    this._cancelGoTo('replace-goal')
+    this.bot.pathfinder.setMovements(this.movements)
+    this.bot.pathfinder.setGoal(goal, true)
+    return true
+  }
+
+  clearTemporaryGoal() {
+    this.bot?.pathfinder?.setGoal(null)
   }
 
   goNear(position, range) {
@@ -160,7 +185,7 @@ class PathfinderController {
   }
 
   _applyFollowGoal() {
-    if (!this.bot?.pathfinder || !this.options.followEnabled) {
+    if (!this.bot?.pathfinder || !this.options.followEnabled || Date.now() < this.followPausedUntil) {
       return
     }
 

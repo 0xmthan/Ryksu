@@ -1,6 +1,9 @@
 const { pathfinder: pathfinderPlugin, Movements, goals } = require('mineflayer-pathfinder')
 const attackSpeeds = require('./attackSpeeds.json')
 
+// How long the bot keeps fighting back after a mob last hurt it.
+const DEFEND_DURATION_MS = 30000
+
 const DEFAULT_CONFIG = {
   viewDistance: 32,
   attackRange: 3.2,
@@ -10,7 +13,7 @@ const DEFAULT_CONFIG = {
 }
 
 class PvpController {
-  constructor({ autoTool, autoShield } = {}) {
+  constructor({ autoTool, autoShield, isFleeing, onDefend } = {}) {
     this.bot = null
     this.enabled = false
     this.movements = null
@@ -27,6 +30,11 @@ class PvpController {
     this.autoShield = autoShield ?? null
     this.jumpAttackEnabled = true
     this.jumpReleaseTimer = null
+    this.isFleeing = isFleeing ?? (() => false)
+    this.onDefend = onDefend ?? null
+    this.defendTarget = null
+    this.defendUntil = 0
+    this.hurtListener = null
   }
 
   attach(bot) {
@@ -37,13 +45,23 @@ class PvpController {
       this.tickListener = () => this._handleTick()
       this.bot.on('physicsTick', this.tickListener)
     }
+
+    if (!this.hurtListener) {
+      this.hurtListener = (entity, source) => this._handleHurt(entity, source)
+      this.bot.on('entityHurt', this.hurtListener)
+    }
   }
 
   detach() {
     if (this.bot && this.tickListener) {
       this.bot.removeListener('physicsTick', this.tickListener)
     }
+    if (this.bot && this.hurtListener) {
+      this.bot.removeListener('entityHurt', this.hurtListener)
+    }
     this.tickListener = null
+    this.hurtListener = null
+    this.defendTarget = null
     this._clearTarget()
     this.movements = null
     if (this.jumpReleaseTimer) {
@@ -170,9 +188,55 @@ class PvpController {
     return Boolean(this.bot.pathfinder)
   }
 
-  _handleTick() {
-    if (!this.enabled || !this.bot?.entity) {
+  // Fight back against any mob that hurts the bot, even when mob attacking is turned off.
+  _handleHurt(entity, source) {
+    if (!this.bot?.entity || entity !== this.bot.entity || !source || source === this.bot.entity) {
       return
+    }
+    if (source.type === 'player' || source.name === 'creeper') {
+      return
+    }
+    if (this.defendTarget !== source) {
+      this.onDefend?.(source)
+    }
+    this.defendTarget = source
+    this.defendUntil = Date.now() + DEFEND_DURATION_MS
+  }
+
+  _isDefending() {
+    const target = this.defendTarget
+    if (!target) {
+      return false
+    }
+    const distance = this.bot?.entity?.position?.distanceTo(target.position) ?? Infinity
+    if (!target.isValid || Date.now() > this.defendUntil || distance > this.config.viewDistance) {
+      this.defendTarget = null
+      return false
+    }
+    return true
+  }
+
+  _handleTick() {
+    if (!this.bot?.entity) {
+      return
+    }
+
+    // Running from a creeper owns the pathfinder; don't chase or clear its goal.
+    if (this.isFleeing()) {
+      this.isControllingPathfinder = false
+      return
+    }
+
+    const defending = this._isDefending()
+    if (!this.enabled && !defending) {
+      if (this.target) {
+        this._clearTarget()
+      }
+      return
+    }
+
+    if (defending && this.target !== this.defendTarget) {
+      this.target = this.defendTarget
     }
 
     if (this.cooldownTicks > 0) {
@@ -242,6 +306,10 @@ class PvpController {
       return false
     }
 
+    if (entity === this.defendTarget) {
+      return true
+    }
+
     // Check for player target
     if (
       this.playerEnabled &&
@@ -263,7 +331,6 @@ class PvpController {
           'zombie',
           'skeleton',
           'spider',
-          'creeper',
           'enderman',
           'witch',
           'blaze',
