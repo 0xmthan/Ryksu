@@ -3,6 +3,7 @@ const mineflayer = require('mineflayer')
 const { SUPPORTED_VERSIONS } = require('./bot/versions')
 const { normaliseError } = require('./bot/errors')
 const { ChatBridge } = require('./bot/chatBridge')
+const { attachPreJoinLogin } = require('./bot/preJoinLogin')
 const { ArmorManagerController } = require('./bot/plugins/armorManager')
 const { AutoEatController } = require('./bot/plugins/autoEat')
 const { AutoToolController } = require('./bot/plugins/autoTool')
@@ -52,6 +53,7 @@ class BotManager extends EventEmitter {
       password,
       version,
       offlinePassword,
+      preJoinLoginEnabled = false,
       armorManagerEnabled = false,
       autoEatEnabled = false,
       autoEatOptions = null,
@@ -127,10 +129,13 @@ class BotManager extends EventEmitter {
     return new Promise((resolve, reject) => {
       let settled = false
       let pluginPacketWarningShown = false
+      let detachPreJoinLogin = null
 
       const cleanup = (removePersistentHandlers = true) => {
         if (this.bot) {
           this.bot.removeListener('login', handleLogin)
+          detachPreJoinLogin?.()
+          detachPreJoinLogin = null
           if (removePersistentHandlers) {
             this.bot.removeListener('spawn', handleSpawn)
             this.bot.removeListener('health', handleHealth)
@@ -178,6 +183,12 @@ class BotManager extends EventEmitter {
       } catch (err) {
         rejectOnce(err)
         return
+      }
+
+      if (accountType === 'offline' && preJoinLoginEnabled) {
+        detachPreJoinLogin = attachPreJoinLogin(this.bot._client, offlinePassword, (message) =>
+          this.emit('status', { stage: 'connecting', message })
+        )
       }
 
       this.armorManager.attach(this.bot)

@@ -16,6 +16,7 @@ declare global {
           accountType: 'offline' | 'online'
           password?: string
           offlinePassword?: string
+          preJoinLoginEnabled?: boolean
           version?: string
           armorManagerEnabled?: boolean
           autoEatEnabled?: boolean

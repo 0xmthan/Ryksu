@@ -9,12 +9,14 @@ type UseConnectionPreferencesArgs = {
   username: string
   version: string
   offlinePassword: string
+  preJoinLoginEnabled: boolean
   setAccountType: Dispatch<SetStateAction<AccountType>>
   setHost: Dispatch<SetStateAction<string>>
   setPort: Dispatch<SetStateAction<string>>
   setUsername: Dispatch<SetStateAction<string>>
   setVersion: Dispatch<SetStateAction<string>>
   setOfflinePassword: Dispatch<SetStateAction<string>>
+  setPreJoinLoginEnabled: Dispatch<SetStateAction<boolean>>
 }
 
 const useConnectionPreferences = ({
@@ -24,12 +26,14 @@ const useConnectionPreferences = ({
   username,
   version,
   offlinePassword,
+  preJoinLoginEnabled,
   setAccountType,
   setHost,
   setPort,
   setUsername,
   setVersion,
   setOfflinePassword,
+  setPreJoinLoginEnabled,
 }: UseConnectionPreferencesArgs) => {
   const [hasLoadedPreferences, setHasLoadedPreferences] = useState(false)
   const [lastConnection, setLastConnection] = useState<LastConnectionType | null>(null)
@@ -57,6 +61,9 @@ const useConnectionPreferences = ({
         if (typeof parsed.offlinePassword === 'string') {
           setOfflinePassword(parsed.offlinePassword)
         }
+        if (typeof parsed.preJoinLoginEnabled === 'boolean') {
+          setPreJoinLoginEnabled(parsed.preJoinLoginEnabled)
+        }
 
         setLastConnection({
           host: parsed.host ?? 'localhost',
@@ -65,6 +72,7 @@ const useConnectionPreferences = ({
           accountType: (parsed.accountType as AccountType) ?? 'offline',
           version: parsed.version,
           offlinePassword: parsed.offlinePassword,
+          preJoinLoginEnabled: parsed.preJoinLoginEnabled,
         })
       }
     } catch (error) {
@@ -72,7 +80,7 @@ const useConnectionPreferences = ({
     } finally {
       setHasLoadedPreferences(true)
     }
-  }, [setAccountType, setHost, setOfflinePassword, setPort, setUsername, setVersion])
+  }, [setAccountType, setHost, setOfflinePassword, setPort, setPreJoinLoginEnabled, setUsername, setVersion])
 
   const persist = useCallback(() => {
     if (!hasLoadedPreferences) {
@@ -86,6 +94,7 @@ const useConnectionPreferences = ({
       accountType,
       version,
       offlinePassword: accountType === 'offline' ? offlinePassword : undefined,
+      preJoinLoginEnabled: accountType === 'offline' ? preJoinLoginEnabled : undefined,
     }
 
     try {
@@ -94,7 +103,7 @@ const useConnectionPreferences = ({
     } catch (error) {
       console.error('Failed to persist connection details', error)
     }
-  }, [accountType, hasLoadedPreferences, host, offlinePassword, port, username, version])
+  }, [accountType, hasLoadedPreferences, host, offlinePassword, port, preJoinLoginEnabled, username, version])
 
   return { lastConnection, persist, hasLoadedPreferences }
 }

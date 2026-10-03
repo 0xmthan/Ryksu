@@ -9,6 +9,7 @@ type ConnectionFormProps = {
   username: string
   onlinePassword: string
   offlinePassword: string
+  preJoinLoginEnabled: boolean
   version: string
   availableVersions: string[]
   lastConnection: LastConnection | null
@@ -18,6 +19,7 @@ type ConnectionFormProps = {
   onUsernameChange: (value: string) => void
   onOnlinePasswordChange: (value: string) => void
   onOfflinePasswordChange: (value: string) => void
+  onPreJoinLoginToggle: (enabled: boolean) => void
   onVersionChange: (value: string) => void
   onSubmit: React.FormEventHandler<HTMLFormElement>
   onCommitEdit: () => void
@@ -31,6 +33,7 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
   username,
   onlinePassword,
   offlinePassword,
+  preJoinLoginEnabled,
   version,
   availableVersions,
   lastConnection,
@@ -40,6 +43,7 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
   onUsernameChange,
   onOnlinePasswordChange,
   onOfflinePasswordChange,
+  onPreJoinLoginToggle,
   onVersionChange,
   onSubmit,
   onCommitEdit,
@@ -253,6 +257,18 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
                       text-neutral-100 transition focus:border-sky-500 focus:outline-none focus:ring-2
                       focus:ring-sky-500/40"
                   />
+                  <span className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={preJoinLoginEnabled}
+                      onChange={(event) => onPreJoinLoginToggle(event.target.checked)}
+                      className="h-4 w-4 accent-sky-500"
+                    />
+                    Log in on the server's login screen
+                  </span>
+                  <span className="text-xs text-neutral-500">
+                    For servers (like AuthMe) that show a login screen before you join.
+                  </span>
                 </label>
               ) : null}
 
@@ -301,6 +317,12 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
                 <dt className="text-xs uppercase tracking-[0.2em] text-neutral-500">Version</dt>
                 <dd className="font-medium text-neutral-100">{versionLabel}</dd>
               </div>
+              {accountType === 'offline' && preJoinLoginEnabled ? (
+                <div className="flex items-center justify-between gap-4">
+                  <dt className="text-xs uppercase tracking-[0.2em] text-neutral-500">Login Screen</dt>
+                  <dd className="font-medium text-neutral-100">Auto login</dd>
+                </div>
+              ) : null}
               {onlinePassword ? (
                 <div className="flex items-center justify-between gap-4">
                   <dt className="text-xs uppercase tracking-[0.2em] text-neutral-500">Microsoft Password</dt>

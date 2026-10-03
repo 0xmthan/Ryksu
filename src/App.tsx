@@ -26,6 +26,7 @@ const App: React.FC = () => {
   const [username, setUsername] = useState('')
   const [onlinePassword, setOnlinePassword] = useState('')
   const [offlinePassword, setOfflinePassword] = useState('')
+  const [preJoinLoginEnabled, setPreJoinLoginEnabled] = useState(false)
   const [status, setStatus] = useState<BotStatus>(null)
   const [botState, setBotState] = useState<BotSnapshot>({ connected: false })
   const isConnected = botState.connected
@@ -84,12 +85,14 @@ const App: React.FC = () => {
     username,
     version,
     offlinePassword,
+    preJoinLoginEnabled,
     setAccountType,
     setHost,
     setPort,
     setUsername,
     setVersion,
     setOfflinePassword,
+    setPreJoinLoginEnabled,
   })
 
   const handleTitleBarToggle = useCallback(() => {
@@ -126,6 +129,7 @@ const App: React.FC = () => {
       accountType: AccountType
       onlinePassword?: string
       offlinePassword?: string
+      preJoinLoginEnabled: boolean
       version: string
       armorManagerEnabled: boolean
       autoEatEnabled: boolean
@@ -150,6 +154,7 @@ const App: React.FC = () => {
         accountType: details.accountType,
         password: details.accountType === 'online' ? details.onlinePassword : undefined,
         offlinePassword: details.accountType === 'offline' ? details.offlinePassword : undefined,
+        preJoinLoginEnabled: details.accountType === 'offline' && details.preJoinLoginEnabled,
         version: details.version,
         armorManagerEnabled: details.armorManagerEnabled,
         autoEatEnabled: details.autoEatEnabled,
@@ -186,6 +191,7 @@ const App: React.FC = () => {
       accountType,
       onlinePassword,
       offlinePassword,
+      preJoinLoginEnabled,
       version,
       armorManagerEnabled,
       autoEatEnabled,
@@ -207,6 +213,7 @@ const App: React.FC = () => {
     offlinePassword,
     onlinePassword,
     persistCurrentConnection,
+    preJoinLoginEnabled,
     port,
     username,
     version,
@@ -515,6 +522,7 @@ const App: React.FC = () => {
             username={username}
             onlinePassword={onlinePassword}
             offlinePassword={offlinePassword}
+            preJoinLoginEnabled={preJoinLoginEnabled}
             version={version}
             availableVersions={availableVersions}
             lastConnection={lastConnection}
@@ -524,6 +532,7 @@ const App: React.FC = () => {
             onUsernameChange={setUsername}
             onOnlinePasswordChange={setOnlinePassword}
             onOfflinePasswordChange={setOfflinePassword}
+            onPreJoinLoginToggle={setPreJoinLoginEnabled}
             onVersionChange={setVersion}
             onSubmit={handleConnect}
             onCommitEdit={persistCurrentConnection}

@@ -35,6 +35,7 @@ export type LastConnection = {
   accountType: AccountType
   version?: string
   offlinePassword?: string
+  preJoinLoginEnabled?: boolean
 }
 
 export type ChatMessage = {
