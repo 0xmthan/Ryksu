@@ -1,3 +1,14 @@
+// node-rsa (used by minecraft-protocol) still calls `new Buffer()`. Node hides that warning for code in
+// node_modules, but webpack bundles it into our own file, so drop just that one. Must run before requiring it.
+const originalEmitWarning = process.emitWarning
+process.emitWarning = (warning, ...args) => {
+  const code = typeof args[0] === 'object' ? args[0]?.code : args[1]
+  if (code === 'DEP0005') {
+    return
+  }
+  return originalEmitWarning.call(process, warning, ...args)
+}
+
 const { app, BrowserWindow, ipcMain, shell } = require('electron')
 const { registerMinecraftIpc } = require('./mcBridge')
 
