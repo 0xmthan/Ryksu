@@ -14,6 +14,12 @@ const { BehaviorManager } = require('./bot/plugins/behaviorManager')
 const { BedController } = require('./bot/plugins/bed')
 const { GestureController } = require('./bot/plugins/gestures')
 const { CreeperWatch } = require('./bot/plugins/creeperWatch')
+const { MiningController } = require('./bot/plugins/mining')
+const { getWorldView, getMotion } = require('./bot/worldView')
+const { runInventoryAction } = require('./bot/inventoryActions')
+
+const WORLD_INTERVAL_MS = 500
+const MOTION_INTERVAL_MS = 100
 const MICROSOFT_LINK_URL = 'https://www.microsoft.com/link'
 const PLUGIN_PACKET_WARNING = 'The server or one of its plugins sent a packet Ryksu could not parse.'
 
@@ -22,9 +28,7 @@ const PHYSICS_HALF_WIDTH = 0.300001
 const isIgnorablePluginPacketError = (error) => {
   const message = typeof error?.message === 'string' ? error.message : typeof error === 'string' ? error : ''
   return (
-    message.includes('Chunk size is') &&
-    message.includes('partial packet') &&
-    message.includes('player_info')
+    message.includes('Chunk size is') && message.includes('partial packet') && message.includes('player_info')
   )
 }
 
@@ -33,6 +37,8 @@ class BotManager extends EventEmitter {
     super()
     this.bot = null
     this.stateInterval = null
+    this.worldInterval = null
+    this.motionInterval = null
     this.chat = new ChatBridge(this)
     this.armorManager = new ArmorManagerController()
     this.autoEat = new AutoEatController()
@@ -47,12 +53,20 @@ class BotManager extends EventEmitter {
       autoTool: this.autoTool,
       autoShield: this.autoShield,
       isFleeing: () => this.creeperWatch.isFleeing(),
-      onDefend: (mob) => this.chat.pushSystemMessage(`Attacked by ${mob.displayName ?? mob.name ?? 'a mob'}, fighting back.`),
+      onDefend: (mob) =>
+        this.chat.pushSystemMessage(`Attacked by ${mob.displayName ?? mob.name ?? 'a mob'}, fighting back.`),
     })
     this.behavior = new BehaviorManager({ pathfinder: this.pathfinder, pvp: this.pvp })
     this.bed = new BedController({
       pathfinder: this.pathfinder,
       isFollowing: () => this.behavior.getPathfinderOptions().followEnabled,
+    })
+    this.mining = new MiningController({
+      pathfinder: this.pathfinder,
+      autoTool: this.autoTool,
+      isBusy: () => this.creeperWatch.isFleeing() || Boolean(this.pvp.target),
+      onStop: (reason) => this.chat.pushSystemMessage(`Mining stopped: ${reason}`),
+      onUpdate: () => this._emitState(),
     })
     this.gestures = new GestureController({
       getTargetName: () => this.behavior.getPathfinderOptions().followTarget,
@@ -116,9 +130,7 @@ class BotManager extends EventEmitter {
         const userCode =
           typeof data?.user_code === 'string' && data.user_code.trim() ? data.user_code.trim() : ''
         const directVerificationUri =
-          typeof data?.message === 'string'
-            ? data.message.match(/https?:\/\/\S+/i)?.[0]?.trim()
-            : undefined
+          typeof data?.message === 'string' ? data.message.match(/https?:\/\/\S+/i)?.[0]?.trim() : undefined
 
         this.emit('status', {
           stage: 'auth-required',
@@ -175,6 +187,7 @@ class BotManager extends EventEmitter {
             this.bed.detach()
             this.gestures.detach()
             this.creeperWatch.detach()
+            this.mining.detach()
           }
         }
       }
@@ -234,6 +247,7 @@ class BotManager extends EventEmitter {
       this.bed.attach(this.bot)
       this.gestures.attach(this.bot)
       this.creeperWatch.attach(this.bot)
+      this.mining.attach(this.bot)
       this.behavior.applyCurrentState()
 
       const handleLogin = () => {
@@ -288,6 +302,7 @@ class BotManager extends EventEmitter {
           this.bed.detach()
           this.gestures.detach()
           this.creeperWatch.detach()
+          this.mining.detach()
         }
         this.bot = null
         if (!settled) {
@@ -328,6 +343,7 @@ class BotManager extends EventEmitter {
     this.bed.detach()
     this.gestures.detach()
     this.creeperWatch.detach()
+    this.mining.detach()
     this.bot.removeAllListeners()
     this.bot = null
     this.emit('status', { stage: 'disconnected', message: 'Bot disconnected.' })
@@ -356,6 +372,7 @@ class BotManager extends EventEmitter {
     return {
       connected: true,
       ...this.bed.getState(),
+      mining: this.mining.getState(),
       health,
       food,
       saturation,
@@ -383,6 +400,15 @@ class BotManager extends EventEmitter {
     this.stateInterval = setInterval(() => {
       this._emitState()
     }, 1000)
+    clearInterval(this.worldInterval)
+    this.worldInterval = setInterval(() => this._emitWorld(), WORLD_INTERVAL_MS)
+    clearInterval(this.motionInterval)
+    this.motionInterval = setInterval(() => {
+      const motion = getMotion(this.bot)
+      if (motion) {
+        this.emit('motion', motion)
+      }
+    }, MOTION_INTERVAL_MS)
   }
 
   _stopStateStream() {
@@ -390,6 +416,10 @@ class BotManager extends EventEmitter {
       clearInterval(this.stateInterval)
       this.stateInterval = null
     }
+    clearInterval(this.worldInterval)
+    this.worldInterval = null
+    clearInterval(this.motionInterval)
+    this.motionInterval = null
   }
 
   _emitState() {
@@ -399,6 +429,50 @@ class BotManager extends EventEmitter {
     }
 
     this.emit('state', snapshot)
+  }
+
+  // Inventory and blocks are heavier than positions, so they go out less often.
+  _emitWorld() {
+    try {
+      const view = getWorldView(this.bot)
+      if (view) {
+        this.emit('world', view)
+      }
+    } catch (error) {
+      console.error('[BotManager] Failed to build world view', error)
+    }
+  }
+
+  getWorldView() {
+    return getWorldView(this.bot)
+  }
+
+  async inventoryAction(action) {
+    await runInventoryAction(this.bot, action)
+    // Show the result right away instead of waiting for the next update.
+    this._emitWorld()
+  }
+
+  startMining(options) {
+    if (!this.bot) {
+      throw new Error('The bot is not connected.')
+    }
+    // Following would keep pulling the bot away from the ore.
+    if (this.behavior.getPathfinderOptions().followEnabled) {
+      this.emit('pathfinderOptions', this.behavior.setPathfinderOptions({ followEnabled: false }))
+    }
+    const state = this.mining.start(options || {})
+    this.chat.pushSystemMessage(
+      `Mining ${state.ores.join(', ')} and storing it in the chest at ${state.chest.x} ${state.chest.y} ${state.chest.z}.`
+    )
+    this._emitState()
+    return state
+  }
+
+  stopMining() {
+    const state = this.mining.stop()
+    this._emitState()
+    return state
   }
 
   getChatHistory() {

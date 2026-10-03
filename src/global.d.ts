@@ -1,4 +1,14 @@
-import type { ChatMessage, AutoEatOptions, PathfinderOptions, PvpOptions } from './types'
+import type {
+  ChatMessage,
+  AutoEatOptions,
+  BotSnapshot,
+  MiningState,
+  PathfinderOptions,
+  PvpOptions,
+  InventoryAction,
+  Motion,
+  WorldView,
+} from './types'
 
 export {}
 
@@ -27,50 +37,21 @@ declare global {
           pvp?: Partial<PvpOptions>
         }) => Promise<{ ok: boolean; message?: string }>
         disconnect: () => Promise<{ ok: boolean }>
-        getSnapshot: () => Promise<
-          | {
-              connected: true
-              isSleeping?: boolean
-              canSleep?: boolean
-              bedPickupPending?: boolean
-              health: number
-              food: number
-              saturation: number
-              position: { x: number; y: number; z: number } | null
-              xp: { level: number; points: number; progress: number }
-              ping: number | null
-            }
-          | { connected: false }
-        >
+        getSnapshot: () => Promise<BotSnapshot>
         getSupportedVersions: () => Promise<string[]>
         subscribe: () => void
-        onStatus: (callback: (status: {
-          stage: string
-          message?: string
-          microsoftAuth?: {
-            verificationUri: string
-            directVerificationUri?: string
-            userCode: string
-          }
-        }) => void) => () => void
-        onState: (
-          callback: (
-            state:
-              | {
-                  connected: true
-                  isSleeping?: boolean
-                  canSleep?: boolean
-                  bedPickupPending?: boolean
-                  health: number
-                  food: number
-                  saturation: number
-                  position: { x: number; y: number; z: number } | null
-                  xp: { level: number; points: number; progress: number }
-                  ping: number | null
-                }
-              | { connected: false }
-          ) => void
+        onStatus: (
+          callback: (status: {
+            stage: string
+            message?: string
+            microsoftAuth?: {
+              verificationUri: string
+              directVerificationUri?: string
+              userCode: string
+            }
+          }) => void
         ) => () => void
+        onState: (callback: (state: BotSnapshot) => void) => () => void
         onChat: (callback: (entry: ChatMessage) => void) => () => void
         onPathfinderOptions: (callback: (options: PathfinderOptions) => void) => () => void
         onChatHistory: (callback: (entries: ChatMessage[]) => void) => () => void
@@ -79,6 +60,16 @@ declare global {
         useBed: () => Promise<{ ok: boolean; sleeping?: boolean; message?: string }>
         pickUpBed: () => Promise<{ ok: boolean; message?: string }>
         dismissBedPickup: () => Promise<{ ok: boolean }>
+        startMining: (options: { ores: string[] }) => Promise<{
+          ok: boolean
+          state?: MiningState
+          message?: string
+        }>
+        stopMining: () => Promise<{ ok: boolean; state: MiningState }>
+        getWorldView: () => Promise<WorldView | null>
+        onWorld: (callback: (view: WorldView) => void) => () => void
+        inventoryAction: (action: InventoryAction) => Promise<{ ok: boolean; message?: string }>
+        onMotion: (callback: (motion: Motion) => void) => () => void
         setArmorManagerEnabled: (enabled: boolean) => Promise<{ ok: boolean; enabled: boolean }>
         setAutoEatEnabled: (enabled: boolean) => Promise<{ ok: boolean; enabled: boolean }>
         setAutoToolEnabled: (enabled: boolean) => Promise<{ ok: boolean; enabled: boolean }>

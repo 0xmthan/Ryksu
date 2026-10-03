@@ -109,13 +109,17 @@ class PathfinderController {
   }
 
   goNear(position, range) {
+    return this.goto(new goals.GoalNear(position.x, position.y, position.z, range))
+  }
+
+  goto(goal) {
     if (!this.bot || !this._ensurePlugin()) {
       return Promise.reject(new Error('Pathfinder is not available.'))
     }
 
     this._cancelGoTo('replace-goal')
     this.bot.pathfinder.setMovements(this.movements)
-    return this.bot.pathfinder.goto(new goals.GoalNear(position.x, position.y, position.z, range))
+    return this.bot.pathfinder.goto(goal)
   }
 
   _ensurePlugin() {

@@ -93,7 +93,7 @@ const SleepButton: React.FC<SleepButtonProps> = ({ isSleeping, canSleep, bedPick
             ? 'Wake up'
             : canSleep
               ? 'Sleep in the nearest bed (also sets spawn)'
-              : 'Set spawn at the nearest bed'
+              : 'Set spawn at the nearest bed, or place its own bed if there is none'
         }
         className="flex items-center gap-2 rounded-full border border-neutral-800 bg-neutral-900/70 px-4 py-2
           text-xs font-semibold text-neutral-200 transition hover:border-neutral-600 hover:text-sky-300

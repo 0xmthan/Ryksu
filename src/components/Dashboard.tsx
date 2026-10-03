@@ -1,10 +1,14 @@
-import React from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
+import { Backpack, Eye } from 'lucide-react'
 import ChatPanel from './ChatPanel'
+import InventoryPage from './InventoryPage'
+import MiningPanel from './MiningPanel'
+import WatcherPage from './WatcherPage'
 import LocationManager from './LocationManager'
 import SleepButton from './SleepButton'
 import StatsSummary from './StatsSummary'
 import { useSavedLocations } from '../hooks/useSavedLocations'
-import type { BotSnapshot, ChatMessage } from '../types'
+import type { BotSnapshot, ChatMessage, WorldView } from '../types'
 
 type ConnectedSnapshot = Extract<BotSnapshot, { connected: true }>
 
@@ -80,15 +84,47 @@ const Dashboard: React.FC<DashboardProps> = ({
   onPvpPlayerTargetChange,
 }) => {
   const { locations, saveLocation, deleteLocation } = useSavedLocations()
+  const [worldView, setWorldView] = useState<WorldView | null>(null)
+  const [page, setPage] = useState<'watcher' | 'inventory' | null>(null)
+  const closePage = useCallback(() => setPage(null), [])
+
+  useEffect(() => {
+    window.electronAPI.bot.getWorldView().then((view) => {
+      if (view) {
+        setWorldView(view)
+      }
+    })
+    return window.electronAPI.bot.onWorld(setWorldView)
+  }, [])
   const autoEatLabelId = 'dashboard-auto-eat-label'
   const pathfinderLabelId = 'dashboard-pathfinder-label'
 
+  if (page === 'watcher' && !showChat) {
+    return (
+      <WatcherPage
+        blocks={worldView?.blocks ?? null}
+        chest={snapshot.mining?.chest ?? null}
+        status={snapshot.mining?.active ? snapshot.mining.status : null}
+        onClose={closePage}
+      />
+    )
+  }
+
+  if (page === 'inventory' && !showChat) {
+    return <InventoryPage inventory={worldView?.inventory ?? null} onClose={closePage} />
+  }
+
   return (
     <div className="flex flex-1 flex-col bg-neutral-950/60 text-neutral-100">
-      <div className="flex items-center justify-between px-6 pt-6">
-        {!showChat ? <StatsSummary snapshot={snapshot} /> : null}
+      <div className={showChat ? undefined : 'flex items-start gap-4 p-4'}>
         {!showChat ? (
-          <div className="flex flex-wrap items-center justify-end gap-3">
+          <aside className="flex w-56 shrink-0 flex-col gap-3">
+            <StatsSummary snapshot={snapshot} />
+            <MiningPanel mining={snapshot.mining} />
+          </aside>
+        ) : null}
+        {!showChat ? (
+          <div className="flex min-w-0 flex-1 flex-wrap content-start items-center gap-2">
             <label
               className="flex items-center gap-2 rounded-full border border-neutral-800 bg-neutral-900/70 px-4
                 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-300"
@@ -263,6 +299,26 @@ const Dashboard: React.FC<DashboardProps> = ({
                 <span className="tracking-normal text-neutral-200">Enable</span>
               </label>
             </div>
+            <button
+              type="button"
+              onClick={() => setPage('watcher')}
+              className="flex items-center gap-2 rounded-full border border-neutral-800 bg-neutral-900/70 px-4
+                py-2 text-xs font-semibold text-neutral-200 transition hover:border-neutral-600
+                hover:text-sky-300"
+            >
+              <Eye className="h-4 w-4" />
+              Watcher
+            </button>
+            <button
+              type="button"
+              onClick={() => setPage('inventory')}
+              className="flex items-center gap-2 rounded-full border border-neutral-800 bg-neutral-900/70 px-4
+                py-2 text-xs font-semibold text-neutral-200 transition hover:border-neutral-600
+                hover:text-sky-300"
+            >
+              <Backpack className="h-4 w-4" />
+              Inventory
+            </button>
             <SleepButton
               isSleeping={Boolean(snapshot.isSleeping)}
               canSleep={Boolean(snapshot.canSleep)}

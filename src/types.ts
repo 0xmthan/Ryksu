@@ -18,6 +18,7 @@ export type BotSnapshot =
       isSleeping?: boolean
       canSleep?: boolean
       bedPickupPending?: boolean
+      mining?: MiningState
       health: number
       food: number
       saturation: number
@@ -87,4 +88,52 @@ export type PvpOptions = {
   mobMovementEnabled: boolean
   allowBlockBreak: boolean
   jumpAttackEnabled: boolean
+}
+
+export type MiningState = {
+  active: boolean
+  ores: string[]
+  chest: { x: number; y: number; z: number } | null
+  mined: number
+  deposited: number
+  status: string
+}
+
+export type InventoryItem = {
+  name: string
+  displayName: string
+  count: number
+} | null
+
+export type WorldView = {
+  inventory: {
+    main: InventoryItem[]
+    hotbar: InventoryItem[]
+    armor: { head: InventoryItem; torso: InventoryItem; legs: InventoryItem; feet: InventoryItem }
+    offhand: InventoryItem
+    selectedHotbar: number
+    freeSlots: number
+  }
+  blocks: {
+    // Changes whenever any block in the view changes.
+    key: string
+    origin: { x: number; y: number; z: number }
+    radius: number
+    palette: string[]
+    // Block positions relative to origin as flat [x, y, z, x, y, z, …], one palette index per block.
+    positions: number[]
+    blocks: number[]
+  }
+}
+
+export type InventoryAction =
+  | { type: 'move'; from: number; to: number }
+  | { type: 'drop'; slot: number; all: boolean }
+  | { type: 'hold'; slot: number }
+
+export type EntityKind = 'player' | 'hostile' | 'passive' | 'item'
+
+export type Motion = {
+  bot: { x: number; y: number; z: number; yaw: number }
+  entities: { id: number; kind: EntityKind; name: string; x: number; y: number; z: number; yaw: number }[]
 }

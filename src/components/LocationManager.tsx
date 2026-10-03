@@ -67,8 +67,7 @@ const LocationManager: React.FC<LocationManagerProps> = ({
     const location = savedLocations.find((loc) => loc.id === selectedLocationId)
     if (location) {
       onGoToLocation(location)
-      const initialDistance =
-        currentPosition != null ? distanceBetween(currentPosition, location) : null
+      const initialDistance = currentPosition != null ? distanceBetween(currentPosition, location) : null
       setActiveTravel({
         location,
         startDistance: initialDistance,
@@ -171,27 +170,26 @@ const LocationManager: React.FC<LocationManagerProps> = ({
         text-xs text-neutral-300"
       style={{ width: '18rem' }}
     >
-      <form onSubmit={handleSaveCurrentLocation} className="flex w-full flex-col gap-2">
+      <form onSubmit={handleSaveCurrentLocation} className="flex w-full items-center gap-2">
         <input
           aria-label="Location name"
           type="text"
           value={newLocationName}
           onChange={(e) => setNewLocationName(e.target.value)}
           placeholder="Location name"
-          className="w-full truncate rounded-md border border-neutral-700 bg-neutral-950/70 px-2 py-1 text-xs
-            text-neutral-100 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/30"
+          className="min-w-0 flex-1 truncate rounded-md border border-neutral-700 bg-neutral-950/70 px-2 py-1
+            text-xs text-neutral-100 focus:border-sky-500 focus:outline-none focus:ring-2
+            focus:ring-sky-500/30"
         />
-        <div className="flex items-center justify-between gap-2">
-          <button
-            type="submit"
-            disabled={!currentPosition || !newLocationName.trim()}
-            className="flex-0 rounded px-2 py-1 text-[0.68rem] uppercase tracking-[0.2em] text-sky-400
-              disabled:text-neutral-600"
-          >
-            Save Current
-          </button>
-          <div className="flex-1" />
-        </div>
+        <button
+          type="submit"
+          disabled={!currentPosition || !newLocationName.trim()}
+          title="Save the bot's current position"
+          className="shrink-0 rounded px-2 py-1 text-[0.68rem] uppercase tracking-[0.2em] text-sky-400
+            disabled:text-neutral-600"
+        >
+          Save
+        </button>
       </form>
 
       <div className="h-2" />
@@ -250,7 +248,9 @@ const LocationManager: React.FC<LocationManagerProps> = ({
             <button
               type="button"
               onClick={handleCancelTravel}
-              className="flex h-6 w-6 items-center justify-center rounded-full border border-neutral-700 text-neutral-400 transition hover:border-red-500 hover:text-red-400 focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-sky-400"
+              className="flex h-6 w-6 items-center justify-center rounded-full border border-neutral-700
+                text-neutral-400 transition hover:border-red-500 hover:text-red-400 focus-visible:outline
+                focus-visible:outline-offset-2 focus-visible:outline-sky-400"
               aria-label="Cancel travel"
             >
               &times;

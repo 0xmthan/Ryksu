@@ -31,6 +31,7 @@
     "@tailwindcss/postcss": "^4.3.3",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
+    "@types/three": "^0.186.0",
     "@vercel/webpack-asset-relocator-loader": "1.7.3",
     "autoprefixer": "^10.6.1",
     "css-loader": "^7.1.5",
@@ -40,6 +41,7 @@
     "eslint-plugin-prettier": "^5.5.6",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.1.1",
+    "minecraft-assets": "^1.19.0",
     "node-loader": "^2.1.0",
     "postcss": "^8.5.28",
     "postcss-loader": "^8.2.1",
@@ -63,6 +65,7 @@
     "prismarine-chat": "^1.13.0",
     "prismarine-nbt": "^2.8.0",
     "react": "^19.3.0",
-    "react-dom": "^19.3.0"
+    "react-dom": "^19.3.0",
+    "three": "^0.186.1"
   }
 }

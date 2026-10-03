@@ -101,10 +101,7 @@ class BedController {
     const bed = canSleepNow(bot) ? beds.find((block) => !this._isOccupied(block)) : beds[0]
     if (!bed) {
       if (this._bedItem()) {
-        if (canSleepNow(bot)) {
-          return this._placeBedAndSleep()
-        }
-        throw new Error(`No bed within ${BED_SEARCH_RADIUS} blocks. The bot only places its own bed at night.`)
+        return canSleepNow(bot) ? this._placeBedAndSleep() : this._placeBedAndSetSpawn()
       }
       throw new Error(beds.length ? 'Every bed nearby is occupied.' : `No bed within ${BED_SEARCH_RADIUS} blocks.`)
     }
@@ -117,9 +114,7 @@ class BedController {
 
     // Checked after walking, since night may have started (or ended) on the way.
     if (!canSleepNow(bot)) {
-      const confirmation = waitForSetSpawnMessage(bot)
-      await bot.activateBlock(bed)
-      const confirmed = await confirmation
+      const confirmed = await this._setSpawnAt(bed)
       return {
         sleeping: false,
         message: confirmed ? 'Spawn point set.' : 'Used the bed, but the server did not confirm the spawn point.',
@@ -172,7 +167,47 @@ class BedController {
     this.placedBed = null
   }
 
+  async _setSpawnAt(bed) {
+    const confirmation = waitForSetSpawnMessage(this.bot)
+    await this.bot.activateBlock(bed)
+    return confirmation
+  }
+
   async _placeBedAndSleep() {
+    const foot = await this._placeBed()
+
+    try {
+      await this._sleepWithRetry(foot)
+    } catch (error) {
+      // The bot won't sleep in it, so offer to pick it back up now.
+      this.pickupPending = true
+      throw toSleepError(error)
+    }
+
+    return { sleeping: true, message: 'Placed a bed and went to sleep.' }
+  }
+
+  // During the day a bed only sets the spawn point. The bed stays put, since breaking it would clear that spawn.
+  async _placeBedAndSetSpawn() {
+    const foot = await this._placeBed()
+    const bed = this.bot.blockAt(foot)
+    let confirmed = false
+    try {
+      confirmed = await this._setSpawnAt(bed)
+    } catch {
+      this.pickupPending = true
+      throw new Error('Placed a bed, but could not use it.')
+    }
+    this.placedBed = null
+    return {
+      sleeping: false,
+      message: confirmed
+        ? 'Placed a bed and set the spawn point there.'
+        : 'Placed a bed and used it, but the server did not confirm the spawn point.',
+    }
+  }
+
+  async _placeBed() {
     const bot = this._requireBot()
     const spot = this._findPlacementSpot()
     if (!spot) {
@@ -201,16 +236,7 @@ class BedController {
       this.pickupPending = true
       throw new Error('Placed the bed, but it did not finish appearing.')
     }
-
-    try {
-      await this._sleepWithRetry(spot.foot)
-    } catch (error) {
-      // The bot won't sleep in it, so offer to pick it back up now.
-      this.pickupPending = true
-      throw toSleepError(error)
-    }
-
-    return { sleeping: true, message: 'Placed a bed and went to sleep.' }
+    return spot.foot
   }
 
   async _sleepWithRetry(position) {

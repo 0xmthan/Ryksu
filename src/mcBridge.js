@@ -32,6 +32,14 @@ const registerMinecraftIpc = (ipcMain) => {
     emitToRenderer('bot:state', state)
   })
 
+  botManager.on('world', (view) => {
+    emitToRenderer('bot:world', view)
+  })
+
+  botManager.on('motion', (motion) => {
+    emitToRenderer('bot:motion', motion)
+  })
+
   botManager.on('pathfinderOptions', (options) => {
     emitToRenderer('bot:pathfinderOptions', options)
   })
@@ -103,6 +111,31 @@ const registerMinecraftIpc = (ipcMain) => {
   ipcMain.handle('bot:dismissBedPickup', () => {
     botManager.dismissBedPickup()
     return { ok: true }
+  })
+
+  ipcMain.handle('bot:startMining', (_event, options) => {
+    try {
+      return { ok: true, state: botManager.startMining(options) }
+    } catch (error) {
+      return { ok: false, message: error?.message || String(error) }
+    }
+  })
+
+  ipcMain.handle('bot:stopMining', () => {
+    return { ok: true, state: botManager.stopMining() }
+  })
+
+  ipcMain.handle('bot:inventoryAction', async (_event, action) => {
+    try {
+      await botManager.inventoryAction(action)
+      return { ok: true }
+    } catch (error) {
+      return { ok: false, message: error?.message || String(error) }
+    }
+  })
+
+  ipcMain.handle('bot:getWorldView', () => {
+    return botManager.getWorldView()
   })
 
   ipcMain.handle('bot:setArmorManagerEnabled', (_event, enabled) => {
