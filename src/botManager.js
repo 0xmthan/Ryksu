@@ -1,7 +1,7 @@
 const { EventEmitter } = require('node:events')
 const mineflayer = require('mineflayer')
 const { SUPPORTED_VERSIONS } = require('./bot/versions')
-const { normaliseError } = require('./bot/errors')
+const { kickReasonToText, normaliseError } = require('./bot/errors')
 const { ChatBridge } = require('./bot/chatBridge')
 const { attachPreJoinLogin } = require('./bot/preJoinLogin')
 const { ArmorManagerController } = require('./bot/plugins/armorManager')
@@ -214,7 +214,8 @@ class BotManager extends EventEmitter {
       const handleMove = () => this._emitState()
 
       const handleKicked = (reason, loggedIn) => {
-        const friendlyError = normaliseError(reason, botOptions)
+        const text = kickReasonToText(reason, this.bot?.registry)
+        const friendlyError = { message: text ? `Kicked: ${text}` : 'Kicked by the server.' }
         this.emit('status', { stage: 'kicked', message: friendlyError.message })
         if (!loggedIn) {
           rejectOnce(friendlyError, { emitStatus: false })

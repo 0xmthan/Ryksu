@@ -1,3 +1,18 @@
+const loadPrismarineChat = require('prismarine-chat')
+
+// Kick reasons arrive as chat components (JSON strings or NBT), not Error objects.
+const kickReasonToText = (reason, registry) => {
+  if (!reason || !registry) {
+    return typeof reason === 'string' ? reason : ''
+  }
+
+  try {
+    return loadPrismarineChat(registry).fromNotch(reason).toString().trim()
+  } catch {
+    return typeof reason === 'string' ? reason : ''
+  }
+}
+
 const describeConnectionTarget = (host, port) => {
   if (!host && !port) {
     return 'the server'
@@ -100,5 +115,6 @@ const normaliseError = (error, { host, port } = {}) => {
 }
 
 module.exports = {
+  kickReasonToText,
   normaliseError,
 }

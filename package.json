@@ -60,6 +60,7 @@
     "mineflayer-auto-eat": "^5.0.3",
     "mineflayer-pathfinder": "^2.4.5",
     "mineflayer-tool": "^1.2.0",
+    "prismarine-chat": "^1.13.0",
     "prismarine-nbt": "^2.8.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0"
