@@ -125,10 +125,12 @@ export type WorldView = {
     // Block positions relative to origin as flat [x, y, z, x, y, z, …], one palette index per block.
     positions: number[]
     blocks: number[]
-    // Per block: bits 0-5 = visible faces (up, down, north, south, west, east); bit 6 = top face shown
-    // only when blocks from roofCutoff up are hidden.
+    // Per block: bits 0-5 = visible faces (up, down, north, south, west, east), 6-8 = view mode hints
+    // (see src/utils/viewMode.ts).
     faces: number[]
     roofCutoff: number
+    // Where the bot is, for picking the view mode automatically.
+    environment: 'outside' | 'indoors' | 'cave'
   }
 }
 
@@ -139,24 +141,51 @@ export type InventoryAction =
 
 export type EntityKind = 'player' | 'hostile' | 'passive' | 'item'
 
+export type EquipmentSlot = 'mainhand' | 'offhand' | 'head' | 'chest' | 'legs' | 'feet'
+
+// A held or worn item; leather armor carries its dye.
+export type WornItem = { name: string; color?: string }
+
+// Where something is and how it's posed. swing and hurt count up with each arm swing and hit.
+export type EntityPose = {
+  x: number
+  y: number
+  z: number
+  yaw: number
+  headYaw: number
+  pitch: number
+  swing: number
+  hurt: number
+  dead?: boolean
+  // Sneaking (players), and sitting on command (cats, wolves, parrots).
+  crouching?: boolean
+  sitting?: boolean
+  equipment?: Partial<Record<EquipmentSlot, WornItem>>
+}
+
+export type MotionEntity = EntityPose & {
+  id: number
+  kind: EntityKind
+  type: string | null
+  item: string | null
+  name: string
+  baby?: boolean
+  // Texture variant (cat breed, horse color, …) and horse coat markings.
+  variant?: string
+  markings?: string
+  // Sheep wool color; null when sheared.
+  wool?: string | null
+  // Registry ids of the villager's biome type and profession.
+  villager?: { type: number; profession: number }
+  // Mojang skin URL for players.
+  skin?: string
+  // The skin is made for slim (3-pixel) arms.
+  slim?: boolean
+}
+
 export type Motion = {
-  bot: { x: number; y: number; z: number; yaw: number; skin: string | null; slim: boolean }
-  entities: {
-    id: number
-    kind: EntityKind
-    type: string | null
-    item: string | null
-    name: string
-    x: number
-    y: number
-    z: number
-    yaw: number
-    baby?: boolean
-    // Registry ids of the villager's biome type and profession.
-    villager?: { type: number; profession: number }
-    // Mojang skin URL for players.
-    skin?: string
-    // The skin is made for slim (3-pixel) arms.
-    slim?: boolean
-  }[]
+  // World time of day in ticks (0 sunrise, 6000 noon, 12000 sunset, 18000 midnight).
+  time: number
+  bot: EntityPose & { skin: string | null; slim: boolean }
+  entities: MotionEntity[]
 }

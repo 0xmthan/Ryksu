@@ -15,7 +15,9 @@ const { BedController } = require('./bot/plugins/bed')
 const { GestureController } = require('./bot/plugins/gestures')
 const { CreeperWatch } = require('./bot/plugins/creeperWatch')
 const { MiningController } = require('./bot/plugins/mining')
-const { getWorldView, getMotion } = require('./bot/worldView')
+const { getWorldView } = require('./bot/worldView')
+const { getMotion } = require('./bot/entityView')
+const { attachEntityTracking } = require('./bot/entityEvents')
 const { runInventoryAction } = require('./bot/inventoryActions')
 
 const WORLD_INTERVAL_MS = 500
@@ -238,6 +240,7 @@ class BotManager extends EventEmitter {
         )
       }
 
+      attachEntityTracking(this.bot)
       this.armorManager.attach(this.bot)
       this.autoEat.attach(this.bot)
       this.autoTool.attach(this.bot)

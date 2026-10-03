@@ -12,7 +12,6 @@ type WatcherPageProps = {
 
 const WatcherPage: React.FC<WatcherPageProps> = ({ blocks, chest, status, onClose }) => {
   const [hover, setHover] = useState<string | null>(null)
-  const [hideRoof, setHideRoof] = useState(true)
 
   useEffect(() => {
     const handleKey = (event: KeyboardEvent) => {
@@ -27,13 +26,7 @@ const WatcherPage: React.FC<WatcherPageProps> = ({ blocks, chest, status, onClos
   return (
     <div className="fixed inset-x-0 bottom-0 top-12 z-40 flex flex-col bg-neutral-950">
       <div className="relative min-h-0 flex-1">
-        <Surroundings3D
-          blocks={blocks}
-          chest={chest}
-          hideRoof={hideRoof}
-          onHover={setHover}
-          className="h-full w-full"
-        />
+        <Surroundings3D blocks={blocks} chest={chest} onHover={setHover} className="h-full w-full" />
         {/* Controls float over the view instead of taking a bar of their own. */}
         {status ? (
           <span
@@ -44,18 +37,6 @@ const WatcherPage: React.FC<WatcherPageProps> = ({ blocks, chest, status, onClos
           </span>
         ) : null}
         <div className="absolute right-3 top-3 flex items-center gap-2">
-          <label
-            className="flex cursor-pointer items-center gap-1.5 rounded-md bg-neutral-950/70 px-2.5 py-1
-              text-xs text-neutral-200"
-          >
-            <input
-              type="checkbox"
-              checked={hideRoof}
-              onChange={(event) => setHideRoof(event.target.checked)}
-              className="h-3.5 w-3.5 accent-sky-500"
-            />
-            Hide roof
-          </label>
           <button
             type="button"
             onClick={onClose}

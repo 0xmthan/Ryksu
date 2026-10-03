@@ -2,12 +2,13 @@ const { Vec3 } = require('vec3')
 const prismarineBlock = require('prismarine-block')
 // Blocks that are one solid 16³ cube in every state (generated from the block models).
 const FULL_CUBES = new Set(require('../generated/fullCubes.json'))
+const { analyzeView } = require('./viewModes')
 
 // Blocks around the bot for the 3D view: only blocks with a face touching air (or water, glass, …)
 // are sent, each with a mask of those faces, so buried blocks and hidden faces are never drawn.
-const VOXEL_RADIUS = 12
-const VOXEL_BELOW = 8
-const VOXEL_ABOVE = 6
+const VOXEL_RADIUS = 18
+const VOXEL_BELOW = 10
+const VOXEL_ABOVE = 20
 const EMPTY_BLOCKS = new Set(['air', 'cave_air', 'void_air', 'light'])
 // Face order shared with the renderer: up, down, north (-z), south (+z), west (-x), east (+x).
 const NEIGHBORS = [
@@ -18,11 +19,14 @@ const NEIGHBORS = [
   [-1, 0, 0],
   [1, 0, 0],
 ]
-// The renderer can hide blocks this high above the feet and up ("Hide roof"). The layer just below
-// then needs its top faces even where they are covered, so they get an extra bit in the mask.
+// The renderer can hide blocks this high above the feet and up (the roof indoors, the ceiling in caves).
+// Extra mask bits tell it which: the layer just below the cut needs its top faces even where covered
+// (CUT_TOP), roof hiding only applies over the bot's room (ROOM), and cave mode keeps only the blocks
+// around the air the bot can reach (SHELL). See viewModes.js.
 const ROOF_CUTOFF = 2
-const ROOF_FACE_BIT = 1 << 6
-const ENTITY_RANGE = 24
+const CUT_TOP_BIT = 1 << 6
+const ROOM_BIT = 1 << 7
+const SHELL_BIT = 1 << 8
 
 const ARMOR_SLOTS = { 5: 'head', 6: 'torso', 7: 'legs', 8: 'feet' }
 const OFFHAND_SLOT = 45
@@ -85,6 +89,16 @@ const stateInfo = (registry, stateId) => {
   return info
 }
 
+// Sky light at a spot, or null when the server hasn't sent light data.
+const skyLightAt = (bot, position) => {
+  try {
+    const light = bot.world.getSkyLight?.(position)
+    return typeof light === 'number' ? light : null
+  } catch {
+    return null
+  }
+}
+
 const getBlocks = (bot) => {
   const origin = bot.entity.position.floored()
   const width = VOXEL_RADIUS * 2 + 1
@@ -132,10 +146,22 @@ const getBlocks = (bot) => {
     }
   }
 
+  const roofLayer = VOXEL_BELOW + ROOF_CUTOFF - 1
+  const view = analyzeView({
+    grid,
+    occludes,
+    palette,
+    width,
+    height,
+    feetY: VOXEL_BELOW,
+    center: VOXEL_RADIUS,
+    cutoffY: roofLayer + 1,
+    skyLight: skyLightAt(bot, origin.offset(0, 1, 0)),
+  })
+
   const positions = []
   const blocks = []
   const faces = []
-  const roofLayer = VOXEL_BELOW + ROOF_CUTOFF - 1
   for (let y = 0; y < height; y++) {
     for (let z = 0; z < width; z++) {
       for (let x = 0; x < width; x++) {
@@ -160,9 +186,11 @@ const getBlocks = (bot) => {
           }
         })
         if (y === roofLayer && !(mask & 1)) {
-          mask |= ROOF_FACE_BIT
+          mask |= CUT_TOP_BIT
         }
         if (mask) {
+          if (view.inRoom(x, z)) mask |= ROOM_BIT
+          if (view.shell[cell]) mask |= SHELL_BIT
           positions.push(x - VOXEL_RADIUS, y - VOXEL_BELOW, z - VOXEL_RADIUS)
           blocks.push(index)
           faces.push(mask)
@@ -181,109 +209,12 @@ const getBlocks = (bot) => {
     origin: { x: origin.x, y: origin.y, z: origin.z },
     radius: VOXEL_RADIUS,
     roofCutoff: ROOF_CUTOFF,
+    environment: view.environment,
     palette,
     properties,
     positions,
     blocks,
     faces,
-  }
-}
-
-const entityKind = (entity) => {
-  if (entity.type === 'player') return 'player'
-  if (entity.name === 'item') return 'item'
-  if (entity.type === 'hostile') return 'hostile'
-  if (['mob', 'animal', 'passive', 'water_creature', 'ambient'].includes(entity.type)) return 'passive'
-  return null
-}
-
-const round = (value) => Math.round(value * 100) / 100
-
-// Where a mob's metadata keeps a given value (it shifts between versions), from minecraft-data.
-const metadataIndex = (registry, entityName, key) => {
-  const keys = registry.entitiesByName?.[entityName]?.metadataKeys
-  return Array.isArray(keys) ? keys.indexOf(key) : -1
-}
-const metadataValue = (bot, entity, key) => {
-  const index = metadataIndex(bot.registry, entity.name, key)
-  return index >= 0 ? entity.metadata?.[index] : undefined
-}
-
-// Only Mojang's skin server; the URL comes from the server, so nothing else gets fetched.
-const skinUrl = (player) => {
-  const url = player?.skinData?.url
-  return typeof url === 'string' && /^https?:\/\/textures\.minecraft\.net\//.test(url)
-    ? url.replace(/^http:/, 'https:')
-    : null
-}
-
-// Baby flag, villager outfit and player skin, for drawing the mob the way it looks in game.
-const appearance = (bot, entity, kind) => {
-  const result = {}
-  if (metadataValue(bot, entity, 'baby') === true) {
-    result.baby = true
-  }
-  const villager = metadataValue(bot, entity, 'villager_data')
-  if (villager && typeof villager === 'object') {
-    result.villager = { type: villager.villagerType ?? 0, profession: villager.villagerProfession ?? 0 }
-  }
-  if (kind === 'player') {
-    const player = bot.players?.[entity.username]
-    const skin = skinUrl(player)
-    if (skin) result.skin = skin
-    // Slim ("Alex") skins are drawn for 3-pixel-wide arms.
-    if (player?.skinData?.model === 'slim') result.slim = true
-  }
-  return result
-}
-
-// Positions of the bot and the things around it; sent often so the 3D view can move smoothly.
-const getMotion = (bot) => {
-  if (!bot?.entity) {
-    return null
-  }
-  const position = bot.entity.position
-  const entities = []
-  for (const entity of Object.values(bot.entities)) {
-    if (entity === bot.entity || !entity?.position || entity.position.distanceTo(position) > ENTITY_RANGE) {
-      continue
-    }
-    const kind = entityKind(entity)
-    if (!kind) {
-      continue
-    }
-    let item = null
-    if (kind === 'item') {
-      try {
-        item = entity.getDroppedItem?.()?.name ?? null
-      } catch {
-        // Metadata not in yet.
-      }
-    }
-    entities.push({
-      id: entity.id,
-      kind,
-      // Mob type (zombie, cow, …) for picking its model, and what a dropped item is.
-      type: entity.name ?? null,
-      item,
-      name: entity.username ?? entity.displayName ?? entity.name ?? kind,
-      x: round(entity.position.x),
-      y: round(entity.position.y),
-      z: round(entity.position.z),
-      yaw: round(entity.yaw ?? 0),
-      ...appearance(bot, entity, kind),
-    })
-  }
-  return {
-    bot: {
-      x: round(position.x),
-      y: round(position.y),
-      z: round(position.z),
-      yaw: round(bot.entity.yaw),
-      skin: skinUrl(bot.player),
-      slim: bot.player?.skinData?.model === 'slim',
-    },
-    entities,
   }
 }
 
@@ -297,4 +228,4 @@ const getWorldView = (bot) => {
   }
 }
 
-module.exports = { getWorldView, getMotion }
+module.exports = { getWorldView }
