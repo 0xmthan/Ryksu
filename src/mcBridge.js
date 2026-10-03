@@ -134,6 +134,30 @@ const registerMinecraftIpc = (ipcMain) => {
     }
   })
 
+  // Player skins for the watcher, fetched here since the page can't load other sites' images into WebGL.
+  const skinCache = new Map()
+  ipcMain.handle('bot:getSkin', async (_event, url) => {
+    if (typeof url !== 'string' || !/^https:\/\/textures\.minecraft\.net\/texture\/[0-9a-f]+$/i.test(url)) {
+      return null
+    }
+    if (!skinCache.has(url)) {
+      skinCache.set(
+        url,
+        fetch(url)
+          .then((response) =>
+            response.ok ? response.arrayBuffer() : Promise.reject(new Error(response.statusText))
+          )
+          .then((buffer) => `data:image/png;base64,${Buffer.from(buffer).toString('base64')}`)
+          .catch((error) => {
+            console.error('[Skins] Failed to fetch skin', error)
+            skinCache.delete(url)
+            return null
+          })
+      )
+    }
+    return skinCache.get(url)
+  })
+
   ipcMain.handle('bot:getWorldView', () => {
     return botManager.getWorldView()
   })

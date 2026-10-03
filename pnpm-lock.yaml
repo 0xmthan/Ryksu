@@ -38,6 +38,9 @@ importers:
       mineflayer-tool:
         specifier: ^1.2.0
         version: 1.2.0(encoding@0.1.13)(supports-color@8.1.1)
+      prismarine-block:
+        specifier: ^1.23.0
+        version: 1.23.0(supports-color@8.1.1)
       prismarine-chat:
         specifier: ^1.13.0
         version: 1.13.0(supports-color@8.1.1)

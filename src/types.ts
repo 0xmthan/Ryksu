@@ -120,9 +120,15 @@ export type WorldView = {
     origin: { x: number; y: number; z: number }
     radius: number
     palette: string[]
+    // Block state properties for each palette entry (facing, axis, half, …).
+    properties: Record<string, string | number | boolean>[]
     // Block positions relative to origin as flat [x, y, z, x, y, z, …], one palette index per block.
     positions: number[]
     blocks: number[]
+    // Per block: bits 0-5 = visible faces (up, down, north, south, west, east); bit 6 = top face shown
+    // only when blocks from roofCutoff up are hidden.
+    faces: number[]
+    roofCutoff: number
   }
 }
 
@@ -134,6 +140,23 @@ export type InventoryAction =
 export type EntityKind = 'player' | 'hostile' | 'passive' | 'item'
 
 export type Motion = {
-  bot: { x: number; y: number; z: number; yaw: number }
-  entities: { id: number; kind: EntityKind; name: string; x: number; y: number; z: number; yaw: number }[]
+  bot: { x: number; y: number; z: number; yaw: number; skin: string | null; slim: boolean }
+  entities: {
+    id: number
+    kind: EntityKind
+    type: string | null
+    item: string | null
+    name: string
+    x: number
+    y: number
+    z: number
+    yaw: number
+    baby?: boolean
+    // Registry ids of the villager's biome type and profession.
+    villager?: { type: number; profession: number }
+    // Mojang skin URL for players.
+    skin?: string
+    // The skin is made for slim (3-pixel) arms.
+    slim?: boolean
+  }[]
 }

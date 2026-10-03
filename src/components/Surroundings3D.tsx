@@ -2,13 +2,24 @@ import React, { useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import type { EntityKind, Motion, WorldView } from '../types'
-import { blockColor, prettyName } from '../utils/blockColors'
+import { prettyName } from '../utils/blockColors'
+import { buildBlockMeshes, loadBlockAtlas, type BlockAtlas } from '../utils/blockMesher'
+import {
+  animateWalk,
+  buildMobModel,
+  hasMobModel,
+  skinTexture,
+  villagerTexture,
+  type MobModel,
+} from '../utils/entityModels'
+import { itemIcon } from '../utils/itemIcons'
 
 type Blocks = WorldView['blocks']
 
-const LIQUIDS = new Set(['water', 'lava'])
-// With the roof hidden, blocks this high above the bot's feet and up are left out so caves stay visible.
-const ROOF_CUTOFF = 2
+const SKY = '#7ba4ff'
+// Distance fog in the sky color softens the hard edge where the loaded blocks end.
+const FOG_NEAR = 30
+const FOG_FAR = 70
 // How quickly shown positions catch up with the latest update (per second); higher is snappier.
 const FOLLOW_RATE = 12
 // Further than this in one update is a teleport, so jump instead of gliding.
@@ -30,7 +41,41 @@ const ENTITY_SIZES: Record<EntityKind, [number, number, number]> = {
   item: [0.3, 0.3, 0.3],
 }
 
-type Tracked = { object: THREE.Object3D; target: THREE.Vector3; yaw: number }
+type Tracked = {
+  object: THREE.Object3D
+  target: THREE.Vector3
+  yaw: number
+  // Mobs with a real model swing their limbs while moving.
+  model: MobModel | null
+  stride: number
+  walk: number
+  // What the entity looks like (type, baby, outfit, skin); the model is rebuilt when it changes.
+  look: string
+}
+
+const lookOf = (entity: Motion['entities'][number]) =>
+  [
+    entity.type,
+    entity.item,
+    entity.baby,
+    entity.villager?.type,
+    entity.villager?.profession,
+    entity.skin,
+    entity.slim,
+  ].join('|')
+
+// Puts a player's own skin on a model once the main process has fetched it.
+const applySkin = (model: MobModel, url: string) => {
+  window.electronAPI.bot
+    .getSkin(url)
+    .then((dataUrl) => {
+      if (dataUrl) {
+        model.material.map = skinTexture(dataUrl)
+        model.material.needsUpdate = true
+      }
+    })
+    .catch(() => {})
+}
 
 type Surroundings3DProps = {
   blocks: Blocks | null
@@ -47,7 +92,10 @@ const disposeObject = (root: THREE.Object3D) => {
     mesh.geometry?.dispose()
     const material = mesh.material as THREE.Material | THREE.Material[] | undefined
     for (const entry of Array.isArray(material) ? material : material ? [material] : []) {
-      ;(entry as THREE.SpriteMaterial).map?.dispose()
+      // Mob textures are cached and shared between mobs, so they stay.
+      if (!entry.userData.sharedMap) {
+        ;(entry as THREE.SpriteMaterial).map?.dispose()
+      }
       entry.dispose()
     }
   })
@@ -71,32 +119,78 @@ const makeLabel = (text: string, color: string) => {
   return sprite
 }
 
+// The bot is drawn as a player, with a small marker floating above its head to tell it apart.
 const makeBot = () => {
-  // A nose points where the bot looks. Yaw 0 faces north (-Z), same as three.js rotation.y.
   const bot = new THREE.Group()
-  const body = new THREE.Mesh(
-    new THREE.BoxGeometry(0.6, 1.8, 0.6),
-    new THREE.MeshLambertMaterial({ color: '#ffffff', emissive: '#334155' })
-  )
-  body.position.y = 0.9
-  const nose = new THREE.Mesh(
-    new THREE.ConeGeometry(0.22, 0.6, 12),
+  bot.userData.name = 'Bot'
+  const model = hasMobModel('player') ? buildMobModel('player') : null
+  if (model) {
+    bot.add(model.root)
+  } else {
+    const body = new THREE.Mesh(
+      new THREE.BoxGeometry(0.6, 1.8, 0.6),
+      new THREE.MeshLambertMaterial({ color: '#ffffff' })
+    )
+    body.position.y = 0.9
+    bot.add(body)
+  }
+  const marker = new THREE.Mesh(
+    new THREE.ConeGeometry(0.18, 0.35, 4),
     new THREE.MeshBasicMaterial({ color: '#38bdf8' })
   )
-  nose.rotation.x = -Math.PI / 2
-  nose.position.set(0, 1.5, -0.55)
-  bot.add(body, nose)
-  bot.userData.name = 'Bot'
-  return bot
+  marker.rotation.x = Math.PI
+  marker.position.y = 2.35
+  bot.add(marker)
+  return { object: bot, model }
 }
 
-const makeEntity = (kind: EntityKind, name: string) => {
-  const [width, height, depth] = ENTITY_SIZES[kind]
-  const geometry = new THREE.BoxGeometry(width, height, depth)
-  geometry.translate(0, height / 2, 0)
-  const mesh = new THREE.Mesh(geometry, new THREE.MeshLambertMaterial({ color: ENTITY_COLORS[kind] }))
-  mesh.userData.name = name
-  return mesh
+const itemSprite = (item: string) => {
+  const icon = itemIcon(item)
+  if (!icon) return null
+  // Block items show their side texture; the sprite always faces the camera like dropped items in game.
+  const texture = new THREE.TextureLoader().load(icon.kind === 'flat' ? icon.src : icon.faces[1].src)
+  texture.magFilter = THREE.NearestFilter
+  texture.colorSpace = THREE.SRGBColorSpace
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, alphaTest: 0.1 }))
+  sprite.scale.setScalar(0.4)
+  sprite.position.y = 0.25
+  return sprite
+}
+
+const makeEntity = (entity: Motion['entities'][number]) => {
+  const root = new THREE.Group()
+  root.userData.name = entity.item ?? entity.name
+  const model =
+    entity.kind !== 'item' && hasMobModel(entity.type)
+      ? buildMobModel(entity.type, { slim: entity.slim })
+      : null
+  const sprite = entity.kind === 'item' && entity.item ? itemSprite(entity.item) : null
+  if (model) {
+    root.add(model.root)
+    if (entity.baby) {
+      model.root.scale.setScalar(0.5)
+    }
+    if (entity.villager && entity.type) {
+      villagerTexture(entity.type, entity.villager)
+        .then((texture) => {
+          model.material.map = texture
+          model.material.needsUpdate = true
+        })
+        .catch(() => {})
+    }
+    if (entity.skin) {
+      applySkin(model, entity.skin)
+    }
+  } else if (sprite) {
+    root.add(sprite)
+  } else {
+    // Something without a model (or a mob newer than the generated ones): a colored box.
+    const [width, height, depth] = ENTITY_SIZES[entity.kind]
+    const geometry = new THREE.BoxGeometry(width, height, depth)
+    geometry.translate(0, height / 2, 0)
+    root.add(new THREE.Mesh(geometry, new THREE.MeshLambertMaterial({ color: ENTITY_COLORS[entity.kind] })))
+  }
+  return { object: root, model }
 }
 
 const shortestAngle = (from: number, to: number) => {
@@ -109,7 +203,8 @@ type SceneState = {
   anchor: THREE.Vector3 | null
   blockGroup: THREE.Group | null
   chestOutline: THREE.Object3D | null
-  pickable: { mesh: THREE.InstancedMesh; names: string[]; positions: THREE.Vector3[] }[]
+  pickable: { mesh: THREE.Mesh; quads: number[]; blocks: Blocks }[]
+  materials: { opaque: THREE.Material; translucent: THREE.Material }
   // Bumped when the anchor moves, so blocks and the chest get placed again.
   anchorVersion: number
 }
@@ -124,6 +219,17 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
   const containerRef = useRef<HTMLDivElement>(null)
   const stateRef = useRef<SceneState | null>(null)
   const [anchorVersion, setAnchorVersion] = useState(0)
+  const [atlas, setAtlas] = useState<BlockAtlas | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    loadBlockAtlas().then((loaded) => {
+      if (!cancelled) setAtlas(loaded)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
   const onHoverRef = useRef(onHover)
   onHoverRef.current = onHover
 
@@ -140,7 +246,8 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
     container.appendChild(renderer.domElement)
 
     const scene = new THREE.Scene()
-    scene.background = new THREE.Color('#0a0a0a')
+    scene.background = new THREE.Color(SKY)
+    scene.fog = new THREE.Fog(SKY, FOG_NEAR, FOG_FAR)
     scene.add(new THREE.AmbientLight(0xffffff, 1.6))
     const sun = new THREE.DirectionalLight(0xffffff, 1.8)
     sun.position.set(6, 12, 4)
@@ -162,12 +269,27 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
       chestOutline: null,
       pickable: [],
       anchorVersion: 0,
+      // Unlit: the side shading is baked into vertex colors, like the game's own block lighting.
+      materials: {
+        opaque: new THREE.MeshBasicMaterial({ vertexColors: true, alphaTest: 0.5 }),
+        translucent: new THREE.MeshBasicMaterial({
+          vertexColors: true,
+          transparent: true,
+          opacity: 0.75,
+          depthWrite: false,
+        }),
+      },
     }
     stateRef.current = state
 
-    const bot = makeBot()
+    const made = makeBot()
+    const bot = made.object
+    let botModel = made.model
     bot.visible = false
     scene.add(bot)
+    const botWalk = { stride: 0, walk: 0 }
+    let botSkin: string | null = null
+    let botSlim = false
     const botTarget = { position: new THREE.Vector3(), yaw: 0, seen: false }
     const north = makeLabel('N', '#f87171')
     scene.add(north)
@@ -193,6 +315,18 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
       const local = world.sub(state.anchor)
       botTarget.position.copy(local)
       botTarget.yaw = motion.bot.yaw
+      if (botModel && motion.bot.skin && motion.bot.skin !== botSkin) {
+        botSkin = motion.bot.skin
+        // Slim and wide skins need different arms, so swap the model before putting the skin on.
+        if (motion.bot.slim !== botSlim) {
+          botSlim = motion.bot.slim
+          const nextModel = buildMobModel('player', { slim: botSlim })
+          disposeObject(botModel.root)
+          bot.add(nextModel.root)
+          botModel = nextModel
+        }
+        applySkin(botModel, botSkin)
+      }
       if (!botTarget.seen) {
         botTarget.seen = true
         bot.visible = true
@@ -206,17 +340,21 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
       for (const entity of motion.entities) {
         seenIds.add(entity.id)
         const target = new THREE.Vector3(entity.x, entity.y, entity.z).sub(state.anchor)
+        const look = lookOf(entity)
         const existing = entities.get(entity.id)
-        if (existing) {
+        if (existing && existing.look === look) {
           existing.target.copy(target)
           existing.yaw = entity.yaw
           continue
         }
-        const object = makeEntity(entity.kind, entity.name)
-        object.position.copy(target)
-        object.rotation.y = entity.yaw
+        const { object, model } = makeEntity(entity)
+        object.position.copy(existing ? existing.object.position : target)
+        object.rotation.y = existing ? existing.object.rotation.y : entity.yaw
+        if (existing) {
+          disposeObject(existing.object)
+        }
         scene.add(object)
-        entities.set(entity.id, { object, target, yaw: entity.yaw })
+        entities.set(entity.id, { object, target, yaw: entity.yaw, model, stride: 0, walk: 0, look })
       }
       for (const [id, entry] of entities) {
         if (!seenIds.has(id)) {
@@ -227,13 +365,31 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
     }
     const unsubscribeMotion = window.electronAPI.bot.onMotion(handleMotion)
 
-    const glide = (object: THREE.Object3D, target: THREE.Vector3, yaw: number, blend: number) => {
+    const before = new THREE.Vector3()
+    // Moves an object toward its latest position and swings its limbs by how far it went.
+    const glide = (
+      object: THREE.Object3D,
+      target: THREE.Vector3,
+      yaw: number,
+      blend: number,
+      delta: number,
+      walker: { stride: number; walk: number },
+      model: MobModel | null
+    ) => {
+      before.copy(object.position)
       if (object.position.distanceTo(target) > SNAP_DISTANCE) {
         object.position.copy(target)
       } else {
         object.position.lerp(target, blend)
       }
       object.rotation.y += shortestAngle(object.rotation.y, yaw) * blend
+      if (model) {
+        const moved = Math.hypot(object.position.x - before.x, object.position.z - before.z)
+        const speed = delta > 0 && moved < SNAP_DISTANCE ? moved / delta : 0
+        walker.stride += moved < SNAP_DISTANCE ? moved * 3 : 0
+        walker.walk += (Math.min(1, speed / 3) - walker.walk) * blend
+        animateWalk(model, walker.stride, walker.walk)
+      }
     }
 
     const clock = new THREE.Clock()
@@ -241,11 +397,12 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
     let frame = 0
     const render = () => {
       frame = requestAnimationFrame(render)
-      const blend = 1 - Math.exp(-clock.getDelta() * FOLLOW_RATE)
+      const delta = clock.getDelta()
+      const blend = 1 - Math.exp(-delta * FOLLOW_RATE)
 
       if (botTarget.seen) {
         previousBot.copy(bot.position)
-        glide(bot, botTarget.position, botTarget.yaw, blend)
+        glide(bot, botTarget.position, botTarget.yaw, blend, delta, botWalk, botModel)
         // The camera rides along with the bot, keeping whatever angle the user orbited to.
         const moved = bot.position.clone().sub(previousBot)
         camera.position.add(moved)
@@ -253,7 +410,7 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
         north.position.set(bot.position.x, bot.position.y + 1, bot.position.z - 13.5)
       }
       for (const entry of entities.values()) {
-        glide(entry.object, entry.target, entry.yaw, blend)
+        glide(entry.object, entry.target, entry.yaw, blend, delta, entry, entry.model)
       }
 
       controls.update()
@@ -288,11 +445,15 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
         onHoverRef.current(null)
         return
       }
-      const block = state.pickable.find((entry) => entry.mesh === hit.object)
-      if (block && hit.instanceId !== undefined) {
-        const position = block.positions[hit.instanceId]
+      const picked = state.pickable.find((entry) => entry.mesh === hit.object)
+      if (picked && hit.faceIndex != null) {
+        // Two triangles per quad.
+        const index = picked.quads[Math.floor(hit.faceIndex / 2)]
+        const { origin, palette, positions } = picked.blocks
         onHoverRef.current(
-          `${prettyName(block.names[hit.instanceId])} at ${position.x} / ${position.y} / ${position.z}`
+          `${prettyName(palette[picked.blocks.blocks[index]])} at ${origin.x + positions[index * 3]} / ${
+            origin.y + positions[index * 3 + 1]
+          } / ${origin.z + positions[index * 3 + 2]}`
         )
         return
       }
@@ -316,6 +477,8 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
       for (const child of [...scene.children]) {
         disposeObject(child)
       }
+      state.materials.opaque.dispose()
+      state.materials.translucent.dispose()
       renderer.dispose()
       container.removeChild(renderer.domElement)
       stateRef.current = null
@@ -325,61 +488,42 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
   // Blocks only arrive a couple of times a second and are only rebuilt when something changed.
   useEffect(() => {
     const state = stateRef.current
-    if (!state?.anchor || !blocks) {
+    if (!state?.anchor || !blocks || !atlas) {
       return
     }
     if (state.blockGroup) {
-      disposeObject(state.blockGroup)
+      // The materials and atlas are shared across rebuilds; only the geometry is thrown away.
+      state.blockGroup.traverse((object) => (object as THREE.Mesh).geometry?.dispose())
+      state.blockGroup.removeFromParent()
     }
-    state.pickable = []
 
-    const { origin, palette, positions } = blocks
     const group = new THREE.Group()
-    group.position.set(origin.x - state.anchor.x, origin.y - state.anchor.y, origin.z - state.anchor.z)
-
-    const solids: { x: number; y: number; z: number; name: string }[] = []
-    const liquids: typeof solids = []
-    for (let i = 0; i < blocks.blocks.length; i++) {
-      const y = positions[i * 3 + 1]
-      if (hideRoof && y >= ROOF_CUTOFF) {
-        continue
+    group.position.set(
+      blocks.origin.x - state.anchor.x,
+      blocks.origin.y - state.anchor.y,
+      blocks.origin.z - state.anchor.z
+    )
+    for (const material of Object.values(state.materials) as THREE.MeshBasicMaterial[]) {
+      if (material.map !== atlas.texture) {
+        material.map = atlas.texture
+        material.needsUpdate = true
       }
-      const name = palette[blocks.blocks[i]]
-      const entry = { x: positions[i * 3], y, z: positions[i * 3 + 2], name }
-      ;(LIQUIDS.has(name) ? liquids : solids).push(entry)
     }
-
-    const matrix = new THREE.Matrix4()
-    const color = new THREE.Color()
-    const addBlocks = (list: typeof solids, material: THREE.Material) => {
-      if (list.length === 0) {
-        material.dispose()
-        return
-      }
-      const mesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), material, list.length)
-      list.forEach((block, index) => {
-        matrix.makeTranslation(block.x + 0.5, block.y + 0.5, block.z + 0.5)
-        mesh.setMatrixAt(index, matrix)
-        // A slight darkening with depth makes layers easier to tell apart.
-        const depthShade = Math.max(0.55, Math.min(1.1, 1 + block.y * 0.04))
-        mesh.setColorAt(index, color.set(blockColor(block.name)).multiplyScalar(depthShade))
-      })
-      group.add(mesh)
-      state.pickable.push({
-        mesh,
-        names: list.map((block) => block.name),
-        positions: list.map(
-          (block) => new THREE.Vector3(origin.x + block.x, origin.y + block.y, origin.z + block.z)
-        ),
-      })
-    }
-    addBlocks(solids, new THREE.MeshLambertMaterial())
-    addBlocks(liquids, new THREE.MeshLambertMaterial({ transparent: true, opacity: 0.55, depthWrite: false }))
+    const meshes = buildBlockMeshes(blocks, atlas, hideRoof)
+    const opaque = new THREE.Mesh(meshes.opaque, state.materials.opaque)
+    // Water draws after the solid blocks so they show through it.
+    const translucent = new THREE.Mesh(meshes.translucent, state.materials.translucent)
+    translucent.renderOrder = 1
+    group.add(opaque, translucent)
+    state.pickable = [
+      { mesh: opaque, quads: meshes.opaqueQuads, blocks },
+      { mesh: translucent, quads: meshes.translucentQuads, blocks },
+    ]
 
     state.scene.add(group)
     state.blockGroup = group
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [blocks?.key, hideRoof, anchorVersion])
+  }, [blocks?.key, hideRoof, anchorVersion, atlas])
 
   useEffect(() => {
     const state = stateRef.current

@@ -34,6 +34,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     startMining: (options) => ipcRenderer.invoke('bot:startMining', options),
     stopMining: () => ipcRenderer.invoke('bot:stopMining'),
     getWorldView: () => ipcRenderer.invoke('bot:getWorldView'),
+    getSkin: (url) => ipcRenderer.invoke('bot:getSkin', url),
     inventoryAction: (action) => ipcRenderer.invoke('bot:inventoryAction', action),
     onWorld: (callback) => registerListener('bot:world', callback),
     onMotion: (callback) => registerListener('bot:motion', callback),

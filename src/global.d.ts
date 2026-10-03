@@ -67,6 +67,8 @@ declare global {
         }>
         stopMining: () => Promise<{ ok: boolean; state: MiningState }>
         getWorldView: () => Promise<WorldView | null>
+        // A player skin as a data URL, or null if it couldn't be fetched.
+        getSkin: (url: string) => Promise<string | null>
         onWorld: (callback: (view: WorldView) => void) => () => void
         inventoryAction: (action: InventoryAction) => Promise<{ ok: boolean; message?: string }>
         onMotion: (callback: (motion: Motion) => void) => () => void
