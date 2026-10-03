@@ -72,6 +72,7 @@ declare global {
           ) => void
         ) => () => void
         onChat: (callback: (entry: ChatMessage) => void) => () => void
+        onPathfinderOptions: (callback: (options: PathfinderOptions) => void) => () => void
         onChatHistory: (callback: (entries: ChatMessage[]) => void) => () => void
         getChatHistory: () => Promise<ChatMessage[]>
         sendChat: (message: string) => Promise<{ ok: boolean; message?: string }>

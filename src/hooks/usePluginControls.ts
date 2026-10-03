@@ -245,6 +245,16 @@ const usePluginControls = () => {
     [persist]
   )
 
+  // The bot can change follow itself (in-game gesture), so mirror its state here.
+  useEffect(
+    () =>
+      window.electronAPI.bot.onPathfinderOptions((options) => {
+        setPathfinder(options)
+        persist({ pathfinder: options })
+      }),
+    [persist]
+  )
+
   const updatePathfinder = useCallback(
     async (next: PathfinderOptions) => {
       const previous = pathfinder

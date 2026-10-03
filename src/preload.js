@@ -24,6 +24,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onState: (callback) => registerListener('bot:state', callback),
     getSupportedVersions: () => ipcRenderer.invoke('bot:getSupportedVersions'),
     onChat: (callback) => registerListener('bot:chat', callback),
+    onPathfinderOptions: (callback) => registerListener('bot:pathfinderOptions', callback),
     onChatHistory: (callback) => registerListener('bot:chatHistory', callback),
     getChatHistory: () => ipcRenderer.invoke('bot:getChatHistory'),
     sendChat: (message) => ipcRenderer.invoke('bot:sendChat', message),

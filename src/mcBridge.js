@@ -32,6 +32,10 @@ const registerMinecraftIpc = (ipcMain) => {
     emitToRenderer('bot:state', state)
   })
 
+  botManager.on('pathfinderOptions', (options) => {
+    emitToRenderer('bot:pathfinderOptions', options)
+  })
+
   botManager.on('chat', (entry) => {
     emitToRenderer('bot:chat', entry)
   })

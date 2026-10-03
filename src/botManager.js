@@ -12,6 +12,7 @@ const { PathfinderController } = require('./bot/plugins/pathfinder')
 const { PvpController } = require('./bot/plugins/pvp')
 const { BehaviorManager } = require('./bot/plugins/behaviorManager')
 const { BedController } = require('./bot/plugins/bed')
+const { GestureController } = require('./bot/plugins/gestures')
 const MICROSOFT_LINK_URL = 'https://www.microsoft.com/link'
 const PLUGIN_PACKET_WARNING = 'The server or one of its plugins sent a packet Ryksu could not parse.'
 
@@ -42,6 +43,10 @@ class BotManager extends EventEmitter {
     this.bed = new BedController({
       pathfinder: this.pathfinder,
       isFollowing: () => this.behavior.getPathfinderOptions().followEnabled,
+    })
+    this.gestures = new GestureController({
+      getTargetName: () => this.behavior.getPathfinderOptions().followTarget,
+      onToggleFollow: () => this._toggleFollowFromGesture(),
     })
   }
 
@@ -158,6 +163,7 @@ class BotManager extends EventEmitter {
             this.pathfinder.detach()
             this.pvp.detach()
             this.bed.detach()
+            this.gestures.detach()
           }
         }
       }
@@ -215,6 +221,7 @@ class BotManager extends EventEmitter {
       this.pathfinder.attach(this.bot)
       this.pvp.attach(this.bot)
       this.bed.attach(this.bot)
+      this.gestures.attach(this.bot)
       this.behavior.applyCurrentState()
 
       const handleLogin = () => {
@@ -267,6 +274,7 @@ class BotManager extends EventEmitter {
           this.pathfinder.detach()
           this.pvp.detach()
           this.bed.detach()
+          this.gestures.detach()
         }
         this.bot = null
         if (!settled) {
@@ -305,6 +313,7 @@ class BotManager extends EventEmitter {
     this.pathfinder.detach()
     this.pvp.detach()
     this.bed.detach()
+    this.gestures.detach()
     this.bot.removeAllListeners()
     this.bot = null
     this.emit('status', { stage: 'disconnected', message: 'Bot disconnected.' })
@@ -392,6 +401,13 @@ class BotManager extends EventEmitter {
     const result = await this.bed.pickUpPlacedBed()
     this._emitState()
     return result
+  }
+
+  _toggleFollowFromGesture() {
+    const followEnabled = !this.behavior.getPathfinderOptions().followEnabled
+    const options = this.behavior.setPathfinderOptions({ followEnabled })
+    this.emit('pathfinderOptions', options)
+    this.chat.pushSystemMessage(`Follow turned ${followEnabled ? 'on' : 'off'} by gesture.`)
   }
 
   dismissBedPickup() {
