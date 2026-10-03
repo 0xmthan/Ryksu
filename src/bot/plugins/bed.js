@@ -3,6 +3,8 @@ const { Vec3 } = require('vec3')
 const BED_SEARCH_RADIUS = 32
 const SET_SPAWN_CONFIRM_TIMEOUT_MS = 3000
 const PICKUP_CONFIRM_TIMEOUT_MS = 2000
+const WAKE_CONFIRM_TIMEOUT_MS = 3000
+const WAKE_ACTION_NAMES = ['stop_sleeping', 'leave_bed']
 const PLACED_BED_TIMEOUT_MS = 2000
 const SLEEP_RETRY_DELAY_MS = 1000
 
@@ -83,7 +85,7 @@ class BedController {
     const bot = this._requireBot()
 
     if (bot.isSleeping) {
-      await bot.wake()
+      await this._wake()
       return { sleeping: false, message: 'Woke up.' }
     }
 
@@ -94,7 +96,9 @@ class BedController {
     // A new attempt replaces any pick-up question; it comes back when the bot wakes up.
     this.pickupPending = false
 
-    const bed = bot.findBlock({ matching: this._bedBlockIds(), maxDistance: BED_SEARCH_RADIUS })
+    const beds = this._nearbyBeds()
+    // At night only a free bed is useful; during the day any bed sets the spawn point.
+    const bed = canSleepNow(bot) ? beds.find((block) => !this._isOccupied(block)) : beds[0]
     if (!bed) {
       if (this._bedItem()) {
         if (canSleepNow(bot)) {
@@ -102,7 +106,7 @@ class BedController {
         }
         throw new Error(`No bed within ${BED_SEARCH_RADIUS} blocks. The bot only places its own bed at night.`)
       }
-      throw new Error(`No bed within ${BED_SEARCH_RADIUS} blocks.`)
+      throw new Error(beds.length ? 'Every bed nearby is occupied.' : `No bed within ${BED_SEARCH_RADIUS} blocks.`)
     }
 
     try {
@@ -123,8 +127,12 @@ class BedController {
     }
 
     try {
-      await bot.sleep(bed)
+      await bot.sleep(bot.blockAt(bed.position) ?? bed)
     } catch (error) {
+      // Someone got into the bed while the bot was walking there.
+      if (error?.message === 'the bed is occupied' && this._bedItem()) {
+        return this._placeBedAndSleep()
+      }
       throw toSleepError(error)
     }
 
@@ -220,6 +228,39 @@ class BedController {
     }
   }
 
+  // mineflayer's bot.wake() sends entity_action id 2, which hasn't been "leave bed" since 1.21.6 and is rejected by
+  // the newer name-based mapping, so look the action up by name when the protocol has one.
+  async _wake() {
+    const bot = this.bot
+    const actionType = bot.registry.protocol?.play?.toServer?.types?.packet_entity_action?.[1]?.find(
+      (field) => field.name === 'actionId'
+    )?.type
+    const mappings = Array.isArray(actionType) && actionType[0] === 'mapper' ? Object.values(actionType[1].mappings) : []
+    const wakeAction = WAKE_ACTION_NAMES.find((name) => mappings.includes(name))
+
+    const woke = new Promise((resolve) => {
+      const timeout = setTimeout(() => {
+        bot.removeListener('wake', handleWake)
+        resolve(false)
+      }, WAKE_CONFIRM_TIMEOUT_MS)
+      const handleWake = () => {
+        clearTimeout(timeout)
+        resolve(true)
+      }
+      bot.once('wake', handleWake)
+    })
+
+    if (wakeAction) {
+      bot._client.write('entity_action', { entityId: bot.entity.id, actionId: wakeAction, jumpBoost: 0 })
+    } else {
+      await bot.wake()
+    }
+
+    if (!(await woke)) {
+      throw new Error('The server did not let the bot out of bed.')
+    }
+  }
+
   _findPlacementSpot() {
     const bot = this.bot
     const origin = bot.entity.position.floored()
@@ -240,6 +281,26 @@ class BedController {
   _handleWake() {
     if (this.placedBed) {
       this.pickupPending = true
+    }
+  }
+
+  _nearbyBeds() {
+    const bot = this.bot
+    return bot
+      .findBlocks({ matching: this._bedBlockIds(), maxDistance: BED_SEARCH_RADIUS, count: 32 })
+      .map((position) => bot.blockAt(position))
+      .filter(Boolean)
+  }
+
+  _isOccupied(block) {
+    try {
+      const occupied = block.getProperties?.().occupied
+      if (occupied !== undefined) {
+        return occupied === true || occupied === 'true'
+      }
+      return Boolean(this.bot.parseBedMetadata(block)?.occupied)
+    } catch {
+      return false
     }
   }
 
