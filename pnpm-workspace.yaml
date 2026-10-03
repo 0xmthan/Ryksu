@@ -1,0 +1,10 @@
+nodeLinker: hoisted
+
+allowBuilds:
+  electron: true
+  electron-winstaller: true
+  fs-xattr: true
+  macos-alias: true
+
+overrides:
+  minecraft-data: ^3.117.0

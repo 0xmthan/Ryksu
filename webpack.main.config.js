@@ -1,3 +1,5 @@
+const { IgnorePlugin } = require('webpack')
+
 module.exports = {
   /**
    * This is the main entry point for your application, it's the first file
@@ -11,4 +13,12 @@ module.exports = {
   module: {
     rules: require('./webpack.rules'),
   },
+  plugins: [
+    // minecraft-data ships every Bedrock version's data behind lazy getters; we only
+    // connect to Java servers, so skip bundling it (keeps bedrock/common, which is loaded eagerly)
+    new IgnorePlugin({
+      resourceRegExp: /\/data\/bedrock\/(?!common\/)/,
+      contextRegExp: /minecraft-data$/,
+    }),
+  ],
 }
