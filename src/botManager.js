@@ -15,6 +15,8 @@ const { BedController } = require('./bot/plugins/bed')
 const MICROSOFT_LINK_URL = 'https://www.microsoft.com/link'
 const PLUGIN_PACKET_WARNING = 'The server or one of its plugins sent a packet Ryksu could not parse.'
 
+const PHYSICS_HALF_WIDTH = 0.300001
+
 const isIgnorablePluginPacketError = (error) => {
   const message = typeof error?.message === 'string' ? error.message : typeof error === 'string' ? error : ''
   return (
@@ -190,6 +192,15 @@ class BotManager extends EventEmitter {
         rejectOnce(err)
         return
       }
+
+      // prismarine-physics stops the bot exactly flush against block faces. Paper treats a flush hitbox as
+      // colliding and pulls the bot back, so it can't jump up 1-block steps. A hair wider collision box
+      // keeps it just off the face (the server still sees a normal 0.6 wide player).
+      this.bot.once('login', () => {
+        if (this.bot?.physics) {
+          this.bot.physics.playerHalfWidth = PHYSICS_HALF_WIDTH
+        }
+      })
 
       if (accountType === 'offline' && preJoinLoginEnabled) {
         detachPreJoinLogin = attachPreJoinLogin(this.bot._client, offlinePassword, (message) =>
