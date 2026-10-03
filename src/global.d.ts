@@ -30,6 +30,9 @@ declare global {
         getSnapshot: () => Promise<
           | {
               connected: true
+              isSleeping?: boolean
+              canSleep?: boolean
+              bedPickupPending?: boolean
               health: number
               food: number
               saturation: number
@@ -55,6 +58,9 @@ declare global {
             state:
               | {
                   connected: true
+                  isSleeping?: boolean
+                  canSleep?: boolean
+                  bedPickupPending?: boolean
                   health: number
                   food: number
                   saturation: number
@@ -69,6 +75,9 @@ declare global {
         onChatHistory: (callback: (entries: ChatMessage[]) => void) => () => void
         getChatHistory: () => Promise<ChatMessage[]>
         sendChat: (message: string) => Promise<{ ok: boolean; message?: string }>
+        useBed: () => Promise<{ ok: boolean; sleeping?: boolean; message?: string }>
+        pickUpBed: () => Promise<{ ok: boolean; message?: string }>
+        dismissBedPickup: () => Promise<{ ok: boolean }>
         setArmorManagerEnabled: (enabled: boolean) => Promise<{ ok: boolean; enabled: boolean }>
         setAutoEatEnabled: (enabled: boolean) => Promise<{ ok: boolean; enabled: boolean }>
         setAutoToolEnabled: (enabled: boolean) => Promise<{ ok: boolean; enabled: boolean }>

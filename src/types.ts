@@ -15,6 +15,9 @@ export type BotStatus = BotStatusPayload | null
 export type BotSnapshot =
   | {
       connected: true
+      isSleeping?: boolean
+      canSleep?: boolean
+      bedPickupPending?: boolean
       health: number
       food: number
       saturation: number

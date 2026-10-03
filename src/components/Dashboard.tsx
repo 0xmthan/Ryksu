@@ -1,6 +1,7 @@
 import React from 'react'
 import ChatPanel from './ChatPanel'
 import LocationManager from './LocationManager'
+import SleepButton from './SleepButton'
 import StatsSummary from './StatsSummary'
 import { useSavedLocations } from '../hooks/useSavedLocations'
 import type { BotSnapshot, ChatMessage } from '../types'
@@ -262,6 +263,11 @@ const Dashboard: React.FC<DashboardProps> = ({
                 <span className="tracking-normal text-neutral-200">Enable</span>
               </label>
             </div>
+            <SleepButton
+              isSleeping={Boolean(snapshot.isSleeping)}
+              canSleep={Boolean(snapshot.canSleep)}
+              bedPickupPending={Boolean(snapshot.bedPickupPending)}
+            />
             <LocationManager
               currentPosition={snapshot.position}
               savedLocations={locations}

@@ -78,6 +78,29 @@ const registerMinecraftIpc = (ipcMain) => {
     }
   })
 
+  ipcMain.handle('bot:useBed', async () => {
+    try {
+      const result = await botManager.useNearestBed()
+      return { ok: true, ...result }
+    } catch (error) {
+      return { ok: false, message: error?.message || String(error) }
+    }
+  })
+
+  ipcMain.handle('bot:pickUpBed', async () => {
+    try {
+      const result = await botManager.pickUpBed()
+      return { ok: true, ...result }
+    } catch (error) {
+      return { ok: false, message: error?.message || String(error) }
+    }
+  })
+
+  ipcMain.handle('bot:dismissBedPickup', () => {
+    botManager.dismissBedPickup()
+    return { ok: true }
+  })
+
   ipcMain.handle('bot:setArmorManagerEnabled', (_event, enabled) => {
     const result = botManager.setArmorManagerEnabled(enabled)
     return { ok: true, enabled: result }

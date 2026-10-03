@@ -11,6 +11,7 @@ const { AutoShieldController } = require('./bot/plugins/autoShield')
 const { PathfinderController } = require('./bot/plugins/pathfinder')
 const { PvpController } = require('./bot/plugins/pvp')
 const { BehaviorManager } = require('./bot/plugins/behaviorManager')
+const { BedController } = require('./bot/plugins/bed')
 const MICROSOFT_LINK_URL = 'https://www.microsoft.com/link'
 const PLUGIN_PACKET_WARNING = 'The server or one of its plugins sent a packet Ryksu could not parse.'
 
@@ -36,6 +37,10 @@ class BotManager extends EventEmitter {
     this.pathfinder = new PathfinderController()
     this.pvp = new PvpController({ autoTool: this.autoTool, autoShield: this.autoShield })
     this.behavior = new BehaviorManager({ pathfinder: this.pathfinder, pvp: this.pvp })
+    this.bed = new BedController({
+      pathfinder: this.pathfinder,
+      isFollowing: () => this.behavior.getPathfinderOptions().followEnabled,
+    })
   }
 
   getSupportedVersions() {
@@ -150,6 +155,7 @@ class BotManager extends EventEmitter {
             this.autoShield.detach()
             this.pathfinder.detach()
             this.pvp.detach()
+            this.bed.detach()
           }
         }
       }
@@ -197,6 +203,7 @@ class BotManager extends EventEmitter {
       this.autoShield.attach(this.bot)
       this.pathfinder.attach(this.bot)
       this.pvp.attach(this.bot)
+      this.bed.attach(this.bot)
       this.behavior.applyCurrentState()
 
       const handleLogin = () => {
@@ -248,6 +255,7 @@ class BotManager extends EventEmitter {
           this.autoShield.detach()
           this.pathfinder.detach()
           this.pvp.detach()
+          this.bed.detach()
         }
         this.bot = null
         if (!settled) {
@@ -285,6 +293,7 @@ class BotManager extends EventEmitter {
     this.autoShield.detach()
     this.pathfinder.detach()
     this.pvp.detach()
+    this.bed.detach()
     this.bot.removeAllListeners()
     this.bot = null
     this.emit('status', { stage: 'disconnected', message: 'Bot disconnected.' })
@@ -312,6 +321,7 @@ class BotManager extends EventEmitter {
 
     return {
       connected: true,
+      ...this.bed.getState(),
       health,
       food,
       saturation,
@@ -359,6 +369,23 @@ class BotManager extends EventEmitter {
 
   getChatHistory() {
     return this.chat.getHistory()
+  }
+
+  async useNearestBed() {
+    const result = await this.bed.useNearestBed()
+    this._emitState()
+    return result
+  }
+
+  async pickUpBed() {
+    const result = await this.bed.pickUpPlacedBed()
+    this._emitState()
+    return result
+  }
+
+  dismissBedPickup() {
+    this.bed.dismissPickup()
+    this._emitState()
   }
 
   sendChat(message) {
