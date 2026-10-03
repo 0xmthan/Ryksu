@@ -19,6 +19,46 @@ const findSubmitAction = (value) => {
   return null
 }
 
+const writeVarInt = (value) => {
+  const bytes = []
+  do {
+    let byte = value & 0x7f
+    value >>>= 7
+    if (value !== 0) {
+      byte |= 0x80
+    }
+    bytes.push(byte)
+  } while (value !== 0)
+  return Buffer.from(bytes)
+}
+
+// minecraft-data defines the payload as a boolean-prefixed optional NBT, but the game expects a
+// VarInt length prefix (PrismarineJS/minecraft-data#1222). Patch the bytes while that schema is in use.
+const hasBooleanPrefixedPayload = (client) => {
+  try {
+    const { types } = require('minecraft-data')(client.version).protocol
+    const fields = types.packet_common_custom_click_action?.[1] ?? []
+    const payload = fields.find((field) => field.name === 'nbt')
+    return JSON.stringify(payload?.type) === JSON.stringify(['option', 'anonymousNbt'])
+  } catch {
+    return false
+  }
+}
+
+const writeCustomClick = (client, id, payload) => {
+  if (!hasBooleanPrefixedPayload(client)) {
+    client.write('custom_click_action', { id, nbt: payload })
+    return
+  }
+
+  const withPayload = client.serializer.createPacketBuffer({ name: 'custom_click_action', params: { id, nbt: payload } })
+  const withoutPayload = client.serializer.createPacketBuffer({ name: 'custom_click_action', params: { id } })
+  // Both buffers share the packet id and action id; they differ only after the optional's boolean byte.
+  const head = withoutPayload.subarray(0, withoutPayload.length - 1)
+  const nbtBytes = withPayload.subarray(withoutPayload.length)
+  client.writeRaw(Buffer.concat([head, writeVarInt(nbtBytes.length), nbtBytes]))
+}
+
 const getInputKeys = (dialog) =>
   (Array.isArray(dialog?.inputs) ? dialog.inputs : [])
     .map((input) => input?.key)
@@ -68,7 +108,7 @@ const attachPreJoinLogin = (client, password, onStatus) => {
       values[key] = nbt.string(password)
     }
 
-    client.write('custom_click_action', { id: action, nbt: nbt.comp(values) })
+    writeCustomClick(client, action, nbt.comp(values))
     onStatus(isRegister ? 'Registering on the server login screen…' : 'Logging in on the server login screen…')
   }
 
