@@ -37,7 +37,8 @@ export const REPLACEABLE_BLOCKS = new Set([
 export const isLiquid = (name: string) => name === 'water' || name === 'lava' || name === 'bubble_column'
 
 // `entities` are scene objects tagged with userData.name; `anchor` turns scene positions into world ones.
-// `skipBlock` looks past blocks it returns true for (build mode breaking through water).
+// `skipBlock` looks past blocks it returns true for (build mode breaking through water), `skipCell` past
+// blocks at world positions it returns true for (blocks shown as a hologram so the bot shows).
 export const pickAt = (
   event: { clientX: number; clientY: number },
   element: HTMLElement,
@@ -45,7 +46,8 @@ export const pickAt = (
   entities: THREE.Object3D[],
   pickable: Pickable[],
   anchor: THREE.Vector3,
-  skipBlock?: (name: string) => boolean
+  skipBlock?: (name: string) => boolean,
+  skipCell?: (position: THREE.Vector3) => boolean
 ): Pick | null => {
   const rect = element.getBoundingClientRect()
   pointer.set(
@@ -55,7 +57,7 @@ export const pickAt = (
   raycaster.setFromCamera(pointer, camera)
   for (const hit of raycaster.intersectObjects([...entities, ...pickable.map((entry) => entry.mesh)], true)) {
     const result = toPick(hit, pickable, anchor)
-    if (result?.kind === 'block' && skipBlock?.(result.name)) continue
+    if (result?.kind === 'block' && (skipBlock?.(result.name) || skipCell?.(result.position))) continue
     return result
   }
   return null
@@ -103,3 +105,37 @@ export const walkTarget = (pick: Pick) =>
   pick.kind === 'entity'
     ? pick.position.clone().floor()
     : pick.position.clone().add(pick.normal.y > 0.5 ? new THREE.Vector3(0, 1, 0) : pick.normal)
+
+// How far below a clicked wall to look for ground.
+const GROUND_SEARCH_DEPTH = 64
+const cellIndexes = new WeakMap<Blocks, Map<string, string>>()
+// Block name by cell (relative to the payload origin), built once per payload.
+const cellIndex = (blocks: Blocks) => {
+  let index = cellIndexes.get(blocks)
+  if (!index) {
+    index = new Map()
+    for (let i = 0; i < blocks.blocks.length; i++) {
+      const p = i * 3
+      index.set(`${blocks.positions[p]},${blocks.positions[p + 1]},${blocks.positions[p + 2]}`, blocks.palette[blocks.blocks[i]])
+    }
+    cellIndexes.set(blocks, index)
+  }
+  return index
+}
+
+// Like walkTarget, but a click on the side of a wall walks to the ground at its foot, not the air beside
+// the spot clicked. Water counts as ground (the bot swims there); plants and other see-through bits don't.
+export const groundTarget = (pick: Pick, blocks: Blocks | null) => {
+  const target = walkTarget(pick)
+  if (pick.kind !== 'block' || pick.normal.y > 0.5 || !blocks) return target
+  const index = cellIndex(blocks)
+  const x = target.x - blocks.origin.x
+  const z = target.z - blocks.origin.z
+  for (let y = target.y - blocks.origin.y; y > target.y - blocks.origin.y - GROUND_SEARCH_DEPTH; y--) {
+    const below = index.get(`${x},${y - 1},${z}`)
+    if (below && (isLiquid(below) || !REPLACEABLE_BLOCKS.has(below))) {
+      return new THREE.Vector3(target.x, blocks.origin.y + y, target.z)
+    }
+  }
+  return target
+}

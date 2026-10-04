@@ -6,7 +6,7 @@ import blockData from '../generated/blockModels.json'
 import type { WorldView } from '../types'
 import type { BlockAtlas } from './blockAtlas'
 import { blockColor } from './blockColors'
-import { blockVisibility, type ViewMode } from './viewMode'
+import { blockVisibility, CAP_BIT, type ViewMode } from './viewMode'
 
 type Blocks = WorldView['blocks']
 
@@ -95,11 +95,10 @@ const FACE_SHADE = [1, 0.5, 0.8, 0.8, 0.6, 0.6].map((shade) =>
 )
 const FULL_BRIGHT = new THREE.Color(1, 1, 1)
 
-// Liquid surfaces sit below the top of the block: a source is 8/9 high and each flow level drops
-// another ninth. Under more liquid (top face hidden) or falling (level 8+) it fills the block.
-const liquidHeight = (properties: Record<string, unknown>, topOpen: boolean) => {
-  const level = Number(properties.level ?? 0)
-  return !topOpen || level >= 8 ? 16 : ((8 - level) / 9) * 16
+// Liquid level (0-1 of a block) by flow level: a source is 8/9 high and each level drops another ninth.
+const levelHeight = (properties: Record<string, unknown> | undefined) => {
+  const level = Number(properties?.level ?? 0)
+  return level >= 8 ? 8 / 9 : (8 - level) / 9
 }
 // See-through blocks that need blending rather than the cut-out used for leaves and glass panes.
 const TRANSLUCENT = /stained_glass(?!_pane)|^ice$|frosted_ice|slime_block|honey_block/
@@ -164,17 +163,20 @@ type MeshBuffers = {
   positions: number[]
   uvs: number[]
   colors: number[]
+  // The block cell each vertex belongs to, so the watcher can fade whole blocks that hide the bot.
+  cells: number[]
   indices: number[]
   quadBlocks: number[]
 }
 
-const emptyBuffers = (): MeshBuffers => ({ positions: [], uvs: [], colors: [], indices: [], quadBlocks: [] })
+const emptyBuffers = (): MeshBuffers => ({ positions: [], uvs: [], colors: [], cells: [], indices: [], quadBlocks: [] })
 
 const toGeometry = (buffers: MeshBuffers) => {
   const geometry = new THREE.BufferGeometry()
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(buffers.positions, 3))
   geometry.setAttribute('uv', new THREE.Float32BufferAttribute(buffers.uvs, 2))
   geometry.setAttribute('color', new THREE.Float32BufferAttribute(buffers.colors, 3))
+  geometry.setAttribute('cell', new THREE.Float32BufferAttribute(buffers.cells, 3))
   geometry.setIndex(buffers.indices)
   // Every quad has its own corners, so these come out flat per face, for the sun and shadows.
   geometry.computeVertexNormals()
@@ -187,9 +189,13 @@ export type BlockMeshes = {
   translucent: THREE.BufferGeometry
   // The roof over the bot's room, drawn faintly so the room shows through.
   ghost: THREE.BufferGeometry
+  // Tops of blocks under solid blocks, tagged with the cell above: shown (darkened) only while that
+  // block is a see-through hologram.
+  caps: THREE.BufferGeometry
   // Which block (index into the payload) each quad belongs to, for hover lookups.
   opaqueQuads: number[]
   translucentQuads: number[]
+  capQuads: number[]
 }
 
 // A plain colored cube for blocks newer than the generated models.
@@ -205,6 +211,7 @@ export const buildBlockMeshes = (blocks: Blocks, atlas: BlockAtlas, mode: ViewMo
   const opaque = emptyBuffers()
   const translucent = emptyBuffers()
   const ghost = emptyBuffers()
+  const caps = emptyBuffers()
   // Color.set() converts hex from sRGB to the linear space three.js works in.
   const color = new THREE.Color()
   const tint = new THREE.Color()
@@ -228,7 +235,14 @@ export const buildBlockMeshes = (blocks: Blocks, atlas: BlockAtlas, mode: ViewMo
     bx: number,
     by: number,
     bz: number,
-    blockIndex: number
+    blockIndex: number,
+    // The cell the vertices are tagged with (caps take the block above's); faces without a neighbor
+    // to cull against are left out when `cullOnly`.
+    cellY = by,
+    cullOnly = false,
+    // Liquid surfaces: the top corners' heights (0-16) by corner, [x0z0, x1z0, x0z1, x1z1], so the
+    // surface slopes from block to block like the game's instead of stepping.
+    topHeights: number[] | null = null
   ) => {
     if (entryTint) {
       tint.set(entryTint)
@@ -256,6 +270,8 @@ export const buildBlockMeshes = (blocks: Blocks, atlas: BlockAtlas, mode: ViewMo
             if (!(targetMask & (1 << nearestDirection(rotateBlock(normal, apply, ZERO))))) {
               continue
             }
+          } else if (cullOnly) {
+            continue
           }
 
           normal.set(...DIRECTIONS[direction])
@@ -290,7 +306,7 @@ export const buildBlockMeshes = (blocks: Blocks, atlas: BlockAtlas, mode: ViewMo
           FACE_CORNERS[direction].forEach(([cx, cy, cz], k) => {
             corner.set(
               element.from[0] + cx * (element.to[0] - element.from[0]),
-              element.from[1] + cy * (element.to[1] - element.from[1]),
+              topHeights && cy ? topHeights[cx + cz * 2] : element.from[1] + cy * (element.to[1] - element.from[1]),
               element.from[2] + cz * (element.to[2] - element.from[2])
             )
             if (rotation) {
@@ -308,12 +324,94 @@ export const buildBlockMeshes = (blocks: Blocks, atlas: BlockAtlas, mode: ViewMo
             const [u, v] = cornerUvs[k]
             targetBuffers.uvs.push(u + (centerU - u) * 0.001, v + (centerV - v) * 0.001)
             targetBuffers.colors.push(color.r, color.g, color.b)
+            targetBuffers.cells.push(bx, cellY, bz)
           })
-          targetBuffers.indices.push(base, base + 1, base + 2, base, base + 2, base + 3)
+          // A sloped liquid top folds along the diagonal whose ends are closest in height, so a raised
+          // corner makes one flat triangle and a ramp rather than a tent.
+          const heightAt = (k: number) => {
+            const [cx, , cz] = FACE_CORNERS[direction][k]
+            return topHeights![cx + cz * 2]
+          }
+          if (
+            topHeights &&
+            direction === 0 &&
+            Math.abs(heightAt(1) - heightAt(3)) < Math.abs(heightAt(0) - heightAt(2))
+          ) {
+            targetBuffers.indices.push(base + 1, base + 2, base + 3, base + 1, base + 3, base)
+          } else {
+            targetBuffers.indices.push(base, base + 1, base + 2, base, base + 2, base + 3)
+          }
           targetBuffers.quadBlocks.push(blockIndex)
         }
       }
     }
+  }
+
+  // Block index by cell, for liquids to look at their neighbors.
+  const cellKey = (x: number, y: number, z: number) => ((x + 128) * 256 + (y + 128)) * 256 + (z + 128)
+  const byCell = new Map<number, number>()
+  for (let i = 0; i < blocks.blocks.length; i++) {
+    byCell.set(cellKey(blocks.positions[i * 3], blocks.positions[i * 3 + 1], blocks.positions[i * 3 + 2]), i)
+  }
+  // The liquid (`water` also counts waterlogged blocks) a block holds, or null.
+  const liquidOf = (index: number) => {
+    const name = blocks.palette[blocks.blocks[index]]
+    if (name === 'water' || name === 'lava') return name
+    return isSubmerged(name, blocks.properties?.[blocks.blocks[index]]) ? 'water' : null
+  }
+  const liquidAt = (x: number, y: number, z: number, liquid: string) => {
+    const index = byCell.get(cellKey(x, y, z))
+    return index !== undefined && liquidOf(index) === liquid ? index : null
+  }
+  // The mask bit of the side facing (dx, dz).
+  const sideBit = (dx: number, dz: number) => 1 << (dx > 0 ? 5 : dx < 0 ? 4 : dz > 0 ? 3 : 2)
+  // Each top corner's height, averaged from the four cells sharing it as the game does: full when any has
+  // the same liquid on top; sources weigh more; open air pulls it down. Only what all four cells agree on
+  // is used (air is a cell a liquid beside it shows a face to), so neighbors meet without cracks.
+  const liquidCorners = (index: number, liquid: string) => {
+    const x = blocks.positions[index * 3]
+    const y = blocks.positions[index * 3 + 1]
+    const z = blocks.positions[index * 3 + 2]
+    const heightOf = (cell: number) =>
+      blocks.palette[blocks.blocks[cell]] === liquid ? levelHeight(blocks.properties?.[blocks.blocks[cell]]) : 8 / 9
+    const corners = [0, 0, 0, 0]
+    for (let corner = 0; corner < 4; corner++) {
+      const dx = corner & 1 ? 1 : -1
+      const dz = corner & 2 ? 1 : -1
+      const group: [number, number][] = [
+        [x, z],
+        [x + dx, z],
+        [x, z + dz],
+        [x + dx, z + dz],
+      ]
+      const cells = group.map(([cx, cz]) => liquidAt(cx, y, cz, liquid))
+      let total = 0
+      let weight = 0
+      let full = false
+      group.forEach(([cx, cz], k) => {
+        const cell = cells[k]
+        if (cell === null) {
+          // Air when a liquid cell next to it in the group has an open side toward it.
+          const open = group.some(([px, pz], j) => {
+            const neighbor = cells[j]
+            return (
+              neighbor !== null &&
+              Math.abs(px - cx) + Math.abs(pz - cz) === 1 &&
+              Boolean(blocks.faces[neighbor] & sideBit(cx - px, cz - pz))
+            )
+          })
+          if (open) weight += 1
+          return
+        }
+        if (liquidAt(cx, y + 1, cz, liquid) !== null) full = true
+        const height = heightOf(cell)
+        const w = height >= 0.8 ? 10 : 1
+        total += height * w
+        weight += w
+      })
+      corners[corner] = (full ? 1 : weight ? total / weight : heightOf(index)) * 16
+    }
+    return corners
   }
 
   for (let i = 0; i < blocks.blocks.length; i++) {
@@ -321,10 +419,10 @@ export const buildBlockMeshes = (blocks: Blocks, atlas: BlockAtlas, mode: ViewMo
     const y = blocks.positions[i * 3 + 1]
     const z = blocks.positions[i * 3 + 2]
     const visible = blockVisibility(mode, y, blocks.roofCutoff, blocks.faces[i])
-    if (!visible) {
+    const capped = mode !== 'cave' && Boolean(blocks.faces[i] & CAP_BIT)
+    if (!visible && !capped) {
       continue
     }
-    const mask = visible.mask
 
     const paletteIndex = blocks.blocks[i]
     const name = blocks.palette[paletteIndex]
@@ -333,6 +431,14 @@ export const buildBlockMeshes = (blocks: Blocks, atlas: BlockAtlas, mode: ViewMo
     }
     const applied = resolved.get(paletteIndex)
     const entry = data.blocks[name]
+    if (capped && name !== 'water' && name !== 'lava') {
+      const capColor = applied ? null : new THREE.Color(blockColor(name))
+      renderElements(caps, applied, entry?.tint, 16, 1, capColor, x, y, z, i, y + 1, true)
+    }
+    if (!visible) {
+      continue
+    }
+    const mask = visible.mask
     const buffers = visible.ghost
       ? ghost
       : entry?.translucent || TRANSLUCENT.test(name)
@@ -341,14 +447,17 @@ export const buildBlockMeshes = (blocks: Blocks, atlas: BlockAtlas, mode: ViewMo
     const fallbackColor = applied ? null : new THREE.Color(blockColor(name))
 
     const isLiquid = name === 'water' || name === 'lava'
-    const surface = isLiquid ? liquidHeight(blocks.properties?.[paletteIndex] ?? {}, Boolean(mask & 1)) : 16
+    // Covered by more liquid (or anything) it fills the block; open on top, its surface slopes.
+    const corners = isLiquid && mask & 1 ? liquidCorners(i, name) : null
+    // The generated lava entry carries the grass tint; lava has none.
+    const tintHex = name === 'lava' ? undefined : entry?.tint
 
-    renderElements(buffers, applied, entry?.tint, surface, mask, fallbackColor, x, y, z, i)
+    renderElements(buffers, applied, tintHex, 16, mask, fallbackColor, x, y, z, i, y, false, corners)
 
     if (name !== 'water' && isSubmerged(name, blocks.properties?.[paletteIndex])) {
       const waterBuffers = visible.ghost ? ghost : translucent
-      const waterSurface = liquidHeight(blocks.properties?.[paletteIndex] ?? {}, Boolean(mask & 1))
-      renderElements(waterBuffers, WATER_APPLIES, WATER_TINT_HEX, waterSurface, mask, null, x, y, z, i)
+      const waterCorners = mask & 1 ? liquidCorners(i, 'water') : null
+      renderElements(waterBuffers, WATER_APPLIES, WATER_TINT_HEX, 16, mask, null, x, y, z, i, y, false, waterCorners)
     }
   }
 
@@ -356,7 +465,9 @@ export const buildBlockMeshes = (blocks: Blocks, atlas: BlockAtlas, mode: ViewMo
     opaque: toGeometry(opaque),
     translucent: toGeometry(translucent),
     ghost: toGeometry(ghost),
+    caps: toGeometry(caps),
     opaqueQuads: opaque.quadBlocks,
     translucentQuads: translucent.quadBlocks,
+    capQuads: caps.quadBlocks,
   }
 }

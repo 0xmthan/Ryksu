@@ -8,7 +8,7 @@ import { loadBlockAtlas, type BlockAtlas } from '../utils/blockAtlas'
 import { buildBlockMeshes } from '../utils/blockMesher'
 import { modeFor, type ViewMode } from '../utils/viewMode'
 import { createTracked, stepTracked, syncTracked, type Tracked } from './watcher/entityObjects'
-import { isDoorBlock, isLiquid, pickAt, REPLACEABLE_BLOCKS, walkTarget, type Pick, type Pickable } from './watcher/picking'
+import { groundTarget, isDoorBlock, isLiquid, pickAt, REPLACEABLE_BLOCKS, walkTarget, type Pick, type Pickable } from './watcher/picking'
 import { disposeObject, makeLabel } from './watcher/sceneUtils'
 import { createSky } from './watcher/sky'
 import { createWalkMarker } from './watcher/walkMarker'
@@ -18,6 +18,15 @@ import { createPlayerHover } from './watcher/playerHover'
 import HandCard from './watcher/HandCard'
 import ArmorSlot from './watcher/ArmorSlot'
 import { createBuildPreview, type BuildLineMode } from './watcher/buildPreview'
+import {
+  applySeeThrough,
+  getSeeThroughShape,
+  HOLOGRAM_OPACITY,
+  isSeeThrough,
+  SEE_THROUGH_SHAPES,
+  setSeeThroughShape,
+  updateSeeThrough,
+} from './watcher/seeThrough'
 
 type Blocks = WorldView['blocks']
 
@@ -31,6 +40,8 @@ const ARMOR_DELAY_MS = 180
 const MAX_BUILD_LINE = 32
 // Scene coordinates are world coordinates minus an anchor, to keep float precision far from 0,0.
 const REANCHOR_DISTANCE = 2000
+// How bright the ground under a see-through block is drawn (linear, 1 = as normal).
+const CAP_SHADE = new THREE.Color().setRGB(0.4, 0.4, 0.4)
 
 type Surroundings3DProps = {
   movementEnabled: boolean
@@ -62,7 +73,7 @@ type SceneState = {
   blockGroup: THREE.Group | null
   chestOutline: THREE.Object3D | null
   pickable: Pickable[]
-  materials: { opaque: THREE.Material; translucent: THREE.Material; ghost: THREE.Material }
+  materials: { opaque: THREE.Material; translucent: THREE.Material; ghost: THREE.Material; hologram: THREE.Material; cap: THREE.Material }
   mode: ViewMode
   // Bumped when the anchor moves, so blocks and the chest get placed again.
   anchorVersion: number
@@ -189,11 +200,12 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
       // The game's fixed side shading is baked into vertex colors; the sun and shadows come on top.
       materials: {
         opaque: new THREE.MeshLambertMaterial({ vertexColors: true, alphaTest: 0.5 }),
+        // Writes depth so only the nearest water surface shows, not every face of the water behind it.
         translucent: new THREE.MeshLambertMaterial({
           vertexColors: true,
           transparent: true,
           opacity: 0.75,
-          depthWrite: false,
+          depthWrite: true,
         }),
         // A hint of the hidden roof: faint, and never hiding what's under it.
         ghost: new THREE.MeshBasicMaterial({
@@ -203,10 +215,23 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
           depthWrite: false,
           alphaTest: 0.05,
         }),
+        // Blocks between the camera and the bot, see-through so the bot shows (see watcher/seeThrough.ts).
+        hologram: new THREE.MeshBasicMaterial({
+          vertexColors: true,
+          transparent: true,
+          opacity: HOLOGRAM_OPACITY,
+          depthWrite: false,
+          alphaTest: 0.05,
+        }),
+        // The tops of blocks under a hologram, darkened like a cut-away floor.
+        cap: new THREE.MeshLambertMaterial({ vertexColors: true, alphaTest: 0.5, color: CAP_SHADE }),
       },
       mode: 'full',
     }
     stateRef.current = state
+    applySeeThrough(state.materials.opaque, 'solid')
+    applySeeThrough(state.materials.hologram, 'hologram')
+    applySeeThrough(state.materials.cap, 'cap')
 
     // The bot is drawn like any other player; the camera follows it.
     let bot: Tracked | null = null
@@ -352,6 +377,7 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
       buildPreview.update(now)
 
       controls.update()
+      updateSeeThrough(camera, bot ? bot.object.position : null)
       const dx = controls.target.x - camera.position.x
       const dz = controls.target.z - camera.position.z
       if (dx * dx + dz * dz > 0.0001) movementYaw.current = Math.atan2(-dx, -dz)
@@ -383,7 +409,8 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
             [...(bot ? [bot.object] : []), ...[...entities.values()].map((entry) => entry.object)],
             state.pickable,
             state.anchor,
-            skipBlock
+            skipBlock,
+            (position) => isSeeThrough(position.clone().sub(state.anchor!))
           )
         : null
     // Build mode targets. Placing goes into water, lava or plants under the mouse (replacing them), else
@@ -586,10 +613,10 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
         walkMarker.show(target.clone().sub(state.anchor), clock.elapsedTime)
         onWalkToRef.current({ x: target.x, y: target.y, z: target.z })
       }
-      // Clicking a block walks to it (doors open with a right click).
+      // Clicking a block walks to it (doors open with a right click); clicking a wall, to the ground below.
       if (picked.kind === 'block') {
         changeCameraMode('overview')
-        const target = walkTarget(picked)
+        const target = groundTarget(picked, blocksRef.current)
         walkMarker.show(target.clone().sub(state.anchor), clock.elapsedTime)
         onWalkToRef.current({ x: target.x, y: target.y, z: target.z })
         return
@@ -618,6 +645,21 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
       if (event.key === 'Escape' && buildDrag) {
         event.stopImmediatePropagation()
         endBuildDrag()
+        return
+      }
+      // H cycles how blocks in front of the bot turn see-through.
+      if (
+        event.code === 'KeyH' &&
+        !event.repeat &&
+        !event.ctrlKey &&
+        !event.metaKey &&
+        !event.altKey &&
+        !document.activeElement?.closest('input, textarea, select, [contenteditable="true"]')
+      ) {
+        const next =
+          SEE_THROUGH_SHAPES[(SEE_THROUGH_SHAPES.indexOf(getSeeThroughShape()) + 1) % SEE_THROUGH_SHAPES.length]
+        setSeeThroughShape(next)
+        onHoverRef.current(`See-through: ${next}`)
         return
       }
       if (
@@ -666,6 +708,8 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
       state.materials.opaque.dispose()
       state.materials.translucent.dispose()
       state.materials.ghost.dispose()
+      state.materials.hologram.dispose()
+      state.materials.cap.dispose()
       renderer.dispose()
       container.removeChild(renderer.domElement)
       stateRef.current = null
@@ -722,10 +766,16 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
     translucent.receiveShadow = true
     const ghost = new THREE.Mesh(meshes.ghost, state.materials.ghost)
     ghost.renderOrder = 2
-    group.add(opaque, translucent, ghost)
+    // The same solid blocks again, drawing only the ones covering the bot.
+    const hologram = new THREE.Mesh(meshes.opaque, state.materials.hologram)
+    hologram.renderOrder = 3
+    const caps = new THREE.Mesh(meshes.caps, state.materials.cap)
+    caps.receiveShadow = true
+    group.add(opaque, translucent, ghost, hologram, caps)
     state.pickable = [
       { mesh: opaque, quads: meshes.opaqueQuads, blocks },
       { mesh: translucent, quads: meshes.translucentQuads, blocks },
+      { mesh: caps, quads: meshes.capQuads, blocks },
     ]
 
     state.scene.add(group)

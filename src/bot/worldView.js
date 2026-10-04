@@ -31,6 +31,12 @@ const CUT_TOP_BIT = 1 << 6
 const ROOM_BIT = 1 << 7
 const SHELL_BIT = 1 << 8
 const WATER_PLANT_BIT = 1 << 9
+// A block with a drawn solid block on top, from CAP_DEPTH layers under the bot's feet up: sent even when
+// nothing else of it shows, so its top can be drawn (darkened) while the block over it is a see-through
+// hologram (see src/components/watcher/seeThrough.ts).
+const CAP_BIT = 1 << 10
+// The slice is only rebuilt once the bot moves 6 blocks up or down, so caps go deeper than its feet.
+const CAP_DEPTH = 7
 
 const WATER_PLANTS = new Set(['seagrass', 'tall_seagrass', 'kelp', 'kelp_plant', 'bubble_column'])
 const isSubmerged = (name, properties) =>
@@ -267,6 +273,28 @@ const getBlocks = (bot) => {
     skyLight: skyLightAt(bot, origin.offset(0, 1, 0)),
   })
 
+  // The faces of a block that border air (or water, glass, …).
+  const faceMask = (x, y, z) => {
+    const cell = indexOf(x, y, z)
+    let mask = 0
+    for (let face = 0; face < 6; face++) {
+      const [nx, ny, nz] = NEIGHBORS[face]
+      const ax = x + nx
+      const ay = y + ny
+      const az = z + nz
+      // The edges of the box are drawn, so the view looks like a solid cut-out of the world.
+      if (ax < 0 || ay < 0 || az < 0 || ax >= width || ay >= height || az >= width) {
+        mask |= 1 << face
+        continue
+      }
+      const neighbor = indexOf(ax, ay, az)
+      if (!occludes[neighbor] && (kinds[neighbor] !== kinds[cell] || leafy[cell])) {
+        mask |= 1 << face
+      }
+    }
+    return mask
+  }
+
   const positions = []
   const blocks = []
   const faces = []
@@ -278,21 +306,10 @@ const getBlocks = (bot) => {
         if (index < 0) {
           continue
         }
-        let mask = 0
-        for (let face = 0; face < 6; face++) {
-          const [nx, ny, nz] = NEIGHBORS[face]
-          const ax = x + nx
-          const ay = y + ny
-          const az = z + nz
-          // The edges of the box are drawn, so the view looks like a solid cut-out of the world.
-          if (ax < 0 || ay < 0 || az < 0 || ax >= width || ay >= height || az >= width) {
-            mask |= 1 << face
-            continue
-          }
-          const neighbor = indexOf(ax, ay, az)
-          if (!occludes[neighbor] && (kinds[neighbor] !== kinds[cell] || leafy[cell])) {
-            mask |= 1 << face
-          }
+        let mask = faceMask(x, y, z)
+        if (!(mask & 1) && y >= VOXEL_BELOW - CAP_DEPTH && y + 1 < height) {
+          const above = indexOf(x, y + 1, z)
+          if (occludes[above] && faceMask(x, y + 1, z)) mask |= CAP_BIT
         }
         if (y === roofLayer && !(mask & 1)) {
           mask |= CUT_TOP_BIT

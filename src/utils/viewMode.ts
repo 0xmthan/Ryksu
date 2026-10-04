@@ -16,6 +16,9 @@ const ROOM_BIT = 1 << 7
 const SHELL_BIT = 1 << 8
 // Submerged plants and waterlogged blocks with geometry inside water.
 const WATER_PLANT_BIT = 1 << 9
+// The block has a solid block on top that may turn into a see-through hologram: its top is drawn darkened
+// then (see src/components/watcher/seeThrough.ts).
+export const CAP_BIT = 1 << 10
 
 export const modeFor = (environment: Environment | undefined): ViewMode =>
   !environment || environment === 'outside' ? 'full' : environment === 'indoors' ? 'roof' : 'cave'
