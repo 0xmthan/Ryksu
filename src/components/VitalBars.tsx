@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { Apple } from 'lucide-react'
-import type { AutoEatOptions, InventoryItem } from '../types'
+import type { AutoEatOptions, InventoryItem, StatusEffect } from '../types'
+import EffectSlots from './EffectSlots'
 import Item, { itemDetails } from './ItemStack'
 import './vitals.css'
 
@@ -192,7 +193,10 @@ const VitalBars: React.FC<{
   food: number
   saturation: number
   autoEat: AutoEatOptions | null
-}> = ({ health, food, saturation, autoEat }) => {
+  // What the bot is eating right now, if anything.
+  eating?: string
+  effects?: StatusEffect[]
+}> = ({ health, food, saturation, autoEat, eating, effects = [] }) => {
   const critical = health > 0 && health <= 6
   return (
     <section
@@ -212,7 +216,9 @@ const VitalBars: React.FC<{
       <Bar
         label="Food"
         value={food}
-        status={foodStatus(food)}
+        status={
+          eating ? { label: `Eating ${eating}…`, className: 'vitals-eating text-emerald-200' } : foodStatus(food)
+        }
         fillClass={food <= 6 ? `vitals-fill-low ${food <= 3 ? 'vitals-blink' : ''}` : 'vitals-fill-normal'}
         lossClass="vitals-hunger"
         saturation={saturation}
@@ -221,12 +227,17 @@ const VitalBars: React.FC<{
         }
         badge={
           autoEat ? (
-            <span title="Auto eat is on">
-              <Apple aria-label="Auto eat on" className="h-2.5 w-2.5 text-neutral-300" strokeWidth={2.25} />
+            <span title={eating ? `Eating ${eating}…` : 'Auto eat is on'}>
+              <Apple
+                aria-label={eating ? `Eating ${eating}` : 'Auto eat on'}
+                className={`h-2.5 w-2.5 ${eating ? 'vitals-chew text-emerald-300' : 'text-neutral-300'}`}
+                strokeWidth={2.25}
+              />
             </span>
           ) : null
         }
       />
+      <EffectSlots effects={effects} />
     </section>
   )
 }

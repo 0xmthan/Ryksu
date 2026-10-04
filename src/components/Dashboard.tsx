@@ -4,13 +4,13 @@ import InventoryPage from './InventoryPage'
 import Surroundings3D from './Surroundings3D'
 import EntityPopover from './watcher/EntityPopover'
 import LocationManager from './LocationManager'
-import StatsSummary from './StatsSummary'
 import TradePanel from './TradePanel'
 import TabPanel from './TabPanel'
 import { prettyName } from '../utils/blockColors'
+import { Hammer } from 'lucide-react'
 import VitalBars, { Hotbar } from './VitalBars'
 import { useSavedLocations } from '../hooks/useSavedLocations'
-import type { AutoEatOptions, BotSnapshot, ChatMessage, MotionEntity, TradeOffer, WorldView } from '../types'
+import type { AutoEatOptions, BotSnapshot, BuildAction, BuildCells, ChatMessage, MotionEntity, TradeOffer, WorldView } from '../types'
 
 // Window slot of the first hotbar slot in the player inventory.
 const HOTBAR_START = 36
@@ -59,6 +59,34 @@ const Dashboard: React.FC<DashboardProps> = ({
     position: { x: number; y: number }
   } | null>(null)
   const closeEntityContext = useCallback(() => setEntityContext(null), [])
+  const miningActive = Boolean(snapshot.mining?.active)
+
+  // Build mode (B): clicks on blocks break and place instead of walking and opening.
+  const [buildMode, setBuildMode] = useState(false)
+  // What the bot still has to break and place, marked in the watcher.
+  const [queuedBuild, setQueuedBuild] = useState<BuildCells | null>(null)
+  useEffect(() => window.electronAPI.bot.onBuildCells(setQueuedBuild), [])
+  const build = useCallback(async (action: BuildAction) => {
+    setBlockFeedback(action.type === 'break' ? 'Breaking…' : 'Placing…')
+    try {
+      const result = await window.electronAPI.bot.buildAction(action)
+      setBlockFeedback(result.message ?? (result.ok ? 'Done.' : 'That did not work.'))
+    } catch {
+      setBlockFeedback('That did not work.')
+    }
+  }, [])
+
+  // Leaving build mode (B or Esc) stops a line the bot is still working through.
+  const wasBuilding = useRef(false)
+  useEffect(() => {
+    if (wasBuilding.current && !buildMode) {
+      window.electronAPI.bot.cancelBuild().then((result) => {
+        if (result.stopped) setBlockFeedback('Stopped building.')
+      })
+    }
+    wasBuilding.current = buildMode
+  }, [buildMode])
+
   // The player list, shown while Tab is held.
   const [tabOpen, setTabOpen] = useState(false)
   useEffect(() => {
@@ -139,6 +167,24 @@ const Dashboard: React.FC<DashboardProps> = ({
         document.querySelector('[aria-modal="true"]')
       )
         return
+      if (event.code === 'KeyB' && !inventoryOpen && !entityContext) {
+        event.preventDefault()
+        setBuildMode((on) => !on)
+        return
+      }
+      if (event.code === 'Escape' && buildMode) {
+        setBuildMode(false)
+        return
+      }
+      if (event.code === 'Escape' && miningActive) {
+        event.preventDefault()
+        setBlockFeedback('Stopping mining…')
+        window.electronAPI.bot
+          .stopMining()
+          .then(() => setBlockFeedback('Stopped mining.'))
+          .catch(() => setBlockFeedback('Could not stop mining.'))
+        return
+      }
       if (event.code === 'Tab') {
         event.preventDefault()
         if (!inventoryOpen) setTabOpen(true)
@@ -163,7 +209,7 @@ const Dashboard: React.FC<DashboardProps> = ({
     }
     window.addEventListener('keydown', handleKey)
     return () => window.removeEventListener('keydown', handleKey)
-  }, [showChat, openingBlock, inventoryOpen, entityContext, onChatInputChange, onChatOpen, selectHotbar])
+  }, [showChat, openingBlock, inventoryOpen, entityContext, onChatInputChange, onChatOpen, selectHotbar, buildMode, miningActive])
 
   return (
     <div className="relative min-h-0 min-w-0 flex-1 bg-neutral-950 text-neutral-100">
@@ -174,6 +220,13 @@ const Dashboard: React.FC<DashboardProps> = ({
         chest={snapshot.mining?.chest ?? null}
         onHover={setHover}
         onEntityContext={(entity, position) => setEntityContext({ entity, position })}
+        buildMode={buildMode}
+        heldBlock={(() => {
+          const held = worldView?.inventory.hotbar[worldView.inventory.selectedHotbar]
+          return held?.placeable ? held.name : null
+        })()}
+        onBuild={build}
+        queuedBuild={queuedBuild}
         onWalkTo={(target) => {
           if (target.door) setBlockFeedback('Going to the door…')
           updatePathfinder({
@@ -199,10 +252,35 @@ const Dashboard: React.FC<DashboardProps> = ({
         className="absolute inset-0 h-full w-full"
       />
       <div className="pointer-events-none absolute inset-0">
-        <div className="pointer-events-auto absolute left-3 top-15 flex w-64 flex-col gap-2">
-          <VitalBars health={snapshot.health} food={snapshot.food} saturation={snapshot.saturation} autoEat={autoEat} />
-          <StatsSummary snapshot={snapshot} />
+        <div className="pointer-events-auto absolute left-3 top-15 w-64">
+          <VitalBars
+            health={snapshot.health}
+            food={snapshot.food}
+            saturation={snapshot.saturation}
+            autoEat={autoEat}
+            eating={snapshot.eating}
+            effects={snapshot.effects}
+          />
         </div>
+        {buildMode ? (
+          <div
+            role="status"
+            className="absolute left-1/2 top-15 flex -translate-x-1/2 items-center gap-2.5 rounded-full border
+              border-sky-400/30 bg-neutral-950/75 py-1.5 pl-2 pr-3.5 text-xs text-neutral-300 shadow-lg backdrop-blur-xl"
+          >
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-sky-400/15 text-sky-300">
+              <Hammer aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2} />
+            </span>
+            <span className="font-semibold text-sky-100">Build mode</span>
+            <span className="text-neutral-500">
+              <kbd className="font-sans text-neutral-300">Left</kbd> break ·{' '}
+              <kbd className="font-sans text-neutral-300">Right</kbd> place ·{' '}
+              <span className="text-neutral-400">drag for a line</span> ·{' '}
+              <kbd className="font-sans text-neutral-300">Middle drag</kbd> turn ·{' '}
+              <kbd className="rounded border border-white/15 px-1 font-sans text-[10px] text-neutral-300">B</kbd> exit
+            </span>
+          </div>
+        ) : null}
         <div className="pointer-events-auto absolute right-3 top-15 flex items-center gap-2">
           <LocationManager
             currentPosition={snapshot.position}
@@ -246,8 +324,11 @@ const Dashboard: React.FC<DashboardProps> = ({
                 : 'Waiting for the bot to spawn…')}
           </span>
           {snapshot.mining?.active ? (
-            <span className="max-w-[35%] truncate rounded-md bg-neutral-950/80 px-2.5 py-1.5 text-sky-300">
-              {snapshot.mining.status}
+            <span className="flex max-w-[45%] items-center gap-2 rounded-md bg-neutral-950/80 px-2.5 py-1.5">
+              <span className="truncate text-sky-300">{snapshot.mining.status}</span>
+              <span className="shrink-0 text-neutral-500">
+                <kbd className="rounded border border-white/15 px-1 font-sans text-[10px] text-neutral-300">Esc</kbd> stop
+              </span>
             </span>
           ) : null}
         </div>

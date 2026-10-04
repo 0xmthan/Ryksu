@@ -4,6 +4,7 @@ const prismarineBlock = require('prismarine-block')
 const FULL_CUBES = new Set(require('../generated/fullCubes.json'))
 const { analyzeView } = require('./viewModes')
 const { registryOrder } = require('./entityEvents')
+const { isPlaceable } = require('./building')
 
 // Blocks around the bot for the 3D view: only blocks with a face touching air (or water, glass, …)
 // are sent, each with a mask of those faces, so buried blocks and hidden faces are never drawn.
@@ -97,6 +98,7 @@ const describeItem = (bot, item) => {
   if (durability) result.durability = durability
   const enchantments = enchantmentsOf(bot, item)
   if (enchantments.length) result.enchantments = enchantments
+  if (isPlaceable(bot, item)) result.placeable = true
   return result
 }
 

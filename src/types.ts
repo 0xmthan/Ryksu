@@ -19,6 +19,9 @@ export type BotSnapshot =
       canSleep?: boolean
       bedPickupPending?: boolean
       mining?: MiningState
+      // What the bot is eating right now (auto eat).
+      eating?: string
+      effects?: StatusEffect[]
       health: number
       food: number
       saturation: number
@@ -31,6 +34,16 @@ export type BotSnapshot =
       ping: number | null
     }
   | { connected: false }
+
+// A status effect on the bot. `ticks` is how long it had left at `since` (ms); -1 means it doesn't end.
+export type StatusEffect = {
+  name: string
+  label: string
+  level: number
+  good: boolean
+  ticks: number
+  since: number
+}
 
 export type LastConnection = {
   host: string
@@ -114,6 +127,8 @@ export type InventoryItem = {
   durability?: { used: number; max: number }
   // Ready to show, e.g. "Sharpness V"; curses are drawn red.
   enchantments?: { label: string; curse?: boolean }[]
+  // Blocks (and seeds, redstone, …) that build mode can place.
+  placeable?: boolean
 } | null
 
 export type InventoryWindow = {
@@ -165,6 +180,15 @@ export type PlayerList = {
   online: { name: string; uuid: string; ping: number | null; bot?: boolean }[]
   offline: { name: string; uuid: string; lastSeen: number | null }[]
 }
+
+// Build mode: break these blocks, or place the held block in these spots, in order. `face` is the face
+// that was clicked (pointing out of the block it belongs to), so the first block goes against it.
+export type BuildAction =
+  | { type: 'break'; cells: { x: number; y: number; z: number }[] }
+  | { type: 'place'; cells: { x: number; y: number; z: number }[]; face?: { x: number; y: number; z: number } }
+
+// Blocks the bot still has to break and place (the line it's on and any queued after it).
+export type BuildCells = { break: { x: number; y: number; z: number }[]; place: { x: number; y: number; z: number }[] }
 
 // One offer from an open villager or wandering trader.
 export type TradeOffer = {

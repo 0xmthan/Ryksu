@@ -7,6 +7,8 @@ import type {
   PvpOptions,
   InventoryAction,
   TradeOffer,
+  BuildAction,
+  BuildCells,
   PlayerList,
   Motion,
   MovementControls,
@@ -59,6 +61,8 @@ declare global {
         onPathfinderOptions: (callback: (options: PathfinderOptions) => void) => () => void
         // Short results of actions (a door opened, …).
         onNotice: (callback: (text: string) => void) => () => void
+        // Blocks still to break or place in build mode.
+        onBuildCells: (callback: (cells: BuildCells) => void) => () => void
         onChatHistory: (callback: (entries: ChatMessage[]) => void) => () => void
         getChatHistory: () => Promise<ChatMessage[]>
         sendChat: (message: string) => Promise<{ ok: boolean; message?: string }>
@@ -92,6 +96,10 @@ declare global {
         onWorld: (callback: (view: WorldView) => void) => () => void
         interactBlock: (position: { x: number; y: number; z: number }) => Promise<{ ok: boolean; message?: string }>
         inventoryAction: (action: InventoryAction) => Promise<{ ok: boolean; message?: string }>
+        // Build mode: break or place a line of blocks.
+        buildAction: (action: BuildAction) => Promise<{ ok: boolean; message?: string }>
+        // Stop a build line after the block in progress.
+        cancelBuild: () => Promise<{ ok: boolean; stopped: boolean }>
         // Walk to a villager or wandering trader and open its trades.
         openTrader: (entityId: number) => Promise<{ ok: boolean; message?: string; trades?: TradeOffer[] }>
         // Make one trade from the open trader `count` times.

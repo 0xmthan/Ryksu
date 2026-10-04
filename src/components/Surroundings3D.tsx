@@ -2,13 +2,13 @@ import interactiveBlocks from '../shared/interactiveBlocks.json'
 import React, { useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
-import type { InventoryItem, Motion, MotionEntity, WorldView } from '../types'
+import type { BuildAction, BuildCells, InventoryItem, Motion, MotionEntity, WorldView } from '../types'
 import { prettyName } from '../utils/blockColors'
 import { loadBlockAtlas, type BlockAtlas } from '../utils/blockAtlas'
 import { buildBlockMeshes } from '../utils/blockMesher'
 import { modeFor, type ViewMode } from '../utils/viewMode'
 import { createTracked, stepTracked, syncTracked, type Tracked } from './watcher/entityObjects'
-import { isDoorBlock, pickAt, walkTarget, type Pickable } from './watcher/picking'
+import { isDoorBlock, isLiquid, pickAt, REPLACEABLE_BLOCKS, walkTarget, type Pick, type Pickable } from './watcher/picking'
 import { disposeObject, makeLabel } from './watcher/sceneUtils'
 import { createSky } from './watcher/sky'
 import { createWalkMarker } from './watcher/walkMarker'
@@ -17,6 +17,7 @@ import { createCameraRig, type CameraMode } from './watcher/cameraRig'
 import { createPlayerHover } from './watcher/playerHover'
 import HandCard from './watcher/HandCard'
 import ArmorSlot from './watcher/ArmorSlot'
+import { createBuildPreview, type BuildLineMode } from './watcher/buildPreview'
 
 type Blocks = WorldView['blocks']
 
@@ -26,6 +27,8 @@ const FOLLOW_RATE = 12
 const DOUBLE_CLICK_MS = 280
 // When clicked, the armor pieces start fading in this long after the hand cards.
 const ARMOR_DELAY_MS = 180
+// The longest line one build drag makes (the bot side caps it too).
+const MAX_BUILD_LINE = 32
 // Scene coordinates are world coordinates minus an anchor, to keep float precision far from 0,0.
 const REANCHOR_DISTANCE = 2000
 
@@ -42,6 +45,13 @@ type Surroundings3DProps = {
   botHands?: { main: InventoryItem; off: InventoryItem }
   // Helmet, chestplate, leggings, boots: shown in an arc over the bot when it's clicked.
   botArmor?: InventoryItem[]
+  // Build mode: left click breaks the block under the mouse, right click places the held block (`heldBlock`,
+  // shown as a see-through preview) against the face under it. Null when what's held can't be placed.
+  buildMode?: boolean
+  heldBlock?: string | null
+  onBuild?: (action: BuildAction) => void
+  // Blocks the bot is still to break or place, marked until they're done.
+  queuedBuild?: BuildCells | null
   // Sizes the view; the canvas fills it.
   className?: string
 }
@@ -68,6 +78,10 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
   onBlockInteract,
   botHands,
   botArmor,
+  buildMode = false,
+  heldBlock = null,
+  onBuild,
+  queuedBuild = null,
   className = 'relative mt-3 h-[360px] w-full',
 }) => {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -112,6 +126,13 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
   onBlockInteractRef.current = onBlockInteract
   const onWalkToRef = useRef(onWalkTo)
   onWalkToRef.current = onWalkTo
+  const buildModeRef = useRef(buildMode)
+  buildModeRef.current = buildMode
+  const heldBlockRef = useRef(heldBlock)
+  heldBlockRef.current = heldBlock
+  const onBuildRef = useRef(onBuild)
+  onBuildRef.current = onBuild
+  const buildPreviewRef = useRef<ReturnType<typeof createBuildPreview> | null>(null)
   const onEntityContextRef = useRef(onEntityContext)
   onEntityContextRef.current = onEntityContext
   const blocksRef = useRef(blocks)
@@ -141,6 +162,8 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
     let hoveredPlayer: number | null = null
     let botWalking = false
     const controls = new OrbitControls(camera, renderer.domElement)
+    // The middle button (wheel press) turns the camera, like a left drag; the wheel itself zooms.
+    controls.mouseButtons.MIDDLE = THREE.MOUSE.ROTATE
     controls.target.set(0, 1, 0)
     controls.enableDamping = true
     controls.dampingFactor = 0.09
@@ -188,6 +211,8 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
     // The bot is drawn like any other player; the camera follows it.
     let bot: Tracked | null = null
     const walkMarker = createWalkMarker(scene)
+    const buildPreview = createBuildPreview(scene)
+    buildPreviewRef.current = buildPreview
     const north = makeLabel('N', '#f87171')
     scene.add(north)
     const entities = new Map<number, Tracked>()
@@ -223,6 +248,7 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
           controls.target.add(shift)
           cameraRig.reanchor(shift)
           walkMarker.shift(shift)
+          buildPreview.shift()
           for (const entry of tracked) entry.target.add(shift)
         }
         state.anchorVersion++
@@ -323,6 +349,7 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
         stepTracked(entry, blend, delta, now)
       }
       walkMarker.update(now, bot ? bot.object.position : null, botWalking)
+      buildPreview.update(now)
 
       controls.update()
       const dx = controls.target.x - camera.position.x
@@ -347,7 +374,7 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
     })
     resizeObserver.observe(container)
 
-    const pick = (event: PointerEvent) =>
+    const pick = (event: PointerEvent, skipBlock?: (name: string) => boolean) =>
       state.anchor
         ? pickAt(
             event,
@@ -355,13 +382,45 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
             camera,
             [...(bot ? [bot.object] : []), ...[...entities.values()].map((entry) => entry.object)],
             state.pickable,
-            state.anchor
+            state.anchor,
+            skipBlock
           )
         : null
+    // Build mode targets. Placing goes into water, lava or plants under the mouse (replacing them), else
+    // onto the face pointed at; breaking looks through water and lava to the block behind.
+    const placeSpot = (picked: Pick | null) => {
+      if (picked?.kind !== 'block') return null
+      return REPLACEABLE_BLOCKS.has(picked.name)
+        ? { cell: picked.position.clone(), face: null }
+        : { cell: picked.position.clone().add(picked.normal), face: picked.normal.clone() }
+    }
+    const breakPick = (event: PointerEvent) => {
+      const picked = pick(event, isLiquid)
+      return picked?.kind === 'block' ? picked : null
+    }
     const handlePointerMove = (event: PointerEvent) => {
       if (pressed && Math.hypot(event.clientX - pressed.x, event.clientY - pressed.y) > 5)
         pressed.dragged = true
+      if (buildDrag) {
+        buildDrag.end = buildDragEnd(event, buildDrag)
+        const cells = showBuildLine()
+        const held = heldBlockRef.current ? prettyName(heldBlockRef.current) : 'blocks'
+        onHoverRef.current(
+          buildDrag.mode === 'place'
+            ? `Place ${cells} × ${held}`
+            : `Break ${cells} block${cells === 1 ? '' : 's'}`
+        )
+        return
+      }
       const picked = pick(event)
+      if (buildModeRef.current && picked?.kind === 'block' && state.anchor) {
+        const anchor = state.anchor
+        const target = breakPick(event)
+        const spot = placeSpot(picked)
+        buildPreview.show(target ? target.position.clone().sub(anchor) : null, spot ? spot.cell.sub(anchor) : null)
+      } else {
+        buildPreview.hide()
+      }
       hoveredPlayer = picked?.kind === 'entity' && picked.id !== null && entityInfo.get(picked.id)?.kind === 'player' ? picked.id : null
       if (!picked) {
         onHoverRef.current(null)
@@ -379,6 +438,79 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
     }
 
     // A click is a press and release without dragging (dragging orbits the camera).
+    // Build mode drags: a line from the block (breaking) or free spot (placing) pressed on to the one under
+    // the mouse, kept to whichever axis it moved along most. Takes over from the camera while it lasts.
+    type BuildDrag = {
+      mode: BuildLineMode
+      button: number
+      start: THREE.Vector3
+      end: THREE.Vector3
+      face: THREE.Vector3 | null
+    }
+    let buildDrag: BuildDrag | null = null
+    const lineCells = ({ start, end }: BuildDrag) => {
+      const delta = end.clone().sub(start)
+      const axis = (['x', 'y', 'z'] as const).reduce((best, key) =>
+        Math.abs(delta[key]) > Math.abs(delta[best]) ? key : best
+      )
+      const length = Math.min(Math.abs(delta[axis]), MAX_BUILD_LINE - 1)
+      const step = Math.sign(delta[axis])
+      return Array.from({ length: length + 1 }, (_, index) => {
+        const cell = start.clone()
+        cell[axis] += step * index
+        return cell
+      })
+    }
+    // Where the line ends: the free spot (placing) or block (breaking) under the mouse, or over empty space,
+    // the spot at the line's height under it.
+    const dragRay = new THREE.Raycaster()
+    const dragPointer = new THREE.Vector2()
+    const buildDragEnd = (event: PointerEvent, drag: BuildDrag) => {
+      const picked = drag.mode === 'place' ? pick(event) : breakPick(event)
+      if (picked?.kind === 'block') {
+        return drag.mode === 'place' ? placeSpot(picked)!.cell : picked.position.clone()
+      }
+      if (!state.anchor) return drag.end
+      const rect = renderer.domElement.getBoundingClientRect()
+      dragPointer.set(
+        ((event.clientX - rect.left) / rect.width) * 2 - 1,
+        -((event.clientY - rect.top) / rect.height) * 2 + 1
+      )
+      dragRay.setFromCamera(dragPointer, camera)
+      const level = new THREE.Plane(new THREE.Vector3(0, 1, 0), -(drag.start.y - state.anchor.y + 0.5))
+      const hit = dragRay.ray.intersectPlane(level, new THREE.Vector3())
+      return hit ? hit.add(state.anchor).floor().setY(drag.start.y) : drag.end
+    }
+    const showBuildLine = () => {
+      if (!buildDrag || !state.anchor) return 0
+      const anchor = state.anchor
+      const cells = lineCells(buildDrag)
+      buildPreview.showLine(
+        cells.map((cell) => cell.clone().sub(anchor)),
+        buildDrag.mode
+      )
+      return cells.length
+    }
+    const endBuildDrag = () => {
+      buildDrag = null
+      controls.enabled = true
+      buildPreview.hide()
+      onHoverRef.current(null)
+    }
+    // On the container in the capture phase, so it runs before the camera controls' own pointerdown.
+    const handleBuildPointerDown = (event: PointerEvent) => {
+      if (!buildModeRef.current || (event.button !== 0 && event.button !== 2)) return
+      if (event.button === 2 && !heldBlockRef.current) return
+      const mode: BuildLineMode = event.button === 2 ? 'place' : 'break'
+      const picked = mode === 'place' ? pick(event) : breakPick(event)
+      if (picked?.kind !== 'block' || !state.anchor) return
+      const spot = mode === 'place' ? placeSpot(picked)! : { cell: picked.position.clone(), face: null }
+      buildDrag = { mode, button: event.button, start: spot.cell, end: spot.cell.clone(), face: spot.face }
+      controls.enabled = false
+      renderer.domElement.setPointerCapture?.(event.pointerId)
+      showBuildLine()
+    }
+
     let pendingClick: { id: number; timer: number } | null = null
     let pressed: { x: number; y: number; button: number; dragged?: boolean } | null = null
     const handlePointerDown = (event: PointerEvent) => {
@@ -390,6 +522,20 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
     const handlePointerUp = (event: PointerEvent) => {
       const start = pressed
       pressed = null
+      if (buildDrag) {
+        if (event.button !== buildDrag.button) return
+        const drag = buildDrag
+        endBuildDrag()
+        // Build mode was switched off mid-drag.
+        if (!buildModeRef.current) return
+        const cells = lineCells(drag).map(({ x, y, z }) => ({ x, y, z }))
+        onBuildRef.current?.(
+          drag.mode === 'place' && drag.face
+            ? { type: 'place', cells, face: { x: drag.face.x, y: drag.face.y, z: drag.face.z } }
+            : { type: drag.mode, cells }
+        )
+        return
+      }
       if (
         !start ||
         start.dragged ||
@@ -400,6 +546,9 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
       }
       const picked = pick(event)
       if (!picked || !state.anchor) return
+      // Build mode clicks on blocks are one-block drags (handled above); a right click with nothing
+      // placeable in hand does nothing.
+      if (buildModeRef.current && picked.kind === 'block') return
       if (event.button === 2) {
         if (pendingClick) {
           clearTimeout(pendingClick.timer)
@@ -462,10 +611,15 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
       }
       walk()
     }
-    const handlePointerLeave = () => { hoveredPlayer = null; onHoverRef.current(null) }
+    const handlePointerLeave = () => { hoveredPlayer = null; buildPreview.hide(); onHoverRef.current(null) }
     const handleContextMenu = (event: MouseEvent) => event.preventDefault()
     const handleCameraKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') setGearOpen(false)
+      if (event.key === 'Escape' && buildDrag) {
+        event.stopImmediatePropagation()
+        endBuildDrag()
+        return
+      }
       if (
         !movementEnabledRef.current ||
         event.code !== 'KeyF' ||
@@ -485,6 +639,7 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
     renderer.domElement.addEventListener('pointermove', handlePointerMove)
     renderer.domElement.addEventListener('pointerleave', handlePointerLeave)
     renderer.domElement.addEventListener('pointerdown', handlePointerDown)
+    container.addEventListener('pointerdown', handleBuildPointerDown, true)
     renderer.domElement.addEventListener('pointerup', handlePointerUp)
 
     return () => {
@@ -495,9 +650,12 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
       renderer.domElement.removeEventListener('pointermove', handlePointerMove)
       renderer.domElement.removeEventListener('pointerleave', handlePointerLeave)
       renderer.domElement.removeEventListener('pointerdown', handlePointerDown)
+      container.removeEventListener('pointerdown', handleBuildPointerDown, true)
       renderer.domElement.removeEventListener('pointerup', handlePointerUp)
       renderer.domElement.removeEventListener('contextmenu', handleContextMenu)
       playerHover.dispose()
+      buildPreview.dispose()
+      buildPreviewRef.current = null
       cameraRig.dispose()
       controls.dispose()
       cameraRigRef.current = null
@@ -513,6 +671,20 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
       stateRef.current = null
     }
   }, [])
+
+  useEffect(() => buildPreviewRef.current?.setItem(heldBlock), [heldBlock])
+  // Re-placed when the view re-anchors, since these are in world coordinates.
+  useEffect(() => {
+    const anchor = stateRef.current?.anchor
+    const preview = buildPreviewRef.current
+    if (!preview) return
+    const toScene = (cells: { x: number; y: number; z: number }[]) =>
+      anchor ? cells.map(({ x, y, z }) => new THREE.Vector3(x, y, z).sub(anchor)) : []
+    preview.setQueued(toScene(queuedBuild?.break ?? []), toScene(queuedBuild?.place ?? []))
+  }, [queuedBuild, anchorVersion])
+  useEffect(() => {
+    if (!buildMode) buildPreviewRef.current?.hide()
+  }, [buildMode])
 
   // Blocks only arrive a couple of times a second and are only rebuilt when something changed.
   useEffect(() => {
@@ -590,7 +762,9 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
   return (
     <div
       ref={containerRef}
-      className={`${className} cursor-grab overflow-hidden rounded-md active:cursor-grabbing`}
+      className={`${className} overflow-hidden rounded-md ${
+        buildMode ? 'cursor-crosshair' : 'cursor-grab active:cursor-grabbing'
+      }`}
     >
       {botHands
         ? [

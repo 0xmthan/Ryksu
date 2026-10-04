@@ -1,6 +1,8 @@
 class AutoShieldController {
-  constructor({ isManuallyControlled = () => false } = {}) {
+  // `isOverridden`: something else (the creeper fight) is handling the shield right now.
+  constructor({ isManuallyControlled = () => false, isOverridden = () => false } = {}) {
     this.isManuallyControlled = isManuallyControlled
+    this.isOverridden = isOverridden
     this.bot = null
     this.desiredEnabled = false
     this.enabled = false
@@ -144,7 +146,7 @@ class AutoShieldController {
   }
 
   _evaluateThreats() {
-    if (!this.desiredEnabled || !this.bot?.entity) {
+    if (!this.desiredEnabled || !this.bot?.entity || this.isOverridden()) {
       return
     }
 

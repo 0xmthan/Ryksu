@@ -49,6 +49,11 @@ const registerMinecraftIpc = (ipcMain) => {
     emitToRenderer('bot:notice', text)
   })
 
+  // Blocks the bot is still to break or place in build mode.
+  botManager.on('buildCells', (cells) => {
+    emitToRenderer('bot:buildCells', cells)
+  })
+
   botManager.on('chat', (entry) => {
     emitToRenderer('bot:chat', entry)
   })
@@ -145,6 +150,16 @@ const registerMinecraftIpc = (ipcMain) => {
       return { ok: false, message: error?.message || String(error) }
     }
   })
+
+  ipcMain.handle('bot:buildAction', async (_event, action) => {
+    try {
+      return { ok: true, message: await botManager.buildAction(action) }
+    } catch (error) {
+      return { ok: false, message: error?.message || String(error) }
+    }
+  })
+
+  ipcMain.handle('bot:cancelBuild', () => ({ ok: true, stopped: botManager.cancelBuild() }))
 
   ipcMain.handle('bot:openTrader', async (_event, entityId) => {
     if (!Number.isInteger(entityId)) return { ok: false, message: 'Invalid entity.' }

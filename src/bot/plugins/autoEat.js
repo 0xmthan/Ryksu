@@ -103,7 +103,13 @@ const loadAutoEatPlugin = async (bot) => {
 }
 
 class AutoEatController {
-  constructor() {
+  // `onEating` hears what's being eaten when a bite starts, then null when it's done; `onResult` hears
+  // { food, ok } after each one.
+  constructor({ onEating = () => {}, onResult = () => {} } = {}) {
+    this.onEating = onEating
+    this.onResult = onResult
+    this.eating = null
+    this.eatListeners = null
     this.bot = null
     this.enabled = false
     this.desiredEnabled = false
@@ -216,6 +222,27 @@ class AutoEatController {
     this.bot.on('spawn', this.spawnListener)
     this.bot.on('health', this.healthListener)
 
+    // Eating takes a couple of seconds and the plugin finishes (even after a failure) with eatFinish.
+    let failed = false
+    const foodName = (opts) => opts?.food?.displayName ?? opts?.food?.name ?? 'food'
+    this.eatListeners = {
+      eatStart: (opts) => {
+        failed = false
+        this.eating = foodName(opts)
+        this.onEating(this.eating)
+      },
+      eatFail: () => {
+        failed = true
+      },
+      eatFinish: (opts) => {
+        const food = this.eating ?? foodName(opts)
+        this.eating = null
+        this.onEating(null)
+        this.onResult({ food, ok: !failed })
+      },
+    }
+    for (const [event, listener] of Object.entries(this.eatListeners)) autoEat.on(event, listener)
+
     this.enabled = true
   }
 
@@ -235,6 +262,14 @@ class AutoEatController {
     }
 
     const { autoEat } = this.bot
+    if (autoEat && this.eatListeners) {
+      for (const [event, listener] of Object.entries(this.eatListeners)) autoEat.removeListener(event, listener)
+    }
+    this.eatListeners = null
+    if (this.eating) {
+      this.eating = null
+      this.onEating(null)
+    }
     if (autoEat) {
       try {
         autoEat.disableAuto()

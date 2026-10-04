@@ -48,6 +48,7 @@ type TitleBarProps = {
   isConnecting: boolean
   isConnected: boolean
   ping: number | null
+  xp: { level: number; progress: number } | null
   position: { x: number; y: number; z: number } | null
   canConnect: boolean
   onConnect: () => void
@@ -83,6 +84,7 @@ const TitleBar: React.FC<TitleBarProps> = ({
   isConnecting,
   isConnected,
   ping,
+  xp,
   position,
   canConnect,
   onConnect,
@@ -182,6 +184,18 @@ const TitleBar: React.FC<TitleBarProps> = ({
                 <span className={`h-1.5 w-1.5 rounded-full ${pingClass(ping)}`} />
                 {ping != null ? `${Math.round(ping)} ms` : '—'}
               </span>
+              {xp ? (
+                <span
+                  className="shrink-0 text-neutral-500"
+                  title={`Level ${xp.level}, ${Math.round(Math.max(0, Math.min(1, xp.progress)) * 100)}% to the next`}
+                >
+                  {/* Level and progress in one, rounded down so it never shows a level not reached yet. */}
+                  Lv{' '}
+                  <span className="font-semibold text-emerald-200">
+                    {(Math.floor((xp.level + Math.max(0, Math.min(0.999, xp.progress))) * 100) / 100).toFixed(2)}
+                  </span>
+                </span>
+              ) : null}
               {position ? (
                 <button
                   type="button"

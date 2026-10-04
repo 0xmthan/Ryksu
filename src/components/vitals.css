@@ -19,9 +19,12 @@
 .vitals-float { animation: vitals-float 1.1s ease-out forwards; }
 .vitals-blink { animation: vitals-blink 0.9s ease-in-out infinite; }
 .vitals-danger { animation: vitals-danger 1.6s ease-in-out infinite; }
+.vitals-eating { animation: vitals-blink 0.8s ease-in-out infinite; }
+@keyframes vitals-chew { 0%, 100% { transform: translateY(0) scale(1); } 30% { transform: translateY(-1.5px) scale(1.25); } 60% { transform: translateY(0) scale(0.9); } }
+.vitals-chew { animation: vitals-chew 0.45s ease-in-out infinite; }
 
 @media (prefers-reduced-motion: reduce) {
-  .vitals-hit, .vitals-blink, .vitals-danger { animation: none; }
+  .vitals-hit, .vitals-blink, .vitals-danger, .vitals-eating, .vitals-chew { animation: none; }
   .vitals-float { animation-duration: 0.01s; animation-delay: 1s; }
 }
 
@@ -34,9 +37,5 @@
 .vitals-fill-low {
   background: linear-gradient(180deg, #ffffff33, #ffffff00 60%), linear-gradient(90deg, #9f1239, #e11d48 55%, #fb7185);
   box-shadow: 0 0 8px #f43f5e66;
-}
-.vitals-fill-xp {
-  background: linear-gradient(180deg, #ffffff33, #ffffff00 60%), linear-gradient(90deg, #047857, #10b981 55%, #6ee7b7);
-  box-shadow: 0 0 8px #10b9814d;
 }
 .vitals-fill-saturation { background: linear-gradient(90deg, #ffffff1a, #ffffff59); }

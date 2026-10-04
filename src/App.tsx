@@ -467,6 +467,7 @@ const App: React.FC = () => {
           isConnecting={isConnecting}
           isConnected={isConnected}
           ping={connectedState?.ping ?? null}
+          xp={connectedState?.xp ?? null}
           position={connectedState?.position ?? null}
           canConnect={canAttemptConnect}
           onConnect={connectWithCurrentFields}

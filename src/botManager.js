@@ -25,6 +25,7 @@ const { runInventoryAction } = require('./bot/inventoryActions')
 const { openInteractiveBlock } = require('./bot/blockInteraction')
 const { isTrader, openTrader, describeTrades, runTrade } = require('./bot/trading')
 const { attachPlayerNames, playerList } = require('./bot/playerNames')
+const { buildCells } = require('./bot/building')
 const { skinUrl } = require('./bot/profileTextures')
 
 const WORLD_INTERVAL_MS = 500
@@ -52,9 +53,21 @@ class BotManager extends EventEmitter {
     this._lastInvSummary = null
     this.chat = new ChatBridge(this)
     this.armorManager = new ArmorManagerController()
-    this.autoEat = new AutoEatController()
+    this.autoEat = new AutoEatController({
+      onEating: (food) => {
+        if (food) this.emit('notice', `Eating ${food}…`)
+        this._emitState()
+      },
+      onResult: ({ food, ok }) => this.emit('notice', ok ? `Ate ${food}.` : `Couldn't finish eating ${food}.`),
+    })
+    this.effectStarts = new Map()
+    // Build jobs waiting for the running one (a different kind of drag, or another block).
+    this.buildQueue = []
     this.autoTool = new AutoToolController()
-    this.autoShield = new AutoShieldController({ isManuallyControlled: () => this.manualMovement.isActive() || this.openingBlock || Boolean(this.bot?.currentWindow) })
+    this.autoShield = new AutoShieldController({
+      isManuallyControlled: () => this.manualMovement.isActive() || this.openingBlock || Boolean(this.bot?.currentWindow),
+      isOverridden: () => this.creeperWatch.isFleeing(),
+    })
     this.pathfinder = new PathfinderController()
     this.manualMovement = new ManualMovementController({
       onStart: () => {
@@ -69,6 +82,7 @@ class BotManager extends EventEmitter {
     this.creeperWatch = new CreeperWatch({
       isManuallyControlled: () => this.manualMovement.isActive() || this.openingBlock || Boolean(this.bot?.currentWindow),
       pathfinder: this.pathfinder,
+      autoTool: this.autoTool,
       onAlert: (message) => this.chat.pushSystemMessage(message),
     })
     this.pvp = new PvpController({
@@ -78,6 +92,8 @@ class BotManager extends EventEmitter {
       onDefend: (mob) =>
         this.chat.pushSystemMessage(`Attacked by ${mob.displayName ?? mob.name ?? 'a mob'}, fighting back.`),
     })
+    // The creeper fight hits and dodges the creeper the PvP plugin is targeting.
+    this.creeperWatch.pvp = this.pvp
     this.behavior = new BehaviorManager({ pathfinder: this.pathfinder, pvp: this.pvp })
     this.bed = new BedController({
       pathfinder: this.pathfinder,
@@ -209,6 +225,8 @@ class BotManager extends EventEmitter {
             this.bot.removeListener('spawn', handleSpawn)
             this.bot.removeListener('health', handleHealth)
             this.bot.removeListener('move', handleMove)
+            this.bot.removeListener('entityEffect', handleEffect)
+            this.bot.removeListener('entityEffectEnd', handleEffectEnd)
             this.bot.removeListener('kicked', handleKicked)
             this.bot.removeListener('error', handleError)
             this.bot.removeListener('end', handleEnd)
@@ -310,6 +328,17 @@ class BotManager extends EventEmitter {
 
       const handleHealth = () => this._emitState()
       const handleMove = () => this._emitState()
+      // Effects only say how long they had left when they arrived, so note when that was.
+      const handleEffect = (entity, effect) => {
+        if (entity !== this.bot?.entity) return
+        this.effectStarts.set(effect.id, Date.now())
+        this._emitState()
+      }
+      const handleEffectEnd = (entity, effect) => {
+        if (entity !== this.bot?.entity) return
+        this.effectStarts.delete(effect.id)
+        this._emitState()
+      }
 
       const handleKicked = (reason, loggedIn) => {
         const text = kickReasonToText(reason, this.bot?.registry)
@@ -362,6 +391,8 @@ class BotManager extends EventEmitter {
       this.bot.on('spawn', handleSpawn)
       this.bot.on('health', handleHealth)
       this.bot.on('move', handleMove)
+      this.bot.on('entityEffect', handleEffect)
+      this.bot.on('entityEffectEnd', handleEffectEnd)
       this.bot.on('kicked', handleKicked)
       this.bot.on('error', handleError)
       this.bot.on('end', handleEnd)
@@ -426,6 +457,8 @@ class BotManager extends EventEmitter {
       connected: true,
       ...this.bed.getState(),
       mining: this.mining.getState(),
+      ...(this.autoEat.eating ? { eating: this.autoEat.eating } : {}),
+      effects: this._effects(),
       health,
       food,
       saturation,
@@ -473,6 +506,27 @@ class BotManager extends EventEmitter {
     this.worldInterval = null
     clearInterval(this.motionInterval)
     this.motionInterval = null
+  }
+
+  // The bot's status effects, for the row under health and food.
+  _effects() {
+    const effects = this.bot?.entity?.effects ?? {}
+    return Object.values(effects).flatMap((effect) => {
+      const info = this.bot.registry.effects?.[effect.id]
+      if (!info) return []
+      return [
+        {
+          // Icon name, e.g. "jump_boost".
+          name: info.name.replace(/([a-z])([A-Z])/g, '$1_$2').replace(/[\s']/g, '_').toLowerCase(),
+          label: info.displayName ?? info.name,
+          level: (effect.amplifier ?? 0) + 1,
+          good: info.type === 'good',
+          // Ticks left when it arrived (-1: no end), and when that was.
+          ticks: effect.duration,
+          since: this.effectStarts.get(effect.id) ?? Date.now(),
+        },
+      ]
+    })
   }
 
   _emitState() {
@@ -527,6 +581,114 @@ class BotManager extends EventEmitter {
       if (bot !== this.bot) throw new Error('The connection changed.')
       this._emitWorld()
     } finally { this.openingBlock = false }
+  }
+
+  // Build mode: breaks a line of blocks, or places the held block along one. One line at a time;
+  // cancelBuild stops it after the block in progress.
+  async buildAction(action) {
+    const bot = this.bot
+    if (!bot?.entity) throw new Error('The bot is not connected.')
+    const running = this.buildRun
+    if (running) {
+      // The same kind (and for placing, the same block in hand) joins the line being built.
+      const sameKind =
+        running.type === action?.type && (action.type !== 'place' || bot.heldItem?.name === running.itemName)
+      if (sameKind && Array.isArray(action.cells)) {
+        running.feed.incoming.push({ cells: action.cells, face: action.face })
+        return `Added ${action.cells.length} more.`
+      }
+      this.buildQueue.push(action)
+      this._emitBuildCells()
+      return `Queued ${action?.type === 'place' ? 'placing' : 'breaking'} ${action?.cells?.length ?? 0} for after this.`
+    }
+    return this._runBuild(action)
+  }
+
+  async _runBuild(action) {
+    const bot = this.bot
+    const run = {
+      cancelled: false,
+      stop: null,
+      type: action?.type,
+      itemName: bot.heldItem?.name ?? null,
+      feed: { incoming: [] },
+    }
+    run.stopped = new Promise((resolve) => (run.stop = resolve))
+    this.buildRun = run
+    try {
+      this.manualMovement.stop()
+      this._cancelDoorOperation()
+      this.mining.stop('Stopped to build.')
+      this.pvp.stopAttacking()
+      this.pvp._clearTarget()
+      const options = { followEnabled: false, cancelGoTo: true }
+      this.pathfinder.setOptions(options)
+      this.emit('pathfinderOptions', this.behavior.setPathfinderOptions(options))
+      return await buildCells(bot, action, {
+        equipTool: this.autoTool.isEnabled(),
+        onProgress: (text) => {
+          if (!run.cancelled) this.emit('notice', text)
+        },
+        isCancelled: () => run.cancelled || bot !== this.bot,
+        stopped: run.stopped,
+        feed: run.feed,
+        onRemaining: (cells) => {
+          run.remaining = cells
+          this._emitBuildCells()
+        },
+      })
+    } finally {
+      if (this.buildRun === run) this.buildRun = null
+      this._emitBuildCells()
+      if (bot === this.bot) this._emitWorld()
+      // The next queued job starts once this one's result has gone back; its own result shows as a notice.
+      const next = !run.cancelled && bot === this.bot ? this.buildQueue.shift() : null
+      if (next) {
+        setTimeout(() => {
+          this._runBuild(next).then(
+            (message) => this.emit('notice', message),
+            (error) => this.emit('notice', error?.message || 'That did not work.')
+          )
+        }, 0)
+      }
+    }
+  }
+
+  // The blocks still to break and to place (the running line and queued ones), for the watcher.
+  _emitBuildCells() {
+    const cells = { break: [], place: [] }
+    const run = this.buildRun
+    if (run?.remaining && cells[run.type]) cells[run.type].push(...run.remaining)
+    for (const job of this.buildQueue) {
+      if (cells[job?.type] && Array.isArray(job.cells)) cells[job.type].push(...job.cells)
+    }
+    this.emit('buildCells', cells)
+  }
+
+  // Stops a build right away: the dig or walk in progress too, and frees the bot for the next one.
+  // True if something was running.
+  cancelBuild() {
+    const queued = this.buildQueue.length > 0
+    this.buildQueue = []
+    const run = this.buildRun
+    if (run) run.remaining = []
+    this._emitBuildCells()
+    if (!run) return queued
+    run.cancelled = true
+    run.stop()
+    this.buildRun = null
+    const bot = this.bot
+    try {
+      bot?.stopDigging()
+    } catch {
+      // Wasn't digging.
+    }
+    try {
+      bot?.pathfinder?.setGoal(null)
+    } catch {
+      // Wasn't walking.
+    }
+    return true
   }
 
   // Walks to a villager or wandering trader and opens its trades.

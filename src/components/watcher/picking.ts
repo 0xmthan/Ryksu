@@ -16,14 +16,36 @@ export type Pick =
 const raycaster = new THREE.Raycaster()
 const pointer = new THREE.Vector2()
 
+// Water, lava and plants a placed block replaces: build mode places into them and breaks through them.
+export const REPLACEABLE_BLOCKS = new Set([
+  'water',
+  'lava',
+  'bubble_column',
+  'short_grass',
+  'grass',
+  'tall_grass',
+  'fern',
+  'large_fern',
+  'dead_bush',
+  'seagrass',
+  'tall_seagrass',
+  'vine',
+  'glow_lichen',
+  'fire',
+  'soul_fire',
+])
+export const isLiquid = (name: string) => name === 'water' || name === 'lava' || name === 'bubble_column'
+
 // `entities` are scene objects tagged with userData.name; `anchor` turns scene positions into world ones.
+// `skipBlock` looks past blocks it returns true for (build mode breaking through water).
 export const pickAt = (
   event: { clientX: number; clientY: number },
   element: HTMLElement,
   camera: THREE.Camera,
   entities: THREE.Object3D[],
   pickable: Pickable[],
-  anchor: THREE.Vector3
+  anchor: THREE.Vector3,
+  skipBlock?: (name: string) => boolean
 ): Pick | null => {
   const rect = element.getBoundingClientRect()
   pointer.set(
@@ -31,9 +53,15 @@ export const pickAt = (
     -((event.clientY - rect.top) / rect.height) * 2 + 1
   )
   raycaster.setFromCamera(pointer, camera)
-  const hit = raycaster.intersectObjects([...entities, ...pickable.map((entry) => entry.mesh)], true)[0]
-  if (!hit) return null
+  for (const hit of raycaster.intersectObjects([...entities, ...pickable.map((entry) => entry.mesh)], true)) {
+    const result = toPick(hit, pickable, anchor)
+    if (result?.kind === 'block' && skipBlock?.(result.name)) continue
+    return result
+  }
+  return null
+}
 
+const toPick = (hit: THREE.Intersection, pickable: Pickable[], anchor: THREE.Vector3): Pick | null => {
   const picked = pickable.find((entry) => entry.mesh === hit.object)
   if (picked) {
     if (hit.faceIndex == null) return null
