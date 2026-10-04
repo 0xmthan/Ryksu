@@ -62,8 +62,8 @@ ipcMain.handle('system:openExternal', async (_event, url) => {
 
 const createWindow = () => {
   const mainWindow = new BrowserWindow({
-    width: 750,
-    height: 500,
+    width: 1125,
+    height: 750,
     resizable: false,
     frame: false,
     titleBarStyle: 'hidden',

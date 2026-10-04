@@ -460,7 +460,7 @@ const App: React.FC = () => {
   }, [isConnected])
 
   return (
-    <div className="flex min-h-screen flex-col bg-app text-purple-100">
+    <div className="flex h-screen flex-col overflow-hidden bg-app text-purple-100">
       <div className="fixed inset-x-0 top-0 z-50">
         <TitleBar
           status={status}
@@ -472,9 +472,29 @@ const App: React.FC = () => {
           onDisconnect={handleDisconnect}
           onToggleChat={handleTitleBarToggle}
           isChatActive={isConnected ? isChatPanelOpen : isViewingSavedChats}
+          armorManagerEnabled={armorManagerEnabled}
+          onArmorManagerToggle={toggleArmorManager}
+          autoShieldEnabled={autoShieldEnabled}
+          onAutoShieldToggle={toggleAutoShield}
+          autoEatEnabled={autoEatEnabled}
+          onAutoEatToggle={toggleAutoEat}
+          onAutoEatConfigure={handleOpenAutoEatSettings}
+          autoToolEnabled={autoToolEnabled}
+          onAutoToolToggle={toggleAutoTool}
+          pvpEnabled={pvpEnabled}
+          onPvpToggle={togglePvp}
+          onPvpConfigure={handleOpenPvpSettings}
+          allowBlockBreak={pvpOptions.allowBlockBreak}
+          onAllowBlockBreakToggle={handleAllowBlockBreakToggle}
+          mining={connectedState?.mining}
+          isSleeping={Boolean(connectedState?.isSleeping)}
+          canSleep={Boolean(connectedState?.canSleep)}
+          bedPickupPending={Boolean(connectedState?.bedPickupPending)}
+          jumpAttackEnabled={pvpOptions.jumpAttackEnabled}
+          onJumpAttackToggle={handleJumpAttackToggle}
         />
       </div>
-      <main className="flex flex-1 overflow-y-auto pt-12">
+      <main className={`flex min-h-0 flex-1 overflow-y-auto ${isConnected ? '' : 'pt-12'}`}>
         {isConnected && connectedState ? (
           <Dashboard
             snapshot={connectedState}
@@ -484,28 +504,12 @@ const App: React.FC = () => {
             onChatSubmit={handleChatSubmit}
             isSendingChat={isSendingChat}
             showChat={isChatPanelOpen}
-            armorManagerEnabled={armorManagerEnabled}
-            onArmorManagerToggle={toggleArmorManager}
-            autoEatEnabled={autoEatEnabled}
-            onAutoEatToggle={toggleAutoEat}
-            onAutoEatConfigure={handleOpenAutoEatSettings}
-            autoToolEnabled={autoToolEnabled}
-            onAutoToolToggle={toggleAutoTool}
-            autoShieldEnabled={autoShieldEnabled}
-            onAutoShieldToggle={toggleAutoShield}
             pathfinderEnabled={pathfinder.followEnabled}
             pathfinderTarget={pathfinder.followTarget}
             pathfinder={pathfinder}
             onPathfinderToggle={handlePathfinderToggle}
             onPathfinderTargetChange={handlePathfinderTargetChange}
             updatePathfinder={updatePathfinder}
-            pvpEnabled={pvpEnabled}
-            onPvpToggle={togglePvp}
-            onPvpConfigure={handleOpenPvpSettings}
-            allowBlockBreak={pvpOptions.allowBlockBreak}
-            onAllowBlockBreakToggle={handleAllowBlockBreakToggle}
-            jumpAttackEnabled={pvpOptions.jumpAttackEnabled}
-            onJumpAttackToggle={handleJumpAttackToggle}
             pvpPlayerEnabled={pvpPlayerEnabled}
             pvpPlayerTarget={pvpPlayerTarget}
             onPvpPlayerToggle={togglePvpPlayer}

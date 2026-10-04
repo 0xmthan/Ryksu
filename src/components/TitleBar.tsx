@@ -1,6 +1,35 @@
 import React from 'react'
-import { MessageSquareText, Minus, X } from 'lucide-react'
-import type { BotStatus } from '../types'
+import {
+  Apple,
+  ChevronsUp,
+  Hammer,
+  MessageSquareText,
+  Minus,
+  Pickaxe,
+  ShieldHalf,
+  Swords,
+  X,
+} from 'lucide-react'
+import SleepButton from './SleepButton'
+import ToolbarButton from './ToolbarButton'
+import MiningPanel from './MiningPanel'
+import type { BotStatus, MiningState } from '../types'
+
+const ArmorIcon = () => (
+  <svg
+    aria-hidden="true"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.75"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className="h-[18px] w-[18px]"
+  >
+    <path d="M8 3 3 5v6l3 1v8h12v-8l3-1V5l-5-2c0 3-8 3-8 0Z" />
+    <path d="M8 3v5l4 3 4-3V3M12 11v9M8 16h8" />
+  </svg>
+)
 
 type TitleBarProps = {
   status: BotStatus
@@ -12,6 +41,26 @@ type TitleBarProps = {
   onDisconnect: () => void
   onToggleChat: () => void
   isChatActive: boolean
+  armorManagerEnabled: boolean
+  onArmorManagerToggle: (value: boolean) => void
+  autoShieldEnabled: boolean
+  onAutoShieldToggle: (value: boolean) => void
+  autoEatEnabled: boolean
+  onAutoEatToggle: (value: boolean) => void
+  onAutoEatConfigure: () => void
+  autoToolEnabled: boolean
+  onAutoToolToggle: (value: boolean) => void
+  pvpEnabled: boolean
+  onPvpToggle: (value: boolean) => void
+  onPvpConfigure: () => void
+  allowBlockBreak: boolean
+  onAllowBlockBreakToggle: (value: boolean) => void
+  mining: MiningState | undefined
+  isSleeping: boolean
+  canSleep: boolean
+  bedPickupPending: boolean
+  jumpAttackEnabled: boolean
+  onJumpAttackToggle: (value: boolean) => void
 }
 
 const TitleBar: React.FC<TitleBarProps> = ({
@@ -24,6 +73,26 @@ const TitleBar: React.FC<TitleBarProps> = ({
   onDisconnect,
   onToggleChat,
   isChatActive,
+  armorManagerEnabled,
+  onArmorManagerToggle,
+  autoShieldEnabled,
+  onAutoShieldToggle,
+  autoEatEnabled,
+  onAutoEatToggle,
+  onAutoEatConfigure,
+  autoToolEnabled,
+  onAutoToolToggle,
+  pvpEnabled,
+  onPvpToggle,
+  onPvpConfigure,
+  allowBlockBreak,
+  onAllowBlockBreakToggle,
+  mining,
+  isSleeping,
+  canSleep,
+  bedPickupPending,
+  jumpAttackEnabled,
+  onJumpAttackToggle,
 }) => {
   const handleMinimize = () => {
     window.electronAPI?.minimize()
@@ -77,7 +146,7 @@ const TitleBar: React.FC<TitleBarProps> = ({
       className="app-region-drag flex h-12 items-center justify-between border-b border-neutral-800
         bg-neutral-950/70 px-4 backdrop-blur"
     >
-      <div className="flex flex-1 items-center gap-2">
+      <div className="flex min-w-0 flex-1 items-center gap-2 pr-3">
         <span className={`h-2 w-2 rounded-full ${indicatorColor}`} />
         <div className="flex items-center gap-3 overflow-hidden">
           <div className="flex flex-col leading-none">
@@ -90,25 +159,87 @@ const TitleBar: React.FC<TitleBarProps> = ({
         </div>
       </div>
 
-      <div className="app-region-no-drag flex items-center gap-2">
-        <button
-          type="button"
-          onClick={onToggleChat}
-          className={`group flex h-8 w-8 items-center justify-center rounded-full border border-neutral-700/60
-            bg-neutral-900/70 transition focus-visible:outline focus-visible:outline-offset-2
-            focus-visible:outline-sky-400 ${isChatActive ? 'border-sky-500/60' : 'hover:border-neutral-500'}`}
-          aria-label={
+      <div className="app-region-no-drag flex shrink-0 items-center gap-2">
+        {isConnected ? (
+          <>
+            <ToolbarButton
+              label="Armor Manager"
+              description="Automatically equip armor. Click to toggle."
+              active={armorManagerEnabled}
+              onClick={() => onArmorManagerToggle(!armorManagerEnabled)}
+            >
+              <ArmorIcon />
+            </ToolbarButton>
+            <ToolbarButton
+              label="Auto Shield"
+              description="Automatically block with a shield. Click to toggle."
+              active={autoShieldEnabled}
+              onClick={() => onAutoShieldToggle(!autoShieldEnabled)}
+            >
+              <ShieldHalf aria-hidden="true" className="h-[18px] w-[18px]" strokeWidth={1.75} />
+            </ToolbarButton>
+            <ToolbarButton
+              label="Auto Tool"
+              description="Automatically choose the right tool. Click to toggle."
+              active={autoToolEnabled}
+              onClick={() => onAutoToolToggle(!autoToolEnabled)}
+            >
+              <Pickaxe aria-hidden="true" className="h-[18px] w-[18px]" strokeWidth={1.75} />
+            </ToolbarButton>
+            <ToolbarButton
+              label="Auto Eat"
+              description="Eat automatically. Click to toggle. Right-click for settings."
+              active={autoEatEnabled}
+              onClick={() => onAutoEatToggle(!autoEatEnabled)}
+              onConfigure={onAutoEatConfigure}
+            >
+              <Apple aria-hidden="true" className="h-[18px] w-[18px]" strokeWidth={1.75} />
+            </ToolbarButton>
+            <ToolbarButton
+              label="Attack Mobs"
+              description="Attack mobs automatically. Click to toggle. Right-click for settings."
+              active={pvpEnabled}
+              onClick={() => onPvpToggle(!pvpEnabled)}
+              onConfigure={onPvpConfigure}
+            >
+              <Swords aria-hidden="true" className="h-[18px] w-[18px]" strokeWidth={1.75} />
+            </ToolbarButton>
+            <ToolbarButton
+              label="Jump Attack"
+              description="Jump during attacks. Click to toggle."
+              active={jumpAttackEnabled}
+              onClick={() => onJumpAttackToggle(!jumpAttackEnabled)}
+            >
+              <ChevronsUp aria-hidden="true" className="h-[18px] w-[18px]" strokeWidth={1.75} />
+            </ToolbarButton>
+            <MiningPanel mining={mining} />
+            <ToolbarButton
+              label="Break Blocks"
+              description="Allow breaking blocks while navigating. Click to toggle."
+              active={allowBlockBreak}
+              onClick={() => onAllowBlockBreakToggle(!allowBlockBreak)}
+            >
+              <Hammer aria-hidden="true" className="h-[18px] w-[18px]" strokeWidth={1.75} />
+            </ToolbarButton>
+          </>
+        ) : null}
+        <ToolbarButton
+          label={isConnected ? 'Chat' : 'Saved Chats'}
+          description={
             isChatActive
-              ? isConnected
-                ? 'Hide chat panel'
-                : 'Hide saved chats'
+              ? 'Click to hide the chat panel.'
               : isConnected
-                ? 'Show chat panel'
-                : 'Show saved chats'
+                ? 'Click to open the chat panel.'
+                : 'Click to view saved conversations.'
           }
+          active={isChatActive}
+          onClick={onToggleChat}
         >
-          <MessageSquareText className="h-4 w-4 text-white" strokeWidth={1.75} />
-        </button>
+          <MessageSquareText aria-hidden="true" className="h-[18px] w-[18px]" strokeWidth={1.75} />
+        </ToolbarButton>
+        {isConnected ? (
+          <SleepButton isSleeping={isSleeping} canSleep={canSleep} bedPickupPending={bedPickupPending} />
+        ) : null}
         <button
           type="button"
           onClick={handlePrimaryAction}

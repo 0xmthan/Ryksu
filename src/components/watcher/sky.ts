@@ -20,6 +20,7 @@ const LIGHT_DISTANCE = 180
 const DISC_DISTANCE = 380
 // How fast the look eases toward a change (per second), e.g. walking into a cave.
 const EASE_RATE = 3
+const DAY_TICKS = 24000
 
 const makeStars = () => {
   const positions: number[] = []
@@ -87,13 +88,21 @@ export const createSky = (scene: THREE.Scene, renderer: THREE.WebGLRenderer) => 
   const sunDirection = new THREE.Vector3()
   const wanted = new THREE.Color()
   let caveAmount = 0
+  let skyTime: number | null = null
 
   // timeOfDay: 0-24000 game ticks (0 sunrise, 6000 noon, 12000 sunset, 18000 midnight).
   const update = (timeOfDay: number, mode: ViewMode, focus: THREE.Vector3, delta: number) => {
     const ease = 1 - Math.exp(-delta * EASE_RATE)
     caveAmount += ((mode === 'cave' ? 1 : 0) - caveAmount) * ease
 
-    const angle = (timeOfDay / 24000) * Math.PI * 2
+    // Server time arrives in steps. Ease the shared sun/shadow clock each frame, taking the
+    // shortest route across midnight so the sky doesn't spin backward when time wraps.
+    const targetTime = THREE.MathUtils.euclideanModulo(timeOfDay, DAY_TICKS)
+    if (skyTime === null) skyTime = targetTime
+    const timeDifference =
+      THREE.MathUtils.euclideanModulo(targetTime - skyTime + DAY_TICKS / 2, DAY_TICKS) - DAY_TICKS / 2
+    skyTime = THREE.MathUtils.euclideanModulo(skyTime + timeDifference * ease, DAY_TICKS)
+    const angle = (skyTime / DAY_TICKS) * Math.PI * 2
     // Rises in the east (+x), sets in the west, tilted a little south so shadows aren't straight lines.
     sunDirection.set(Math.cos(angle), Math.sin(angle), 0.3).normalize()
     const height = sunDirection.y

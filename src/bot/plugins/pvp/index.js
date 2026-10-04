@@ -30,6 +30,7 @@ class PvpController {
     this.autoShield = autoShield ?? null
     this.jumpAttackEnabled = true
     this.jumpReleaseTimer = null
+    this.pendingAttack = null
     this.isFleeing = isFleeing ?? (() => false)
     this.onDefend = onDefend ?? null
     this.defendTarget = null
@@ -147,6 +148,7 @@ class PvpController {
     }
 
     if (typeof options.jumpAttackEnabled === 'boolean') {
+      if (!options.jumpAttackEnabled) this._cancelPendingAttack()
       this.jumpAttackEnabled = options.jumpAttackEnabled
     }
   }
@@ -191,6 +193,7 @@ class PvpController {
   // Attacks one entity on request (chasing it until it dies or gets out of view), whatever the PvP
   // settings say; it rides on the same target slot as fighting back.
   attackEntity(entity) {
+    this._cancelPendingAttack()
     this.defendTarget = entity
     this.defendUntil = Infinity
     this.target = entity
@@ -239,6 +242,7 @@ class PvpController {
 
     // Running from a creeper owns the pathfinder; don't chase or clear its goal.
     if (this.isFleeing()) {
+      this._cancelPendingAttack()
       this.isControllingPathfinder = false
       return
     }
@@ -401,56 +405,49 @@ class PvpController {
     }
   }
 
-  _attemptAttack(target) {
-    if (!target?.isValid || !this.bot?.entity?.position) {
-      return
-    }
+  async _attemptAttack(target) {
+    const bot = this.bot
+    if (this.pendingAttack || !target?.isValid || !bot?.entity?.position || this.cooldownTicks > 0) return
 
-    const distance = this.bot.entity.position.distanceTo(target.position)
-    if (!Number.isFinite(distance) || distance > this.config.attackRange + 0.5) {
-      return
+    const inRange = () => {
+      const distance = bot.entity?.position?.distanceTo(target.position)
+      return Number.isFinite(distance) && distance <= this.config.attackRange + 0.5
     }
+    if (!inRange()) return
 
-    if (this.cooldownTicks > 0) {
-      return
+    const run = { cancelJump: null }
+    this.pendingAttack = run
+    const isCurrent = () =>
+      this.pendingAttack === run &&
+      this.bot === bot &&
+      this.target === target &&
+      target.isValid &&
+      !this.isFleeing()
+
+    try {
+      if (this.autoTool?.isEnabled?.() && typeof this.autoTool.equipBestWeapon === 'function') {
+        await this.autoTool.equipBestWeapon().catch(() => {})
+      }
+      if (!isCurrent() || !inRange()) return
+
+      await this._triggerJumpAttack(bot, run)
+      if (!isCurrent() || !inRange()) return
+
+      const aimPosition = target.position.offset(0, target.height ? target.height * 0.6 : 1, 0)
+      await bot.lookAt(aimPosition, true)
+      if (!isCurrent() || !inRange()) return
+
+      bot.attack(target)
+      const heldName = bot.heldItem?.name ?? 'other'
+      this.cooldownTicks = this._getCooldownTicks(heldName) + this.config.cooldownPadding
+      if (this.autoShield?.isEnabled?.()) {
+        this.autoShield.requestBlockAfterAttack(target)
+      }
+    } catch {
+      if (isCurrent()) this.cooldownTicks = 5
+    } finally {
+      if (this.pendingAttack === run) this.pendingAttack = null
     }
-
-    const aimPosition = target.position.offset(0, target.height ? target.height * 0.6 : 1, 0)
-    const performAttack = () => {
-      this.bot
-        .lookAt(aimPosition, true)
-        .then(() => {
-          if (!target.isValid) {
-            return
-          }
-          this.bot.attack(target)
-          const heldName = this.bot.heldItem?.name ?? 'other'
-          this.cooldownTicks = this._getCooldownTicks(heldName) + this.config.cooldownPadding
-          if (this.autoShield?.isEnabled?.()) {
-            this.autoShield.requestBlockAfterAttack(target)
-          }
-        })
-        .catch(() => {
-          this.cooldownTicks = 5
-        })
-    }
-
-    const executeAttack = () => {
-      this._triggerJumpAttack()
-      performAttack()
-    }
-
-    if (this.autoTool?.isEnabled?.() && typeof this.autoTool.equipBestWeapon === 'function') {
-      this.autoTool
-        .equipBestWeapon()
-        .catch(() => {})
-        .finally(() => {
-          executeAttack()
-        })
-      return
-    }
-
-    executeAttack()
   }
 
   _getCooldownTicks(weaponName) {
@@ -462,6 +459,7 @@ class PvpController {
   }
 
   _clearTarget() {
+    this._cancelPendingAttack()
     if (this.bot?.pathfinder && this.movementAllowed && this.isControllingPathfinder) {
       try {
         this.bot.pathfinder.setGoal(null)
@@ -473,29 +471,50 @@ class PvpController {
     this.target = null
   }
 
-  _triggerJumpAttack() {
-    if (!this.jumpAttackEnabled || !this.bot?.entity || !this.bot.entity.onGround) {
-      return
+  _cancelPendingAttack() {
+    const run = this.pendingAttack
+    this.pendingAttack = null
+    run?.cancelJump?.()
+    if (this.jumpReleaseTimer) {
+      clearTimeout(this.jumpReleaseTimer)
+      this.jumpReleaseTimer = null
+      try {
+        this.bot?.setControlState('jump', false)
+      } catch {}
     }
+  }
 
-    try {
-      this.bot.setControlState('jump', true)
-      if (this.jumpReleaseTimer) {
-        clearTimeout(this.jumpReleaseTimer)
+  _triggerJumpAttack(bot, run) {
+    if (!this.jumpAttackEnabled || !bot.entity?.onGround) return Promise.resolve()
+
+    return new Promise((resolve) => {
+      let timeout
+      const finish = () => {
+        clearTimeout(timeout)
+        bot.removeListener('physicsTick', onTick)
+        run.cancelJump = null
+        resolve()
       }
-      this.jumpReleaseTimer = setTimeout(() => {
-        this.jumpReleaseTimer = null
-        if (this.bot) {
+      const onTick = () => {
+        if (bot.entity && !bot.entity.onGround) finish()
+      }
+      run.cancelJump = finish
+      bot.on('physicsTick', onTick)
+      // A low ceiling can prevent takeoff; keep fighting rather than waiting indefinitely.
+      timeout = setTimeout(finish, 500)
+      try {
+        bot.setControlState('jump', true)
+        if (this.jumpReleaseTimer) clearTimeout(this.jumpReleaseTimer)
+        this.jumpReleaseTimer = setTimeout(() => {
+          this.jumpReleaseTimer = null
           try {
-            this.bot.setControlState('jump', false)
-          } catch {
-            // ignore
-          }
-        }
-      }, 250)
-    } catch (error) {
-      console.error('Failed to trigger jump attack', error)
-    }
+            bot.setControlState('jump', false)
+          } catch {}
+        }, 250)
+      } catch {
+        finish()
+      }
+    })
   }
 }
 
