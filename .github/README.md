@@ -1,6 +1,10 @@
 CI runs dependency auditing, a frozen-lockfile install, type checking, and tests
 on every push and pull request. Regular commits skip Electron packaging.
 
+The run's Summary page includes a CI report with a results table, vulnerability
+counts by severity, and a release ZIP download link when a build succeeds.
+The report also runs after failed checks and marks skipped steps explicitly.
+
 To build a release ZIP, start the commit subject with a version:
 
 ```sh

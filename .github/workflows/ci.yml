@@ -17,6 +17,8 @@ jobs:
     name: Package audit
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    outputs:
+      vulnerabilities: ${{ steps.audit-data.outputs.vulnerabilities }}
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v7
@@ -24,7 +26,12 @@ jobs:
           node-version: '22'
       - uses: pnpm/action-setup@v6
       - name: Check dependencies for high and critical vulnerabilities
-        run: pnpm audit --audit-level high
+        id: audit
+        run: pnpm audit --audit-level high --json > audit.json
+      - name: Collect audit results
+        id: audit-data
+        if: always()
+        run: node scripts/ci/report.cjs audit
 
   checks:
     name: Tests and types
@@ -32,6 +39,9 @@ jobs:
     timeout-minutes: 15
     outputs:
       release-version: ${{ steps.release.outputs.version }}
+      install: ${{ steps.install.outcome }}
+      types: ${{ steps.types.outcome }}
+      tests: ${{ steps.tests.outcome }}
     defaults:
       run:
         working-directory: ryksu
@@ -64,6 +74,7 @@ jobs:
       - name: Generate Minecraft data entry point
         run: node ../minecraft-data-26.2/bin/generate_data.js
       - name: Install exact locked dependencies
+        id: install
         run: pnpm install --frozen-lockfile
       - name: Detect release version
         id: release
@@ -71,8 +82,10 @@ jobs:
           COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
         run: node scripts/ci/release-version.cjs
       - name: Type check
+        id: types
         run: pnpm typecheck
       - name: Run tests
+        id: tests
         run: pnpm test
 
   release:
@@ -81,6 +94,8 @@ jobs:
     if: github.event_name == 'push' && needs.checks.outputs.release-version != ''
     runs-on: macos-latest
     timeout-minutes: 30
+    outputs:
+      artifact-url: ${{ steps.upload.outputs.artifact-url }}
     defaults:
       run:
         working-directory: ryksu
@@ -127,9 +142,24 @@ jobs:
       - name: Build release ZIP
         run: pnpm make
       - name: Upload release ZIP
+        id: upload
         uses: actions/upload-artifact@v4
         with:
           name: Ryksu-v${{ needs.checks.outputs.release-version }}-macOS
           path: ryksu/out/make/**/*.zip
           if-no-files-found: error
           retention-days: 30
+
+  report:
+    name: CI report
+    needs: [packages, checks, release]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+      - name: Write run summary
+        env:
+          CI_RESULTS: ${{ toJSON(needs) }}
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+        run: node scripts/ci/report.cjs summary
