@@ -173,8 +173,8 @@ const TitleBar: React.FC<TitleBarProps> = ({
         <div className="flex items-center gap-3 overflow-hidden">
           <div className="flex flex-col leading-none">
             <span className="text-xl font-bold uppercase text-neutral-100">Ryksu</span>
-            <span className="text-[0.6rem] font-semibold tracking-[0.13em] uppercase text-neutral-500 -mt-1.5">
-              by 2mdtln
+            <span className="text-[0.6rem] font-semibold tracking-[0.13em] text-neutral-500">
+              0xmthan
             </span>
           </div>
           {isConnected ? (

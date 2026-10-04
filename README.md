@@ -1,8 +1,7 @@
-<p align="center">
-  <img src="assets/icon.png" alt="Ryksu logo" width="96" height="96" />
-</p>
-
-<h1 align="center">Ryksu</h1>
+<h1 align="center">
+  <img src="assets/icon.png" alt="Ryksu logo" width="64" height="64" align="center" />
+  &nbsp;RYKSU
+</h1>
 
 <p align="center">
   <strong>Minecraft bot control, from your desktop.</strong>
@@ -51,3 +50,6 @@ pnpm make
 ```
 
 Build output lives in `.vite/`, and distributables are written to `out/make/`.
+
+See [CI and release details](.github/DEVELOPMENT.md) for reports, release builds,
+and the temporary Minecraft data override.
