@@ -77,6 +77,11 @@ export type PathfinderOptions = {
     x: number
     y: number
     z: number
+    door?: {
+      x: number
+      y: number
+      z: number
+    }
   }
   cancelGoTo?: boolean
 }

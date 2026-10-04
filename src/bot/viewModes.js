@@ -37,16 +37,26 @@ const analyzeView = ({ grid, occludes, palette, width, height, feetY, center, cu
 
   // Air the bot can reach, flooding from its feet and head.
   const reached = new Uint8Array(total)
-  const queue = []
+  const queueX = new Int16Array(total)
+  const queueY = new Int16Array(total)
+  const queueZ = new Int16Array(total)
+  let head = 0
+  let tail = 0
   for (const y of [feetY, feetY + 1]) {
     const cell = indexOf(center, y, center)
     if (y < height && !occludes[cell]) {
       reached[cell] = 1
-      queue.push([center, y, center])
+      queueX[tail] = center
+      queueY[tail] = y
+      queueZ[tail] = center
+      tail++
     }
   }
-  for (let i = 0; i < queue.length; i++) {
-    const [x, y, z] = queue[i]
+  while (head < tail) {
+    const x = queueX[head]
+    const y = queueY[head]
+    const z = queueZ[head]
+    head++
     for (const [dx, dy, dz] of NEIGHBORS_3D) {
       const nx = x + dx
       const ny = y + dy
@@ -55,7 +65,10 @@ const analyzeView = ({ grid, occludes, palette, width, height, feetY, center, cu
       const cell = indexOf(nx, ny, nz)
       if (reached[cell] || occludes[cell]) continue
       reached[cell] = 1
-      queue.push([nx, ny, nz])
+      queueX[tail] = nx
+      queueY[tail] = ny
+      queueZ[tail] = nz
+      tail++
     }
   }
 
@@ -70,9 +83,12 @@ const analyzeView = ({ grid, occludes, palette, width, height, feetY, center, cu
         if (grid[cell] < 0) continue
         const touches =
           reached[cell] ||
-          NEIGHBORS_3D.some(
-            ([dx, dy, dz]) => inside(x + dx, y + dy, z + dz) && reached[indexOf(x + dx, y + dy, z + dz)]
-          )
+          (y + 1 < height && reached[indexOf(x, y + 1, z)]) ||
+          (y > 0 && reached[indexOf(x, y - 1, z)]) ||
+          (z + 1 < width && reached[indexOf(x, y, z + 1)]) ||
+          (z > 0 && reached[indexOf(x, y, z - 1)]) ||
+          (x + 1 < width && reached[indexOf(x + 1, y, z)]) ||
+          (x > 0 && reached[indexOf(x - 1, y, z)])
         if (!touches) continue
         shell[cell] = 1
         if (occludes[cell]) {

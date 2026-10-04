@@ -7,7 +7,7 @@ type WatcherPageProps = {
   blocks: WorldView['blocks'] | null
   chest: { x: number; y: number; z: number } | null
   status: string | null
-  onWalkTo: (target: { x: number; y: number; z: number }) => void
+  onWalkTo: (target: { x: number; y: number; z: number; door?: { x: number; y: number; z: number } }) => void
   onClose: () => void
 }
 

@@ -1,5 +1,6 @@
 const { EventEmitter } = require('node:events')
 const mineflayer = require('mineflayer')
+const { Vec3 } = require('vec3')
 const { SUPPORTED_VERSIONS } = require('./bot/versions')
 const { kickReasonToText, normaliseError } = require('./bot/errors')
 const { ChatBridge } = require('./bot/chatBridge')
@@ -42,6 +43,8 @@ class BotManager extends EventEmitter {
     this.stateInterval = null
     this.worldInterval = null
     this.motionInterval = null
+    this._lastBlocksKey = null
+    this._lastInvSummary = null
     this.chat = new ChatBridge(this)
     this.armorManager = new ArmorManagerController()
     this.autoEat = new AutoEatController()
@@ -84,6 +87,7 @@ class BotManager extends EventEmitter {
       getTargetName: () => this.behavior.getPathfinderOptions().followTarget,
       onToggleFollow: () => this._toggleFollowFromGesture(),
     })
+    this.doorOperation = null
   }
 
   getSupportedVersions() {
@@ -265,6 +269,13 @@ class BotManager extends EventEmitter {
       this.mining.attach(this.bot)
       this.behavior.applyCurrentState()
 
+      const markWorldDirty = () => {
+        if (this.bot) this.bot._worldDirty = true
+      }
+      this.bot.on('blockUpdate', markWorldDirty)
+      this.bot.on('chunkColumnLoad', markWorldDirty)
+      this.bot.on('chunkColumnUnload', markWorldDirty)
+
       const handleLogin = () => {
         this.emit('status', { stage: 'connected', message: 'Bot connected successfully.' })
         this._startStateStream()
@@ -337,6 +348,7 @@ class BotManager extends EventEmitter {
   }
 
   async disconnect() {
+    this._cancelDoorOperation()
     this._stopStateStream()
 
     if (!this.bot) {
@@ -363,6 +375,8 @@ class BotManager extends EventEmitter {
     this.mining.detach()
     this.bot.removeAllListeners()
     this.bot = null
+    this._lastBlocksKey = null
+    this._lastInvSummary = null
     this.emit('status', { stage: 'disconnected', message: 'Bot disconnected.' })
     this.chat.clear()
   }
@@ -453,7 +467,16 @@ class BotManager extends EventEmitter {
     try {
       const view = getWorldView(this.bot)
       if (view) {
-        this.emit('world', view)
+        const blocksKey = view.blocks?.key
+        const inv = view.inventory
+        const invSummary = inv
+          ? `${inv.selectedHotbar}:${inv.freeSlots}:${inv.hotbar?.map((i) => (i ? `${i.name}:${i.count}` : '')).join(',')}`
+          : ''
+        if (blocksKey !== this._lastBlocksKey || invSummary !== this._lastInvSummary) {
+          this._lastBlocksKey = blocksKey
+          this._lastInvSummary = invSummary
+          this.emit('world', view)
+        }
       }
     } catch (error) {
       console.error('[BotManager] Failed to build world view', error)
@@ -557,15 +580,20 @@ class BotManager extends EventEmitter {
   }
 
   setPathfinderOptions(options) {
-    // Being sent somewhere calls off an attack.
+    // Being sent somewhere calls off an attack and any existing door operation.
     if (options?.goToLocation) {
       this.pvp.stopAttacking()
+      this._cancelDoorOperation()
+      if (options.goToLocation.door) {
+        this._scheduleDoorOpen(options.goToLocation.door)
+      }
     }
     return this.behavior.setPathfinderOptions(options || {})
   }
 
   // Chases and attacks one entity (picked in the watcher) until it dies or gets away.
   attackEntity(entityId) {
+    this._cancelDoorOperation()
     const entity = this.bot?.entities?.[entityId]
     if (!entity || entity === this.bot.entity) {
       return { ok: false, message: 'That entity is gone.' }
@@ -578,6 +606,120 @@ class BotManager extends EventEmitter {
       `Attacking ${entity.username ?? entity.displayName ?? entity.name ?? 'entity'}.`
     )
     return { ok: true }
+  }
+
+  _isDoorBlock(name) {
+    return (
+      typeof name === 'string' &&
+      (name.endsWith('_door') || name === 'door' || name === 'wooden_door') &&
+      !name.endsWith('trapdoor')
+    )
+  }
+
+  _cancelDoorOperation() {
+    if (this.doorOperation) {
+      this.doorOperation.aborted = true
+      if (this.doorOperation.interval) clearInterval(this.doorOperation.interval)
+      if (this.doorOperation.timeout) clearTimeout(this.doorOperation.timeout)
+      this.doorOperation = null
+    }
+  }
+
+  // Toggles a door (opens if closed, closes if open) as soon as the bot gets within interaction reach.
+  _scheduleDoorOpen(doorLocation) {
+    this._cancelDoorOperation()
+
+    const pos = new Vec3(Math.floor(doorLocation.x), Math.floor(doorLocation.y), Math.floor(doorLocation.z))
+    const initialBlock = this.bot?.blockAt(pos)
+    const initialProps = typeof initialBlock?.getProperties === 'function' ? initialBlock.getProperties() : {}
+    const wasOpen = initialProps.open === true || initialProps.open === 'true'
+
+    const op = { aborted: false, interval: null, timeout: null }
+    this.doorOperation = op
+
+    const cleanup = () => {
+      if (op.interval) clearInterval(op.interval)
+      if (op.timeout) clearTimeout(op.timeout)
+      if (this.doorOperation === op) {
+        this.doorOperation = null
+      }
+    }
+
+    const tryToggle = async () => {
+      if (op.aborted || !this.bot?.entity) {
+        cleanup()
+        return
+      }
+
+      const block = this.bot.blockAt(pos)
+      if (!block || !this._isDoorBlock(block.name)) {
+        cleanup()
+        return
+      }
+
+      if (block.name.includes('iron')) {
+        this.chat.pushSystemMessage('Iron doors cannot be opened by hand.')
+        cleanup()
+        return
+      }
+
+      const props = typeof block.getProperties === 'function' ? block.getProperties() : {}
+      const currentlyOpen = props.open === true || props.open === 'true'
+
+      // If the door already changed its state, we're done
+      if (currentlyOpen !== wasOpen) {
+        cleanup()
+        return
+      }
+
+      const isUpper = props.half === 'upper'
+      const lowerPos = isUpper ? pos.offset(0, -1, 0) : pos
+      const doorCenter = lowerPos.offset(0.5, 0.5, 0.5)
+      const eyePos = this.bot.entity.position.offset(0, 1.6, 0)
+      const distance = eyePos.distanceTo(doorCenter)
+
+      // Player reach is 4.5; within 3.5 blocks we can comfortably interact with the door without crowding it
+      if (distance <= 3.5) {
+        cleanup()
+        try {
+          this.bot.pathfinder?.stop()
+          this.bot.pathfinder?.setGoal(null)
+        } catch {}
+
+        const doorBlock = this.bot.blockAt(lowerPos) || block
+        const actionLabel = wasOpen ? 'Closed' : 'Opened'
+        try {
+          await this.bot.lookAt(doorCenter)
+          await this.bot.activateBlock(doorBlock)
+          this.chat.pushSystemMessage(`${actionLabel} ${doorBlock.displayName ?? doorBlock.name}.`)
+        } catch (error) {
+          console.error(`[BotManager] Failed to ${wasOpen ? 'close' : 'open'} door`, error)
+        }
+      }
+    }
+
+    // Try immediately in case the bot is already close to the door
+    tryToggle()
+
+    // Poll while walking towards the door
+    op.interval = setInterval(tryToggle, 100)
+
+    // Timeout after 30 seconds
+    op.timeout = setTimeout(cleanup, 30000)
+  }
+
+  // Walks up to a door clicked in the watcher and opens it.
+  async openDoor(location, standLocation) {
+    const target = standLocation || location
+    return this.setPathfinderOptions({
+      followEnabled: false,
+      goToLocation: {
+        x: target.x,
+        y: target.y,
+        z: target.z,
+        door: location,
+      },
+    })
   }
 
   getPathfinderOptions() {

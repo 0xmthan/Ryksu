@@ -13,11 +13,11 @@ const DUSK_SUN_COLOR = new THREE.Color('#ffb27a')
 const MOON_COLOR = new THREE.Color('#9fb4ff')
 
 // Fog distances in blocks; caves keep it closer so the dark closes in.
-const FOG = { open: { near: 40, far: 88 }, cave: { near: 24, far: 62 } }
+const FOG = { open: { near: 110, far: 240 }, cave: { near: 55, far: 140 } }
 // How far around the bot shadows reach, and how far away the lights and discs sit.
-const SHADOW_RANGE = 34
-const LIGHT_DISTANCE = 80
-const DISC_DISTANCE = 220
+const SHADOW_RANGE = 85
+const LIGHT_DISTANCE = 180
+const DISC_DISTANCE = 380
 // How fast the look eases toward a change (per second), e.g. walking into a cave.
 const EASE_RATE = 3
 

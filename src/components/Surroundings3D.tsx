@@ -7,7 +7,7 @@ import { loadBlockAtlas, type BlockAtlas } from '../utils/blockAtlas'
 import { buildBlockMeshes } from '../utils/blockMesher'
 import { modeFor, type ViewMode } from '../utils/viewMode'
 import { createTracked, stepTracked, syncTracked, type Tracked } from './watcher/entityObjects'
-import { pickAt, walkTarget, type Pickable } from './watcher/picking'
+import { isDoorBlock, pickAt, walkTarget, type Pickable } from './watcher/picking'
 import { disposeObject, makeLabel } from './watcher/sceneUtils'
 import { createSky } from './watcher/sky'
 import { createWalkMarker } from './watcher/walkMarker'
@@ -26,7 +26,7 @@ type Surroundings3DProps = {
   chest: { x: number; y: number; z: number } | null
   onHover: (text: string | null) => void
   // A click (not a drag) on a block or mob: the world block the bot should walk to.
-  onWalkTo: (target: { x: number; y: number; z: number }) => void
+  onWalkTo: (target: { x: number; y: number; z: number; door?: { x: number; y: number; z: number } }) => void
   // Sizes the view; the canvas fills it.
   className?: string
 }
@@ -68,6 +68,8 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
   onHoverRef.current = onHover
   const onWalkToRef = useRef(onWalkTo)
   onWalkToRef.current = onWalkTo
+  const blocksRef = useRef(blocks)
+  blocksRef.current = blocks
 
   useEffect(() => {
     const container = containerRef.current
@@ -87,12 +89,12 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
     let timeOfDay = 6000
 
     // Minecraft and three.js are both Y-up and right-handed, so world axes map straight across.
-    const camera = new THREE.PerspectiveCamera(50, container.clientWidth / height(), 0.1, 500)
-    camera.position.set(12, 14, 16)
+    const camera = new THREE.PerspectiveCamera(50, container.clientWidth / height(), 0.1, 800)
+    camera.position.set(20, 24, 28)
     const controls = new OrbitControls(camera, renderer.domElement)
     controls.target.set(0, 1, 0)
     controls.enableDamping = true
-    controls.maxDistance = 110
+    controls.maxDistance = 320
     controls.update()
 
     const state: SceneState = {
@@ -215,7 +217,8 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
         const moved = bot.object.position.clone().sub(previousBot)
         camera.position.add(moved)
         controls.target.add(moved)
-        north.position.set(bot.object.position.x, bot.object.position.y + 1, bot.object.position.z - 20)
+        const northDistance = (blocksRef.current?.radius ?? 52) + 2
+        north.position.set(bot.object.position.x, bot.object.position.y + 1, bot.object.position.z - northDistance)
       }
       for (const entry of entities.values()) {
         stepTracked(entry, blend, delta, now)
@@ -252,7 +255,17 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
         onHoverRef.current(null)
       } else if (picked.kind === 'block') {
         const { x, y, z } = picked.position
-        onHoverRef.current(`${prettyName(picked.name)} at ${x} / ${y} / ${z} · click to walk here`)
+        if (isDoorBlock(picked.name)) {
+          if (picked.name.includes('iron')) {
+            onHoverRef.current(`${prettyName(picked.name)} at ${x} / ${y} / ${z} · iron door (cannot open by hand)`)
+          } else if (picked.open) {
+            onHoverRef.current(`${prettyName(picked.name)} at ${x} / ${y} / ${z} · click to walk and close door`)
+          } else {
+            onHoverRef.current(`${prettyName(picked.name)} at ${x} / ${y} / ${z} · click to walk and open door`)
+          }
+        } else {
+          onHoverRef.current(`${prettyName(picked.name)} at ${x} / ${y} / ${z} · click to walk here`)
+        }
       } else {
         onHoverRef.current(`${prettyName(picked.name)} · double-click to attack`)
       }
@@ -276,6 +289,23 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
         const target = walkTarget(picked)
         walkMarker.show(target.clone().sub(state.anchor), clock.elapsedTime)
         onWalkToRef.current({ x: target.x, y: target.y, z: target.z })
+      }
+      // Clicking a block walks to it; clicking a wooden/copper door walks up to it and toggles it (open/close).
+      if (picked.kind === 'block') {
+        const target = walkTarget(picked)
+        walkMarker.show(target.clone().sub(state.anchor), clock.elapsedTime)
+        const isDoor = isDoorBlock(picked.name) && !picked.name.includes('iron')
+        onWalkToRef.current(
+          isDoor
+            ? {
+                x: target.x,
+                y: target.y,
+                z: target.z,
+                door: { x: picked.position.x, y: picked.position.y, z: picked.position.z },
+              }
+            : { x: target.x, y: target.y, z: target.z }
+        )
+        return
       }
       // On a mob or player, wait a moment for a second click: a double click attacks it instead.
       if (picked.kind === 'entity' && picked.id !== null) {

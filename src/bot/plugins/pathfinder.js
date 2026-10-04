@@ -1,6 +1,30 @@
 const { pathfinder: pathfinderPlugin, Movements, goals } = require('mineflayer-pathfinder')
 const { Vec3 } = require('vec3')
 
+// mineflayer-pathfinder treats open doors as solid obstacles because prismarine-block
+// assigns them boundingBox: 'block'. This patch marks open doors and open fence gates as safe and non-physical
+// so the pathfinder can walk right through them instead of seeing an impassable obstacle or trying to break them.
+if (!Movements.prototype._openDoorPatched) {
+  Movements.prototype._openDoorPatched = true
+  const originalGetBlock = Movements.prototype.getBlock
+  Movements.prototype.getBlock = function (pos, dx, dy, dz) {
+    const b = originalGetBlock.call(this, pos, dx, dy, dz)
+    if (
+      b &&
+      (b.name?.endsWith('_door') || b.name === 'door' || b.name === 'wooden_door' || b.name?.includes('gate')) &&
+      !b.name?.endsWith('trapdoor')
+    ) {
+      const props = typeof b.getProperties === 'function' ? b.getProperties() : b._properties || {}
+      if (props.open === true || props.open === 'true') {
+        b.safe = true
+        b.physical = false
+        b.height = (pos ? pos.y : 0) + dy
+      }
+    }
+    return b
+  }
+}
+
 class PathfinderController {
   constructor() {
     this.bot = null
@@ -144,6 +168,10 @@ class PathfinderController {
       this.movements.canDig = this.allowBlockBreak
     }
 
+    if (this.bot.pathfinder) {
+      this.bot.pathfinder.thinkTimeout = 10000
+    }
+
     return Boolean(this.bot.pathfinder)
   }
 
@@ -248,7 +276,9 @@ class PathfinderController {
     return (
       message.includes('no path') ||
       message.includes('unreachable') ||
-      message.includes('path could not be found')
+      message.includes('path could not be found') ||
+      message.includes('took to long') ||
+      message.includes('timeout')
     )
   }
 
@@ -277,13 +307,28 @@ class PathfinderController {
 
     this._cancelGoTo('replace-goal')
 
-    const goalsToTry = [
-      { label: 'exact block', goal: new goals.GoalBlock(target.x, target.y, target.z) },
-      { label: 'near radius 1', goal: new goals.GoalNear(target.x, target.y, target.z, 1) },
-      { label: 'near radius 2', goal: new goals.GoalNear(target.x, target.y, target.z, 2) },
-      { label: 'near radius 4', goal: new goals.GoalNear(target.x, target.y, target.z, 4) },
-      { label: 'same column', goal: new goals.GoalXZ(target.x, target.z) },
-    ]
+    const isDoor = location.door && typeof location.door === 'object'
+    const doorPos = isDoor
+      ? {
+          x: Math.floor(location.door.x),
+          y: Math.floor(location.door.y),
+          z: Math.floor(location.door.z),
+        }
+      : null
+
+    const goalsToTry = doorPos
+      ? [
+          { label: 'door reach radius 2.6', goal: new goals.GoalNear(doorPos.x, doorPos.y, doorPos.z, 2.6) },
+          { label: 'door reach radius 3', goal: new goals.GoalNear(doorPos.x, doorPos.y, doorPos.z, 3) },
+          { label: 'near target radius 2', goal: new goals.GoalNear(target.x, target.y, target.z, 2) },
+        ]
+      : [
+          { label: 'exact block', goal: new goals.GoalBlock(target.x, target.y, target.z) },
+          { label: 'near radius 1', goal: new goals.GoalNear(target.x, target.y, target.z, 1) },
+          { label: 'near radius 2', goal: new goals.GoalNear(target.x, target.y, target.z, 2) },
+          { label: 'near radius 4', goal: new goals.GoalNear(target.x, target.y, target.z, 4) },
+          { label: 'same column', goal: new goals.GoalXZ(target.x, target.z) },
+        ]
 
     this._stopFollowing({ preserveGoTo: false })
 

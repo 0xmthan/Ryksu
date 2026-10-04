@@ -71,6 +71,11 @@ declare global {
         getSkin: (url: string) => Promise<string | null>
         // Chase and attack an entity by id until it dies or gets away.
         attackEntity: (entityId: number) => Promise<{ ok: boolean; message?: string }>
+        // Walk up to a door and open it.
+        openDoor: (
+          location: { x: number; y: number; z: number },
+          standLocation?: { x: number; y: number; z: number }
+        ) => Promise<{ ok: boolean; message?: string }>
         onWorld: (callback: (view: WorldView) => void) => () => void
         inventoryAction: (action: InventoryAction) => Promise<{ ok: boolean; message?: string }>
         onMotion: (callback: (motion: Motion) => void) => () => void

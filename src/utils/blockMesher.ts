@@ -104,6 +104,13 @@ const liquidHeight = (properties: Record<string, unknown>, topOpen: boolean) => 
 // See-through blocks that need blending rather than the cut-out used for leaves and glass panes.
 const TRANSLUCENT = /stained_glass(?!_pane)|^ice$|frosted_ice|slime_block|honey_block/
 
+const WATER_PLANTS = new Set(['seagrass', 'tall_seagrass', 'kelp', 'kelp_plant', 'bubble_column'])
+const isSubmerged = (name: string, properties?: Record<string, unknown>) =>
+  WATER_PLANTS.has(name) || properties?.waterlogged === true || properties?.waterlogged === 'true'
+
+const WATER_APPLIES: Apply[] = data.blocks['water']?.variants?.[0]?.[1] ?? [{ m: 40 }]
+const WATER_TINT_HEX = data.blocks['water']?.tint ?? '#3f76e4'
+
 const matches = (properties: Record<string, unknown>, condition: Condition | null): boolean => {
   if (!condition) return true
   if ('OR' in condition) return (condition.OR as Condition[]).some((part) => matches(properties, part))
@@ -211,6 +218,104 @@ export const buildBlockMeshes = (blocks: Blocks, atlas: BlockAtlas, mode: ViewMo
   ]
   const resolved = new Map<number, Apply[] | null>()
 
+  const renderElements = (
+    targetBuffers: MeshBuffers,
+    applies: Apply[] | null | undefined,
+    entryTint: string | undefined,
+    surfaceHeight: number,
+    targetMask: number,
+    customFallbackColor: THREE.Color | null,
+    bx: number,
+    by: number,
+    bz: number,
+    blockIndex: number
+  ) => {
+    if (entryTint) {
+      tint.set(entryTint)
+    }
+    for (const apply of applies ?? [{ m: -1 }]) {
+      const baseElements = apply.m >= 0 ? data.models[apply.m] : FALLBACK_MODEL
+      if (!baseElements) continue
+      const elements =
+        surfaceHeight < 16
+          ? baseElements.map((element) => ({ ...element, to: [element.to[0], surfaceHeight, element.to[2]] }))
+          : baseElements
+      for (const element of elements) {
+        const rotation = element.rot
+        const rotationOrigin = rotation ? new THREE.Vector3(...rotation.origin) : CENTER
+        // "rescale" stretches 45° crosses so they still span the whole block.
+        const rescale = rotation?.rescale
+          ? 1 / Math.cos(THREE.MathUtils.degToRad(Math.abs(rotation.angle)))
+          : 1
+
+        for (const [faceKey, face] of Object.entries(element.faces)) {
+          const direction = Number(faceKey)
+          // Faces flush with a neighbor only show where the bot said that side is open.
+          if (face.c !== undefined) {
+            normal.set(...DIRECTIONS[face.c])
+            if (!(targetMask & (1 << nearestDirection(rotateBlock(normal, apply, ZERO))))) {
+              continue
+            }
+          }
+
+          normal.set(...DIRECTIONS[direction])
+          if (rotation) {
+            rotate(normal, rotation.axis, rotation.angle, ZERO)
+          }
+          const shade = element.noShade
+            ? FULL_BRIGHT
+            : FACE_SHADE[nearestDirection(rotateBlock(normal, apply, ZERO))]
+
+          if (customFallbackColor) {
+            color.copy(customFallbackColor).multiply(shade)
+          } else {
+            color.copy(shade)
+            if (face.tint && entryTint) {
+              color.multiply(tint)
+            }
+          }
+
+          // Face UVs are [u1, v1, u2, v2] with v down; a rotation turns the texture clockwise.
+          const [u1, v1, u2, v2] = face.uv
+          const turns = ((face.r ?? 0) / 90) % 4
+          for (let k = 0; k < 4; k++) {
+            const [cu, cv] = CORNER_UV[(k + turns) % 4]
+            cornerUvs[k] = face.t >= 0 ? atlas.uv(face.t, u1 + cu * (u2 - u1), v2 + cv * (v1 - v2)) : [0, 0]
+          }
+          // Nudge UVs a hair toward the face center so neighboring atlas tiles never bleed in.
+          const centerU = (cornerUvs[0][0] + cornerUvs[2][0]) / 2
+          const centerV = (cornerUvs[0][1] + cornerUvs[2][1]) / 2
+
+          const base = targetBuffers.positions.length / 3
+          FACE_CORNERS[direction].forEach(([cx, cy, cz], k) => {
+            corner.set(
+              element.from[0] + cx * (element.to[0] - element.from[0]),
+              element.from[1] + cy * (element.to[1] - element.from[1]),
+              element.from[2] + cz * (element.to[2] - element.from[2])
+            )
+            if (rotation) {
+              rotate(corner, rotation.axis, rotation.angle, rotationOrigin)
+              if (rescale !== 1) {
+                for (const axis of ['x', 'y', 'z'] as const) {
+                  if (axis !== rotation.axis) {
+                    corner[axis] = rotationOrigin[axis] + (corner[axis] - rotationOrigin[axis]) * rescale
+                  }
+                }
+              }
+            }
+            rotateBlock(corner, apply)
+            targetBuffers.positions.push(bx + corner.x / 16, by + corner.y / 16, bz + corner.z / 16)
+            const [u, v] = cornerUvs[k]
+            targetBuffers.uvs.push(u + (centerU - u) * 0.001, v + (centerV - v) * 0.001)
+            targetBuffers.colors.push(color.r, color.g, color.b)
+          })
+          targetBuffers.indices.push(base, base + 1, base + 2, base, base + 2, base + 3)
+          targetBuffers.quadBlocks.push(blockIndex)
+        }
+      }
+    }
+  }
+
   for (let i = 0; i < blocks.blocks.length; i++) {
     const x = blocks.positions[i * 3]
     const y = blocks.positions[i * 3 + 1]
@@ -233,93 +338,17 @@ export const buildBlockMeshes = (blocks: Blocks, atlas: BlockAtlas, mode: ViewMo
       : entry?.translucent || TRANSLUCENT.test(name)
         ? translucent
         : opaque
-    if (entry?.tint) {
-      tint.set(entry.tint)
-    }
     const fallbackColor = applied ? null : new THREE.Color(blockColor(name))
 
     const isLiquid = name === 'water' || name === 'lava'
     const surface = isLiquid ? liquidHeight(blocks.properties?.[paletteIndex] ?? {}, Boolean(mask & 1)) : 16
 
-    for (const apply of applied ?? [{ m: -1 }]) {
-      const baseElements = apply.m >= 0 ? data.models[apply.m] : FALLBACK_MODEL
-      const elements =
-        surface < 16
-          ? baseElements.map((element) => ({ ...element, to: [element.to[0], surface, element.to[2]] }))
-          : baseElements
-      for (const element of elements) {
-        const rotation = element.rot
-        const rotationOrigin = rotation ? new THREE.Vector3(...rotation.origin) : CENTER
-        // "rescale" stretches 45° crosses so they still span the whole block.
-        const rescale = rotation?.rescale
-          ? 1 / Math.cos(THREE.MathUtils.degToRad(Math.abs(rotation.angle)))
-          : 1
+    renderElements(buffers, applied, entry?.tint, surface, mask, fallbackColor, x, y, z, i)
 
-        for (const [faceKey, face] of Object.entries(element.faces)) {
-          const direction = Number(faceKey)
-          // Faces flush with a neighbor only show where the bot said that side is open.
-          if (face.c !== undefined) {
-            normal.set(...DIRECTIONS[face.c])
-            if (!(mask & (1 << nearestDirection(rotateBlock(normal, apply, ZERO))))) {
-              continue
-            }
-          }
-
-          normal.set(...DIRECTIONS[direction])
-          if (rotation) {
-            rotate(normal, rotation.axis, rotation.angle, ZERO)
-          }
-          const shade = element.noShade
-            ? FULL_BRIGHT
-            : FACE_SHADE[nearestDirection(rotateBlock(normal, apply, ZERO))]
-
-          if (fallbackColor) {
-            color.copy(fallbackColor).multiply(shade)
-          } else {
-            color.copy(shade)
-            if (face.tint && entry?.tint) {
-              color.multiply(tint)
-            }
-          }
-
-          // Face UVs are [u1, v1, u2, v2] with v down; a rotation turns the texture clockwise.
-          const [u1, v1, u2, v2] = face.uv
-          const turns = ((face.r ?? 0) / 90) % 4
-          for (let k = 0; k < 4; k++) {
-            const [cu, cv] = CORNER_UV[(k + turns) % 4]
-            cornerUvs[k] = face.t >= 0 ? atlas.uv(face.t, u1 + cu * (u2 - u1), v2 + cv * (v1 - v2)) : [0, 0]
-          }
-          // Nudge UVs a hair toward the face center so neighboring atlas tiles never bleed in.
-          const centerU = (cornerUvs[0][0] + cornerUvs[2][0]) / 2
-          const centerV = (cornerUvs[0][1] + cornerUvs[2][1]) / 2
-
-          const base = buffers.positions.length / 3
-          FACE_CORNERS[direction].forEach(([cx, cy, cz], k) => {
-            corner.set(
-              element.from[0] + cx * (element.to[0] - element.from[0]),
-              element.from[1] + cy * (element.to[1] - element.from[1]),
-              element.from[2] + cz * (element.to[2] - element.from[2])
-            )
-            if (rotation) {
-              rotate(corner, rotation.axis, rotation.angle, rotationOrigin)
-              if (rescale !== 1) {
-                for (const axis of ['x', 'y', 'z'] as const) {
-                  if (axis !== rotation.axis) {
-                    corner[axis] = rotationOrigin[axis] + (corner[axis] - rotationOrigin[axis]) * rescale
-                  }
-                }
-              }
-            }
-            rotateBlock(corner, apply)
-            buffers.positions.push(x + corner.x / 16, y + corner.y / 16, z + corner.z / 16)
-            const [u, v] = cornerUvs[k]
-            buffers.uvs.push(u + (centerU - u) * 0.001, v + (centerV - v) * 0.001)
-            buffers.colors.push(color.r, color.g, color.b)
-          })
-          buffers.indices.push(base, base + 1, base + 2, base, base + 2, base + 3)
-          buffers.quadBlocks.push(i)
-        }
-      }
+    if (name !== 'water' && isSubmerged(name, blocks.properties?.[paletteIndex])) {
+      const waterBuffers = visible.ghost ? ghost : translucent
+      const waterSurface = liquidHeight(blocks.properties?.[paletteIndex] ?? {}, Boolean(mask & 1))
+      renderElements(waterBuffers, WATER_APPLIES, WATER_TINT_HEX, waterSurface, mask, null, x, y, z, i)
     }
   }
 

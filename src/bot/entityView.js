@@ -3,7 +3,7 @@
 const { entityEvents } = require('./entityEvents')
 const { entityVariant } = require('./entityVariants')
 
-const ENTITY_RANGE = 32
+const ENTITY_RANGE = 80
 // mineflayer's entity.equipment order.
 const EQUIPMENT_SLOTS = ['mainhand', 'offhand', 'feet', 'legs', 'chest', 'head']
 // The bot's own gear lives in its inventory window.

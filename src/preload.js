@@ -36,6 +36,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getWorldView: () => ipcRenderer.invoke('bot:getWorldView'),
     getSkin: (url) => ipcRenderer.invoke('bot:getSkin', url),
     attackEntity: (entityId) => ipcRenderer.invoke('bot:attackEntity', entityId),
+    openDoor: (location, standLocation) => ipcRenderer.invoke('bot:openDoor', location, standLocation),
     inventoryAction: (action) => ipcRenderer.invoke('bot:inventoryAction', action),
     onWorld: (callback) => registerListener('bot:world', callback),
     onMotion: (callback) => registerListener('bot:motion', callback),

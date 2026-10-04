@@ -14,6 +14,8 @@ const CUT_TOP_BIT = 1 << 6
 const ROOM_BIT = 1 << 7
 // The block borders the air the bot can reach.
 const SHELL_BIT = 1 << 8
+// Submerged plants and waterlogged blocks with geometry inside water.
+const WATER_PLANT_BIT = 1 << 9
 
 export const modeFor = (environment: Environment | undefined): ViewMode =>
   !environment || environment === 'outside' ? 'full' : environment === 'indoors' ? 'roof' : 'cave'
@@ -27,12 +29,13 @@ export const blockVisibility = (
 ): { mask: number; ghost: boolean } | null => {
   const above = y >= cutoff
   let mask = faces & FACES
+  const hasPlant = Boolean(faces & WATER_PLANT_BIT)
   if (mode === 'cave') {
     if (above || !(faces & SHELL_BIT)) return null
     if (faces & CUT_TOP_BIT) mask |= 1
   } else if (mode === 'roof' && faces & ROOM_BIT) {
-    if (above) return mask ? { mask, ghost: true } : null
+    if (above) return (mask || hasPlant) ? { mask, ghost: true } : null
     if (faces & CUT_TOP_BIT) mask |= 1
   }
-  return mask ? { mask, ghost: false } : null
+  return (mask || hasPlant) ? { mask, ghost: false } : null
 }

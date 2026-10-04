@@ -6,9 +6,10 @@ const { analyzeView } = require('./viewModes')
 
 // Blocks around the bot for the 3D view: only blocks with a face touching air (or water, glass, …)
 // are sent, each with a mask of those faces, so buried blocks and hidden faces are never drawn.
-const VOXEL_RADIUS = 18
-const VOXEL_BELOW = 10
-const VOXEL_ABOVE = 20
+const VOXEL_RADIUS = 52
+const VOXEL_BELOW = 18
+const VOXEL_ABOVE = 30
+const RECENTER_DISTANCE = 14
 const EMPTY_BLOCKS = new Set(['air', 'cave_air', 'void_air', 'light'])
 // Face order shared with the renderer: up, down, north (-z), south (+z), west (-x), east (+x).
 const NEIGHBORS = [
@@ -27,6 +28,13 @@ const ROOF_CUTOFF = 2
 const CUT_TOP_BIT = 1 << 6
 const ROOM_BIT = 1 << 7
 const SHELL_BIT = 1 << 8
+const WATER_PLANT_BIT = 1 << 9
+
+const WATER_PLANTS = new Set(['seagrass', 'tall_seagrass', 'kelp', 'kelp_plant', 'bubble_column'])
+const isSubmerged = (name, properties) =>
+  WATER_PLANTS.has(name) || properties?.waterlogged === true || properties?.waterlogged === 'true'
+const isWaterBlock = (name, properties) =>
+  name === 'water' || isSubmerged(name, properties)
 
 const ARMOR_SLOTS = { 5: 'head', 6: 'torso', 7: 'legs', 8: 'feet' }
 const OFFHAND_SLOT = 45
@@ -100,7 +108,19 @@ const skyLightAt = (bot, position) => {
 }
 
 const getBlocks = (bot) => {
-  const origin = bot.entity.position.floored()
+  const botPos = bot.entity.position.floored()
+  const cached = bot._worldSlice
+
+  if (cached && !bot._worldDirty) {
+    const dx = botPos.x - cached.origin.x
+    const dz = botPos.z - cached.origin.z
+    const dy = Math.abs(botPos.y - cached.origin.y)
+    if (dx * dx + dz * dz < RECENTER_DISTANCE * RECENTER_DISTANCE && dy < 6) {
+      return cached.data
+    }
+  }
+
+  const origin = botPos
   const width = VOXEL_RADIUS * 2 + 1
   const height = VOXEL_BELOW + VOXEL_ABOVE + 1
   const total = width * width * height
@@ -112,15 +132,28 @@ const getBlocks = (bot) => {
   const grid = new Int16Array(total).fill(-1)
   // Block type per cell; faces between two blocks of the same type (water, glass, leaves) are hidden.
   const kinds = new Int16Array(total).fill(-1)
+  // Leaves keep the faces between each other, like the game's fancy leaves, so a canopy looks full.
+  const leafy = new Uint8Array(total)
+  // Submerged plants and waterlogged blocks need to be drawn even when fully surrounded by water.
+  const submerged = new Uint8Array(total)
   const kindIds = new Map()
   const occludes = new Uint8Array(total)
   const cursor = new Vec3(0, 0, 0)
   const indexOf = (x, y, z) => (y * width + z) * width + x
 
-  for (let y = 0; y < height; y++) {
-    for (let z = 0; z < width; z++) {
-      for (let x = 0; x < width; x++) {
-        cursor.set(origin.x + x - VOXEL_RADIUS, origin.y + y - VOXEL_BELOW, origin.z + z - VOXEL_RADIUS)
+  for (let z = 0; z < width; z++) {
+    const worldZ = origin.z + z - VOXEL_RADIUS
+    const chunkZ = worldZ >> 4
+    for (let x = 0; x < width; x++) {
+      const worldX = origin.x + x - VOXEL_RADIUS
+      const chunkX = worldX >> 4
+      const chunk = bot.world.getColumn(chunkX, chunkZ)
+      if (!chunk) {
+        continue
+      }
+      for (let y = 0; y < height; y++) {
+        const worldY = origin.y + y - VOXEL_BELOW
+        cursor.set(worldX, worldY, worldZ)
         const stateId = bot.world.getBlockStateId(cursor)
         const info = stateInfo(bot.registry, stateId)
         if (!info) {
@@ -133,15 +166,19 @@ const getBlocks = (bot) => {
           properties.push(info.properties)
           paletteIndex.set(stateId, index)
         }
-        let kind = kindIds.get(info.name)
+        const isWater = isWaterBlock(info.name, info.properties)
+        const kindKey = isWater ? 'water' : info.name
+        let kind = kindIds.get(kindKey)
         if (kind === undefined) {
           kind = kindIds.size
-          kindIds.set(info.name, kind)
+          kindIds.set(kindKey, kind)
         }
         const cell = indexOf(x, y, z)
         grid[cell] = index
         kinds[cell] = kind
+        leafy[cell] = info.name.endsWith('_leaves') ? 1 : 0
         occludes[cell] = info.occludes ? 1 : 0
+        submerged[cell] = isSubmerged(info.name, info.properties) ? 1 : 0
       }
     }
   }
@@ -171,22 +208,26 @@ const getBlocks = (bot) => {
           continue
         }
         let mask = 0
-        NEIGHBORS.forEach(([nx, ny, nz], face) => {
+        for (let face = 0; face < 6; face++) {
+          const [nx, ny, nz] = NEIGHBORS[face]
           const ax = x + nx
           const ay = y + ny
           const az = z + nz
           // The edges of the box are drawn, so the view looks like a solid cut-out of the world.
           if (ax < 0 || ay < 0 || az < 0 || ax >= width || ay >= height || az >= width) {
             mask |= 1 << face
-            return
+            continue
           }
           const neighbor = indexOf(ax, ay, az)
-          if (!occludes[neighbor] && kinds[neighbor] !== kinds[cell]) {
+          if (!occludes[neighbor] && (kinds[neighbor] !== kinds[cell] || leafy[cell])) {
             mask |= 1 << face
           }
-        })
+        }
         if (y === roofLayer && !(mask & 1)) {
           mask |= CUT_TOP_BIT
+        }
+        if (submerged[cell]) {
+          mask |= WATER_PLANT_BIT
         }
         if (mask) {
           if (view.inRoom(x, z)) mask |= ROOM_BIT
@@ -204,7 +245,7 @@ const getBlocks = (bot) => {
   hash = hashNumbers(hash, blocks)
   hash = hashNumbers(hash, faces)
 
-  return {
+  const data = {
     key: `${(hash >>> 0).toString(36)}:${JSON.stringify(properties)}:${palette.join(',')}`,
     origin: { x: origin.x, y: origin.y, z: origin.z },
     radius: VOXEL_RADIUS,
@@ -216,6 +257,14 @@ const getBlocks = (bot) => {
     blocks,
     faces,
   }
+
+  bot._worldDirty = false
+  bot._worldSlice = {
+    origin: { x: origin.x, y: origin.y, z: origin.z },
+    data,
+  }
+
+  return data
 }
 
 const getWorldView = (bot) => {

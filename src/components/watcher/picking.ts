@@ -6,8 +6,11 @@ type Blocks = WorldView['blocks']
 
 export type Pickable = { mesh: THREE.Mesh; quads: number[]; blocks: Blocks }
 
+export const isDoorBlock = (name: string) =>
+  (name.endsWith('_door') || name === 'door' || name === 'wooden_door') && !name.endsWith('trapdoor')
+
 export type Pick =
-  | { kind: 'block'; name: string; position: THREE.Vector3; normal: THREE.Vector3 }
+  | { kind: 'block'; name: string; position: THREE.Vector3; normal: THREE.Vector3; open?: boolean }
   | { kind: 'entity'; name: string; position: THREE.Vector3; id: number | null }
 
 const raycaster = new THREE.Raycaster()
@@ -37,15 +40,19 @@ export const pickAt = (
     // Two triangles per quad.
     const index = picked.quads[Math.floor(hit.faceIndex / 2)]
     const { origin, palette, positions, blocks } = picked.blocks
+    const name = palette[blocks[index]]
+    const props = picked.blocks.properties?.[blocks[index]]
+    const open = props?.open === true || props?.open === 'true'
     return {
       kind: 'block',
-      name: palette[blocks[index]],
+      name,
       position: new THREE.Vector3(
         origin.x + positions[index * 3],
         origin.y + positions[index * 3 + 1],
         origin.z + positions[index * 3 + 2]
       ),
       normal: hit.face ? hit.face.normal.clone().round() : new THREE.Vector3(0, 1, 0),
+      open,
     }
   }
 
