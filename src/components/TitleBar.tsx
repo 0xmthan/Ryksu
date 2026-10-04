@@ -5,6 +5,7 @@ import {
   Check,
   Copy,
   Hammer,
+  Info,
   MessageSquareText,
   Minus,
   Pickaxe,
@@ -27,7 +28,7 @@ const ArmorIcon = () => (
     strokeWidth="1.75"
     strokeLinecap="round"
     strokeLinejoin="round"
-    className="h-[18px] w-[18px]"
+    className="h-4.5 w-4.5"
   >
     <path d="M8 3 3 5v6l3 1v8h12v-8l3-1V5l-5-2c0 3-8 3-8 0Z" />
     <path d="M8 3v5l4 3 4-3V3M12 11v9M8 16h8" />
@@ -55,6 +56,8 @@ type TitleBarProps = {
   onDisconnect: () => void
   onToggleChat: () => void
   isChatActive: boolean
+  onToggleAbout: () => void
+  isAboutActive: boolean
   armorManagerEnabled: boolean
   onArmorManagerToggle: (value: boolean) => void
   autoShieldEnabled: boolean
@@ -91,6 +94,8 @@ const TitleBar: React.FC<TitleBarProps> = ({
   onDisconnect,
   onToggleChat,
   isChatActive,
+  onToggleAbout,
+  isAboutActive,
   armorManagerEnabled,
   onArmorManagerToggle,
   autoShieldEnabled,
@@ -132,7 +137,10 @@ const TitleBar: React.FC<TitleBarProps> = ({
   const copyPosition = () => {
     if (!position) return
     const text = `${Math.floor(position.x)} ${Math.floor(position.y)} ${Math.floor(position.z)}`
-    navigator.clipboard.writeText(text).then(() => setCopied(true), () => setCopied(false))
+    navigator.clipboard.writeText(text).then(
+      () => setCopied(true),
+      () => setCopied(false)
+    )
   }
 
   const indicatorColor = lastError
@@ -142,7 +150,6 @@ const TitleBar: React.FC<TitleBarProps> = ({
       : stage === 'connecting' || isConnecting
         ? 'bg-amber-400 shadow-[0_0_12px_rgba(251,191,36,0.35)]'
         : 'bg-neutral-500 shadow-[0_0_10px_rgba(115,115,115,0.25)]'
-
 
   const primaryActionLabel = isConnected ? 'Disconnect' : isConnecting ? 'Connecting…' : 'Connect'
   const primaryActionDisabled = isConnected ? false : !canConnect || isConnecting
@@ -172,8 +179,8 @@ const TitleBar: React.FC<TitleBarProps> = ({
         <span className={`h-2 w-2 rounded-full ${indicatorColor}`} />
         <div className="flex items-center gap-3 overflow-hidden">
           <div className="flex flex-col leading-none">
-            <span className="text-xl font-bold uppercase text-neutral-100">Ryksu</span>
-            <span className="text-[0.6rem] font-semibold tracking-[0.13em] text-neutral-500">
+            <span className="text-xl leading-none font-bold uppercase text-neutral-100">Ryksu</span>
+            <span className="text-[0.6rem] leading-none font-semibold tracking-[0.13em] text-neutral-500">
               0xmthan
             </span>
           </div>
@@ -192,7 +199,9 @@ const TitleBar: React.FC<TitleBarProps> = ({
                   {/* Level and progress in one, rounded down so it never shows a level not reached yet. */}
                   Lv{' '}
                   <span className="font-semibold text-emerald-200">
-                    {(Math.floor((xp.level + Math.max(0, Math.min(0.999, xp.progress))) * 100) / 100).toFixed(2)}
+                    {(Math.floor((xp.level + Math.max(0, Math.min(0.999, xp.progress))) * 100) / 100).toFixed(
+                      2
+                    )}
                   </span>
                 </span>
               ) : null}
@@ -201,9 +210,9 @@ const TitleBar: React.FC<TitleBarProps> = ({
                   type="button"
                   onClick={copyPosition}
                   title="Click to copy"
-                  className="app-region-no-drag group flex min-w-0 items-center gap-1.5 rounded text-neutral-300
-                    transition hover:text-white focus-visible:outline focus-visible:outline-offset-2
-                    focus-visible:outline-sky-400"
+                  className="app-region-no-drag group flex min-w-0 items-center gap-1.5 rounded
+                    text-neutral-300 transition hover:text-white focus-visible:outline
+                    focus-visible:outline-offset-2 focus-visible:outline-sky-400"
                 >
                   <span className="truncate">
                     {Math.floor(position.x)} {Math.floor(position.y)} {Math.floor(position.z)}
@@ -216,7 +225,8 @@ const TitleBar: React.FC<TitleBarProps> = ({
                   ) : (
                     <Copy
                       aria-hidden="true"
-                      className="h-3 w-3 shrink-0 text-neutral-500 opacity-0 transition group-hover:opacity-100"
+                      className="h-3 w-3 shrink-0 text-neutral-500 opacity-0 transition
+                        group-hover:opacity-100"
                       strokeWidth={2}
                     />
                   )}
@@ -293,18 +303,35 @@ const TitleBar: React.FC<TitleBarProps> = ({
             </ToolbarButton>
           </>
         ) : null}
-        {!isConnected && <ToolbarButton
-          label="Saved Chats"
-          description={isChatActive ? 'Click to hide saved conversations.' : 'Click to view saved conversations.'}
-          active={isChatActive}
-          onClick={onToggleChat}
+        <ToolbarButton
+          label="About Ryksu"
+          description="App version, author, and license."
+          active={isAboutActive}
+          onClick={onToggleAbout}
         >
-          <MessageSquareText aria-hidden="true" className="h-[18px] w-[18px]" strokeWidth={1.75} />
-        </ToolbarButton>}
+          <Info aria-hidden="true" className="h-[18px] w-[18px]" strokeWidth={1.75} />
+        </ToolbarButton>
+        {!isConnected && (
+          <ToolbarButton
+            label="Saved Chats"
+            description={
+              isChatActive ? 'Click to hide saved conversations.' : 'Click to view saved conversations.'
+            }
+            active={isChatActive}
+            onClick={onToggleChat}
+          >
+            <MessageSquareText aria-hidden="true" className="h-[18px] w-[18px]" strokeWidth={1.75} />
+          </ToolbarButton>
+        )}
         {isConnected ? (
           <SleepButton isSleeping={isSleeping} canSleep={canSleep} bedPickupPending={bedPickupPending} />
         ) : (
-          <StatusPill status={status} lastError={lastError} isConnecting={isConnecting} onDismissError={onDismissError} />
+          <StatusPill
+            status={status}
+            lastError={lastError}
+            isConnecting={isConnecting}
+            onDismissError={onDismissError}
+          />
         )}
         <button
           type="button"

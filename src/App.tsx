@@ -3,6 +3,7 @@ import ConnectionForm from './components/ConnectionForm'
 import Dashboard from './components/Dashboard'
 import SavedChats from './components/SavedChats'
 import TitleBar from './components/TitleBar'
+import AboutPage from './components/AboutPage'
 import AutoEatSettingsModal from './components/AutoEatSettingsModal'
 import PvpSettingsModal from './components/PvpSettingsModal'
 import useChatHistory from './hooks/useChatHistory'
@@ -37,6 +38,7 @@ const App: React.FC = () => {
   const [version, setVersion] = useState<string>('auto')
   const [isChatPanelOpen, setIsChatPanelOpen] = useState(false)
   const [isViewingSavedChats, setIsViewingSavedChats] = useState(false)
+  const [isViewingAbout, setIsViewingAbout] = useState(false)
   const [isSendingChat, setIsSendingChat] = useState(false)
   const [chatInput, setChatInput] = useState('')
   const [activeConnectionKey, setActiveConnectionKey] = useState<string | null>(null)
@@ -95,6 +97,7 @@ const App: React.FC = () => {
   })
 
   const handleTitleBarToggle = useCallback(() => {
+    setIsViewingAbout(false)
     if (isConnected) {
       setIsChatPanelOpen((previous) => !previous)
       setIsViewingSavedChats(false)
@@ -474,6 +477,8 @@ const App: React.FC = () => {
           onDisconnect={handleDisconnect}
           onToggleChat={handleTitleBarToggle}
           isChatActive={isConnected ? isChatPanelOpen : isViewingSavedChats}
+          isAboutActive={isViewingAbout}
+          onToggleAbout={() => setIsViewingAbout((previous) => !previous)}
           armorManagerEnabled={armorManagerEnabled}
           onArmorManagerToggle={toggleArmorManager}
           autoShieldEnabled={autoShieldEnabled}
@@ -496,8 +501,10 @@ const App: React.FC = () => {
           onJumpAttackToggle={handleJumpAttackToggle}
         />
       </div>
-      <main className={`flex min-h-0 flex-1 overflow-y-auto ${isConnected ? '' : 'pt-12'}`}>
-        {isConnected && connectedState ? (
+      <main className={`flex min-h-0 flex-1 overflow-y-auto ${isConnected && !isViewingAbout ? '' : 'pt-12'}`}>
+        {isViewingAbout ? (
+          <AboutPage />
+        ) : isConnected && connectedState ? (
           <Dashboard
             snapshot={connectedState}
             chatMessages={visibleChatMessages}

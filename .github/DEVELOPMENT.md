@@ -1,3 +1,29 @@
+# Development
+
+Use Node.js 22.13 or newer and the pnpm version specified in `package.json`.
+The current Minecraft data override requires the sibling
+`../minecraft-data-26.2` checkout configured in `pnpm-workspace.yaml`;
+the CI workflow documents the exact source revisions.
+
+```sh
+pnpm install --frozen-lockfile
+pnpm dev
+```
+
+Electron Forge uses Vite to build the main process, preload script, and React
+renderer. Runtime Node packages remain external and are included in the
+packaged app so their native modules and Minecraft data remain available.
+
+```sh
+pnpm test
+pnpm typecheck
+pnpm make
+```
+
+Build output lives in `.vite/`, and distributables are written to `out/make/`.
+
+## CI and releases
+
 CI runs dependency auditing, a frozen-lockfile install, type checking, and tests
 on every push and pull request. Regular commits skip Electron packaging.
 

@@ -25,31 +25,6 @@
   <a href="https://github.com/0xmthan/Ryksu/issues">Report a bug</a>
   &nbsp;·&nbsp;
   <a href="https://github.com/0xmthan/Ryksu/issues/new">Request a feature</a>
+  &nbsp;·&nbsp;
+  <a href=".github/DEVELOPMENT.md">Development guide</a>
 </p>
-
-## Development
-
-Use Node.js 22.13 or newer and the pnpm version specified in `package.json`.
-The current Minecraft data override requires the sibling
-`../minecraft-data-26.2` checkout configured in `pnpm-workspace.yaml`;
-the CI workflow documents the exact source revisions.
-
-```sh
-pnpm install --frozen-lockfile
-pnpm dev
-```
-
-Electron Forge uses Vite to build the main process, preload script, and React
-renderer. Runtime Node packages remain external and are included in the
-packaged app so their native modules and Minecraft data remain available.
-
-```sh
-pnpm test
-pnpm typecheck
-pnpm make
-```
-
-Build output lives in `.vite/`, and distributables are written to `out/make/`.
-
-See [CI and release details](.github/DEVELOPMENT.md) for reports, release builds,
-and the temporary Minecraft data override.

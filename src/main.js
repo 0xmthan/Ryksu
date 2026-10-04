@@ -9,9 +9,10 @@ process.emitWarning = (warning, ...args) => {
   return originalEmitWarning.call(process, warning, ...args)
 }
 
-const { app, BrowserWindow, ipcMain, shell } = require('electron')
+const { app, BrowserWindow, ipcMain, shell, clipboard } = require('electron')
 const path = require('node:path')
 const { registerMinecraftIpc } = require('./mcBridge')
+const { checkForUpdates, RELEASES_URL } = require('./appUpdates')
 
 if (require('electron-squirrel-startup')) {
   app.quit()
@@ -30,6 +31,41 @@ console.log = (...args) => {
 }
 
 registerMinecraftIpc(ipcMain)
+
+const getAppInfo = () => ({
+  version: app.getVersion(),
+  electron: process.versions.electron,
+  chromium: process.versions.chrome,
+  node: process.versions.node,
+  platform: process.platform,
+  arch: process.arch,
+})
+
+ipcMain.handle('app:getInfo', getAppInfo)
+
+ipcMain.handle('app:copyInfo', () => {
+  const info = getAppInfo()
+  clipboard.writeText([
+    `Ryksu ${info.version}`,
+    `Platform: ${info.platform} / ${info.arch}`,
+    `Electron: ${info.electron}`,
+    `Chromium: ${info.chromium}`,
+    `Node.js: ${info.node}`,
+  ].join('\n'))
+  return { ok: true }
+})
+
+ipcMain.handle('app:checkForUpdates', async () => {
+  const result = await checkForUpdates(app.getVersion())
+  if (result.status === 'available') {
+    try {
+      await shell.openExternal(RELEASES_URL)
+    } catch {
+      return { status: 'error', message: 'An update is available, but the releases page could not open.' }
+    }
+  }
+  return result
+})
 
 ipcMain.on('window-controls', (event, action) => {
   const window = BrowserWindow.fromWebContents(event.sender)

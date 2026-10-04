@@ -2,7 +2,7 @@
   "name": "ryksu",
   "productName": "Ryksu",
   "version": "2.1.0",
-  "description": "Mc bot",
+  "description": "Desktop app for controlling and automating Minecraft bots.",
   "main": ".vite/build/main.cjs",
   "packageManager": "pnpm@12.8.1",
   "scripts": {
@@ -16,8 +16,8 @@
   },
   "keywords": [],
   "author": {
-    "name": "2mdtln",
-    "email": "120330170+2mdtln@users.noreply.github.com"
+    "name": "0xmthan",
+    "email": "me@mthan.dev"
   },
   "license": "MIT",
   "devDependencies": {
@@ -64,6 +64,7 @@
     "prismarine-physics": "^1.11.1",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
+    "semver": "7.7.4",
     "three": "^0.186.1",
     "vec3": "^0.1.10"
   }

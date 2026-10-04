@@ -12,6 +12,9 @@ const registerListener = (channel, callback) => {
 }
 
 contextBridge.exposeInMainWorld('electronAPI', {
+  getAppInfo: () => ipcRenderer.invoke('app:getInfo'),
+  copyAppInfo: () => ipcRenderer.invoke('app:copyInfo'),
+  checkForUpdates: () => ipcRenderer.invoke('app:checkForUpdates'),
   minimize: () => ipcRenderer.send('window-controls', 'minimize'),
   close: () => ipcRenderer.send('window-controls', 'close'),
   openExternal: (url) => ipcRenderer.invoke('system:openExternal', url),

@@ -20,6 +20,20 @@ export {}
 declare global {
   interface Window {
     electronAPI: {
+      copyAppInfo: () => Promise<{ ok: boolean }>
+      checkForUpdates: () => Promise<{
+        status: 'available' | 'current' | 'no-release' | 'error'
+        version?: string
+        message?: string
+      }>
+      getAppInfo: () => Promise<{
+        version: string
+        electron: string
+        chromium: string
+        node: string
+        platform: string
+        arch: string
+      }>
       minimize: () => void
       close: () => void
       openExternal: (url: string) => Promise<{ ok: boolean; message?: string }>

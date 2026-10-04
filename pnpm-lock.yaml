@@ -211,6 +211,9 @@ importers:
       react-dom:
         specifier: ^19.3.0
         version: 19.3.0(react@19.3.0)
+      semver:
+        specifier: 7.7.4
+        version: 7.7.4
       three:
         specifier: ^0.186.1
         version: 0.186.1
