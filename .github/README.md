@@ -4,6 +4,14 @@ on every push and pull request. Regular commits skip Electron packaging.
 The run's Summary page includes a CI report with a results table, vulnerability
 counts by severity, and a release ZIP download link when a build succeeds.
 The report also runs after failed checks and marks skipped steps explicitly.
+Affected packages are grouped by name and sorted by highest severity, with
+installed versions and direct/transitive plus runtime/dev classification.
+The parent dependency column identifies the top-level packages to review, and
+the report counts advisories with no published fix. A download link opens the
+full audit artifact, including when the audit fails.
+Expand the advisory section for patched versions, advisory links, and dependency
+paths. The full audit JSON is saved as the package-audit artifact for 30 days.
+Linux checks use ubuntu-24.04 to avoid automatic runner OS migrations.
 
 To build a release ZIP, start the commit subject with a version:
 

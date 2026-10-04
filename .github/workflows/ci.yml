@@ -15,10 +15,11 @@ concurrency:
 jobs:
   packages:
     name: Package audit
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     outputs:
       vulnerabilities: ${{ steps.audit-data.outputs.vulnerabilities }}
+      artifact-url: ${{ steps.audit-upload.outputs.artifact-url }}
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v7
@@ -32,10 +33,18 @@ jobs:
         id: audit-data
         if: always()
         run: node scripts/ci/report.cjs audit
+      - name: Save full package audit
+        id: audit-upload
+        if: always() && steps.audit-data.outputs.vulnerabilities != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-audit
+          path: audit.json
+          retention-days: 30
 
   checks:
     name: Tests and types
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     outputs:
       release-version: ${{ steps.release.outputs.version }}
@@ -154,10 +163,16 @@ jobs:
     name: CI report
     needs: [packages, checks, release]
     if: always()
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v6
+      - name: Load package audit details
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: package-audit
+          path: audit-report
       - name: Write run summary
         env:
           CI_RESULTS: ${{ toJSON(needs) }}
