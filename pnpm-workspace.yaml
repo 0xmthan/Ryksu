@@ -10,6 +10,7 @@ overrides:
   minecraft-data: file:../minecraft-data-26.2
 
 patchedDependencies:
+  braces@3.0.3: patches/braces@3.0.3.patch
   minecraft-protocol: patches/minecraft-protocol.patch
   mineflayer: patches/mineflayer.patch
   prismarine-chunk: patches/prismarine-chunk.patch
