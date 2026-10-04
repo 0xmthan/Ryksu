@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  packages:
+    name: Package audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - uses: pnpm/action-setup@v6
+      - name: Check dependencies for high and critical vulnerabilities
+        run: pnpm audit --audit-level high
+
+  checks:
+    name: Tests and packaging
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: ryksu
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          path: ryksu
+      # Recreate the sibling file dependency in pnpm-workspace.yaml.
+      # Wrapper release 3.117.0; remove these extra checkouts when the
+      # upstream npm package supports 26.2 and the override is removed.
+      - name: Fetch Minecraft data wrapper
+        uses: actions/checkout@v6
+        with:
+          repository: PrismarineJS/node-minecraft-data
+          ref: 94b717a14e167afdbcdfe708f40f7eed8917fe08
+          path: minecraft-data-26.2
+      # Temporary data from PrismarineJS/minecraft-data PR #1333.
+      - name: Fetch Minecraft 26.2 data
+        uses: actions/checkout@v6
+        with:
+          repository: PrismarineJS/minecraft-data
+          ref: 4005723728fe00435209ebdd2234e9fb1184a184
+          path: minecraft-data-26.2/minecraft-data
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - uses: pnpm/action-setup@v6
+        with:
+          package_json_file: ryksu/package.json
+      - name: Generate Minecraft data entry point
+        run: node ../minecraft-data-26.2/bin/generate_data.js
+      - name: Install exact locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Type check
+        run: pnpm typecheck
+      - name: Run tests
+        run: pnpm test
+      - name: Package Electron app
+        run: pnpm package

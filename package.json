@@ -4,7 +4,10 @@
   "version": "2.1.0",
   "description": "Mc bot",
   "main": ".webpack/main/index.cjs",
+  "packageManager": "pnpm@12.8.1",
   "scripts": {
+    "test": "node --test tests/*.test.cjs",
+    "typecheck": "tsc --noEmit",
     "dev": "electron-forge start",
     "package": "electron-forge package",
     "make": "electron-forge make",
