@@ -11,6 +11,8 @@ import { isDoorBlock, pickAt, walkTarget, type Pickable } from './watcher/pickin
 import { disposeObject, makeLabel } from './watcher/sceneUtils'
 import { createSky } from './watcher/sky'
 import { createWalkMarker } from './watcher/walkMarker'
+import useManualMovement from '../hooks/useManualMovement'
+import { createCameraRig, type CameraMode } from './watcher/cameraRig'
 
 type Blocks = WorldView['blocks']
 
@@ -22,11 +24,13 @@ const DOUBLE_CLICK_MS = 280
 const REANCHOR_DISTANCE = 2000
 
 type Surroundings3DProps = {
+  movementEnabled: boolean
   blocks: Blocks | null
   chest: { x: number; y: number; z: number } | null
   onHover: (text: string | null) => void
   // A click (not a drag) on a block or mob: the world block the bot should walk to.
   onWalkTo: (target: { x: number; y: number; z: number; door?: { x: number; y: number; z: number } }) => void
+  onEntityContext: (entity: MotionEntity, position: { x: number; y: number }) => void
   // Sizes the view; the canvas fills it.
   className?: string
 }
@@ -45,13 +49,30 @@ type SceneState = {
 
 const Surroundings3D: React.FC<Surroundings3DProps> = ({
   blocks,
+  movementEnabled,
   chest,
   onHover,
   onWalkTo,
+  onEntityContext,
   className = 'mt-3 h-[360px] w-full',
 }) => {
   const containerRef = useRef<HTMLDivElement>(null)
   const stateRef = useRef<SceneState | null>(null)
+  const movementYaw = useRef(0)
+  const movementEnabledRef = useRef(movementEnabled)
+  movementEnabledRef.current = movementEnabled
+  const cameraRigRef = useRef<ReturnType<typeof createCameraRig> | null>(null)
+  const changeCameraMode = (mode: CameraMode) => {
+    cameraRigRef.current?.setMode(mode)
+  }
+  useManualMovement(
+    movementEnabled,
+    () => movementYaw.current,
+    () => {
+      changeCameraMode('follow')
+      cameraRigRef.current?.recenter()
+    }
+  )
   const [anchorVersion, setAnchorVersion] = useState(0)
   const [atlas, setAtlas] = useState<BlockAtlas | null>(null)
 
@@ -68,6 +89,8 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
   onHoverRef.current = onHover
   const onWalkToRef = useRef(onWalkTo)
   onWalkToRef.current = onWalkTo
+  const onEntityContextRef = useRef(onEntityContext)
+  onEntityContextRef.current = onEntityContext
   const blocksRef = useRef(blocks)
   blocksRef.current = blocks
 
@@ -90,12 +113,22 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
 
     // Minecraft and three.js are both Y-up and right-handed, so world axes map straight across.
     const camera = new THREE.PerspectiveCamera(50, container.clientWidth / height(), 0.1, 800)
-    camera.position.set(20, 24, 28)
+    camera.position.set(16, 22, 24)
     const controls = new OrbitControls(camera, renderer.domElement)
     controls.target.set(0, 1, 0)
     controls.enableDamping = true
-    controls.maxDistance = 320
+    controls.dampingFactor = 0.09
+    controls.rotateSpeed = 0.65
+    controls.zoomSpeed = 0.8
+    controls.panSpeed = 0.75
+    controls.screenSpacePanning = false
+    controls.minDistance = 4
+    controls.maxDistance = 160
+    controls.minPolarAngle = 0.15
+    controls.maxPolarAngle = Math.PI / 2 - 0.08
     controls.update()
+    const cameraRig = createCameraRig(camera, controls)
+    cameraRigRef.current = cameraRig
 
     const state: SceneState = {
       scene,
@@ -132,6 +165,7 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
     const north = makeLabel('N', '#f87171')
     scene.add(north)
     const entities = new Map<number, Tracked>()
+    let entityInfo = new Map<number, MotionEntity>()
     const clock = new THREE.Clock()
 
     // Creates, updates or rebuilds (when its look changed) one tracked entity.
@@ -146,6 +180,7 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
     }
 
     const handleMotion = (motion: Motion) => {
+      entityInfo = new Map(motion.entities.map((entity) => [entity.id, entity]))
       timeOfDay = motion.time
       const world = new THREE.Vector3(motion.bot.x, motion.bot.y, motion.bot.z)
       if (!state.anchor || state.anchor.distanceTo(world) > REANCHOR_DISTANCE) {
@@ -159,6 +194,7 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
             object.position.add(shift)
           }
           controls.target.add(shift)
+          cameraRig.reanchor(shift)
           walkMarker.shift(shift)
           for (const entry of tracked) entry.target.add(shift)
         }
@@ -200,7 +236,6 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
     }
     const unsubscribeMotion = window.electronAPI.bot.onMotion(handleMotion)
 
-    const previousBot = new THREE.Vector3()
     let frame = 0
     const render = () => {
       frame = requestAnimationFrame(render)
@@ -211,14 +246,14 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
       sky.update(timeOfDay, state.mode, bot ? bot.object.position : controls.target, delta)
 
       if (bot) {
-        previousBot.copy(bot.object.position)
         stepTracked(bot, blend, delta, now)
-        // The camera rides along with the bot, keeping whatever angle the user orbited to.
-        const moved = bot.object.position.clone().sub(previousBot)
-        camera.position.add(moved)
-        controls.target.add(moved)
+        cameraRig.update(bot.object.position, delta)
         const northDistance = (blocksRef.current?.radius ?? 52) + 2
-        north.position.set(bot.object.position.x, bot.object.position.y + 1, bot.object.position.z - northDistance)
+        north.position.set(
+          bot.object.position.x,
+          bot.object.position.y + 1,
+          bot.object.position.z - northDistance
+        )
       }
       for (const entry of entities.values()) {
         stepTracked(entry, blend, delta, now)
@@ -226,6 +261,9 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
       walkMarker.update(now, bot ? bot.object.position : null)
 
       controls.update()
+      const dx = controls.target.x - camera.position.x
+      const dz = controls.target.z - camera.position.z
+      if (dx * dx + dz * dz > 0.0001) movementYaw.current = Math.atan2(-dx, -dz)
       renderer.render(scene, camera)
     }
     render()
@@ -250,48 +288,67 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
           )
         : null
     const handlePointerMove = (event: PointerEvent) => {
+      if (pressed && Math.hypot(event.clientX - pressed.x, event.clientY - pressed.y) > 5)
+        pressed.dragged = true
       const picked = pick(event)
       if (!picked) {
         onHoverRef.current(null)
-      } else if (picked.kind === 'block') {
-        const { x, y, z } = picked.position
-        if (isDoorBlock(picked.name)) {
-          if (picked.name.includes('iron')) {
-            onHoverRef.current(`${prettyName(picked.name)} at ${x} / ${y} / ${z} · iron door (cannot open by hand)`)
-          } else if (picked.open) {
-            onHoverRef.current(`${prettyName(picked.name)} at ${x} / ${y} / ${z} · click to walk and close door`)
-          } else {
-            onHoverRef.current(`${prettyName(picked.name)} at ${x} / ${y} / ${z} · click to walk and open door`)
-          }
-        } else {
-          onHoverRef.current(`${prettyName(picked.name)} at ${x} / ${y} / ${z} · click to walk here`)
-        }
       } else {
-        onHoverRef.current(`${prettyName(picked.name)} · double-click to attack`)
+        const { x, y, z } = picked.position
+        const coordinates = `${Math.floor(x)} / ${Math.floor(y)} / ${Math.floor(z)}`
+        const name =
+          picked.kind === 'entity' && picked.id !== null && entityInfo.get(picked.id)?.kind === 'player'
+            ? picked.name
+            : prettyName(picked.name)
+        const doorState =
+          picked.kind === 'block' && isDoorBlock(picked.name) ? ` · ${picked.open ? 'Open' : 'Closed'}` : ''
+        onHoverRef.current(`${name} · ${coordinates}${doorState}`)
       }
     }
+
     // A click is a press and release without dragging (dragging orbits the camera).
     let pendingClick: { id: number; timer: number } | null = null
-    let pressed: { x: number; y: number } | null = null
+    let pressed: { x: number; y: number; button: number; dragged?: boolean } | null = null
     const handlePointerDown = (event: PointerEvent) => {
-      pressed = event.button === 0 ? { x: event.clientX, y: event.clientY } : null
+      pressed =
+        event.button === 0 || event.button === 2
+          ? { x: event.clientX, y: event.clientY, button: event.button }
+          : null
     }
     const handlePointerUp = (event: PointerEvent) => {
       const start = pressed
       pressed = null
-      if (!start || event.button !== 0 || Math.hypot(event.clientX - start.x, event.clientY - start.y) > 5) {
+      if (
+        !start ||
+        start.dragged ||
+        event.button !== start.button ||
+        Math.hypot(event.clientX - start.x, event.clientY - start.y) > 5
+      ) {
         return
       }
       const picked = pick(event)
       if (!picked || !state.anchor) return
+      if (event.button === 2) {
+        if (pendingClick) {
+          clearTimeout(pendingClick.timer)
+          pendingClick = null
+        }
+        if (picked.kind === 'entity' && picked.id !== null) {
+          const entity = entityInfo.get(picked.id)
+          if (entity) onEntityContextRef.current(entity, { x: event.clientX, y: event.clientY })
+        }
+        return
+      }
       const walk = () => {
         if (!state.anchor) return
+        changeCameraMode('overview')
         const target = walkTarget(picked)
         walkMarker.show(target.clone().sub(state.anchor), clock.elapsedTime)
         onWalkToRef.current({ x: target.x, y: target.y, z: target.z })
       }
       // Clicking a block walks to it; clicking a wooden/copper door walks up to it and toggles it (open/close).
       if (picked.kind === 'block') {
+        changeCameraMode('overview')
         const target = walkTarget(picked)
         walkMarker.show(target.clone().sub(state.anchor), clock.elapsedTime)
         const isDoor = isDoorBlock(picked.name) && !picked.name.includes('iron')
@@ -325,6 +382,24 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
       walk()
     }
     const handlePointerLeave = () => onHoverRef.current(null)
+    const handleContextMenu = (event: MouseEvent) => event.preventDefault()
+    const handleCameraKey = (event: KeyboardEvent) => {
+      if (
+        !movementEnabledRef.current ||
+        event.code !== 'KeyF' ||
+        event.repeat ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.altKey ||
+        document.querySelector('[role="dialog"]') ||
+        document.activeElement?.closest('input, textarea, select, [contenteditable="true"]')
+      )
+        return
+      event.preventDefault()
+      cameraRig.recenter()
+    }
+    window.addEventListener('keydown', handleCameraKey)
+    renderer.domElement.addEventListener('contextmenu', handleContextMenu)
     renderer.domElement.addEventListener('pointermove', handlePointerMove)
     renderer.domElement.addEventListener('pointerleave', handlePointerLeave)
     renderer.domElement.addEventListener('pointerdown', handlePointerDown)
@@ -332,13 +407,18 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
 
     return () => {
       cancelAnimationFrame(frame)
+      if (pendingClick) clearTimeout(pendingClick.timer)
       unsubscribeMotion()
       resizeObserver.disconnect()
       renderer.domElement.removeEventListener('pointermove', handlePointerMove)
       renderer.domElement.removeEventListener('pointerleave', handlePointerLeave)
       renderer.domElement.removeEventListener('pointerdown', handlePointerDown)
       renderer.domElement.removeEventListener('pointerup', handlePointerUp)
+      renderer.domElement.removeEventListener('contextmenu', handleContextMenu)
+      cameraRig.dispose()
       controls.dispose()
+      cameraRigRef.current = null
+      window.removeEventListener('keydown', handleCameraKey)
       for (const child of [...scene.children]) {
         disposeObject(child)
       }

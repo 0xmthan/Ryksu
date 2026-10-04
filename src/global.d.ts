@@ -7,6 +7,7 @@ import type {
   PvpOptions,
   InventoryAction,
   Motion,
+  MovementControls,
   WorldView,
 } from './types'
 
@@ -71,6 +72,8 @@ declare global {
         getSkin: (url: string) => Promise<string | null>
         // Chase and attack an entity by id until it dies or gets away.
         attackEntity: (entityId: number) => Promise<{ ok: boolean; message?: string }>
+        followEntity: (entityId: number) => Promise<{ ok: boolean; message?: string }>
+        setMovementControls: (controls: MovementControls) => Promise<{ ok: boolean; message?: string }>
         // Walk up to a door and open it.
         openDoor: (
           location: { x: number; y: number; z: number },

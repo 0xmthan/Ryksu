@@ -1,15 +1,15 @@
-const { contextBridge, ipcRenderer } = require('electron');
+const { contextBridge, ipcRenderer } = require('electron')
 
 const registerListener = (channel, callback) => {
   const listener = (_event, data) => {
-    callback(data);
-  };
+    callback(data)
+  }
 
-  ipcRenderer.on(channel, listener);
+  ipcRenderer.on(channel, listener)
   return () => {
-    ipcRenderer.removeListener(channel, listener);
-  };
-};
+    ipcRenderer.removeListener(channel, listener)
+  }
+}
 
 contextBridge.exposeInMainWorld('electronAPI', {
   minimize: () => ipcRenderer.send('window-controls', 'minimize'),
@@ -36,6 +36,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getWorldView: () => ipcRenderer.invoke('bot:getWorldView'),
     getSkin: (url) => ipcRenderer.invoke('bot:getSkin', url),
     attackEntity: (entityId) => ipcRenderer.invoke('bot:attackEntity', entityId),
+    followEntity: (entityId) => ipcRenderer.invoke('bot:followEntity', entityId),
+    setMovementControls: (controls) => ipcRenderer.invoke('bot:setMovementControls', controls),
     openDoor: (location, standLocation) => ipcRenderer.invoke('bot:openDoor', location, standLocation),
     inventoryAction: (action) => ipcRenderer.invoke('bot:inventoryAction', action),
     onWorld: (callback) => registerListener('bot:world', callback),
@@ -51,4 +53,4 @@ contextBridge.exposeInMainWorld('electronAPI', {
     setPvpOptions: (options) => ipcRenderer.invoke('bot:setPvpOptions', options),
     getPvpOptions: () => ipcRenderer.invoke('bot:getPvpOptions'),
   },
-});
+})

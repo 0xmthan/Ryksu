@@ -10,9 +10,10 @@ const REPATH_EVERY_CHECKS = 3
 const FOLLOW_PAUSE_MS = 1500
 
 class CreeperWatch {
-  constructor({ pathfinder, onAlert }) {
+  constructor({ pathfinder, onAlert, isManuallyControlled = () => false }) {
     this.pathfinder = pathfinder
     this.onAlert = onAlert
+    this.isManuallyControlled = isManuallyControlled
     this.bot = null
     this.fleeingFrom = null
     this.ticks = 0
@@ -37,6 +38,10 @@ class CreeperWatch {
   }
 
   _handleTick() {
+    if (this.isManuallyControlled()) {
+      this.fleeingFrom = null
+      return
+    }
     this.ticks = (this.ticks + 1) % CHECK_EVERY_TICKS
     if (this.ticks !== 0 || !this.bot?.entity || this.bot.isSleeping) {
       return

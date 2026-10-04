@@ -137,6 +137,12 @@ const registerMinecraftIpc = (ipcMain) => {
   ipcMain.handle('bot:attackEntity', (_event, entityId) =>
     Number.isInteger(entityId) ? botManager.attackEntity(entityId) : { ok: false, message: 'Invalid entity.' }
   )
+  ipcMain.handle('bot:followEntity', (_event, entityId) =>
+    Number.isInteger(entityId) ? botManager.followEntity(entityId) : { ok: false, message: 'Invalid entity.' }
+  )
+  ipcMain.handle('bot:setMovementControls', (_event, controls) =>
+    botManager.manualMovement.setControls(controls)
+  )
 
   ipcMain.handle('bot:openDoor', (_event, location, standLocation) =>
     location && Number.isFinite(location.x) && Number.isFinite(location.y) && Number.isFinite(location.z)

@@ -34,6 +34,8 @@ export type Tracked = {
   yaw: number
   headYaw: number
   pitch: number
+  shownHeadYaw: number
+  shownPitch: number
   sitting: boolean
   crouching: boolean
   model: MobModel | null
@@ -90,6 +92,8 @@ export const createTracked = (
     yaw: entity.yaw,
     headYaw: entity.headYaw,
     pitch: entity.pitch,
+    shownHeadYaw: previous?.shownHeadYaw ?? entity.headYaw,
+    shownPitch: previous?.shownPitch ?? entity.pitch,
     sitting: Boolean(entity.sitting),
     crouching: Boolean(entity.crouching),
     model,
@@ -131,7 +135,12 @@ export const stepTracked = (entry: Tracked, blend: number, delta: number, now: n
   } else {
     object.position.lerp(target, blend)
   }
-  object.rotation.y += shortestAngle(object.rotation.y, entry.yaw) * blend
+  // The head leads a gentler body turn; both take the shortest route across the yaw wrap.
+  const bodyBlend = 1 - Math.exp(-delta * 7)
+  const headBlend = 1 - Math.exp(-delta * 10)
+  object.rotation.y += shortestAngle(object.rotation.y, entry.yaw) * bodyBlend
+  entry.shownHeadYaw += shortestAngle(entry.shownHeadYaw, entry.headYaw) * headBlend
+  entry.shownPitch += (entry.pitch - entry.shownPitch) * headBlend
 
   if (entry.spinner) {
     entry.spinner.rotation.y = now * 1.5
@@ -149,8 +158,8 @@ export const stepTracked = (entry: Tracked, blend: number, delta: number, now: n
       delta,
       sitting: entry.sitting,
       crouching: entry.crouching,
-      headYaw: shortestAngle(object.rotation.y, entry.headYaw),
-      pitch: entry.pitch,
+      headYaw: shortestAngle(object.rotation.y, entry.shownHeadYaw),
+      pitch: entry.shownPitch,
     })
   }
 }

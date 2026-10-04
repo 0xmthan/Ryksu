@@ -11,7 +11,10 @@ if (!Movements.prototype._openDoorPatched) {
     const b = originalGetBlock.call(this, pos, dx, dy, dz)
     if (
       b &&
-      (b.name?.endsWith('_door') || b.name === 'door' || b.name === 'wooden_door' || b.name?.includes('gate')) &&
+      (b.name?.endsWith('_door') ||
+        b.name === 'door' ||
+        b.name === 'wooden_door' ||
+        b.name?.includes('gate')) &&
       !b.name?.endsWith('trapdoor')
     ) {
       const props = typeof b.getProperties === 'function' ? b.getProperties() : b._properties || {}
@@ -39,6 +42,7 @@ class PathfinderController {
     this._handlePathReset = this._handlePathReset.bind(this)
     this.allowBlockBreak = true
     this.followPausedUntil = 0
+    this.followedEntity = null
   }
 
   attach(bot) {
@@ -52,6 +56,7 @@ class PathfinderController {
   }
 
   detach() {
+    this.followedEntity = null
     this._stopFollowing()
     this._unbindPathfinderEvents()
     this.movements = null
@@ -79,6 +84,9 @@ class PathfinderController {
 
     const cancelGoTo = options.cancelGoTo === true
     const goToRequested = options.goToLocation && typeof options.goToLocation === 'object'
+    if (!followEnabled || followTarget !== this.options.followTarget || goToRequested || cancelGoTo) {
+      this.followedEntity = null
+    }
 
     this.options = {
       ...this.options,
@@ -227,9 +235,9 @@ class PathfinderController {
       return
     }
 
-    const playerData = this.bot.players?.[targetName]
-    const entity = playerData?.entity
-    if (!entity) {
+    const entity = this.followedEntity ?? this.bot.players?.[targetName]?.entity
+    if (!entity || entity.isValid === false) {
+      this.bot.pathfinder.setGoal(null)
       return
     }
 
@@ -261,6 +269,11 @@ class PathfinderController {
     } catch (error) {
       console.error('[Pathfinder] Failed to set follow goal', error)
     }
+  }
+
+  followEntity(entity) {
+    this.followedEntity = entity
+    this._applyFollowGoal()
   }
 
   _isRecoverablePathError(error) {

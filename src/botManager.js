@@ -17,6 +17,7 @@ const { BedController } = require('./bot/plugins/bed')
 const { GestureController } = require('./bot/plugins/gestures')
 const { CreeperWatch } = require('./bot/plugins/creeperWatch')
 const { MiningController } = require('./bot/plugins/mining')
+const { ManualMovementController } = require('./bot/plugins/manualMovement')
 const { getWorldView } = require('./bot/worldView')
 const { getMotion } = require('./bot/entityView')
 const { attachEntityTracking } = require('./bot/entityEvents')
@@ -49,16 +50,27 @@ class BotManager extends EventEmitter {
     this.armorManager = new ArmorManagerController()
     this.autoEat = new AutoEatController()
     this.autoTool = new AutoToolController()
-    this.autoShield = new AutoShieldController()
+    this.autoShield = new AutoShieldController({ isManuallyControlled: () => this.manualMovement.isActive() })
     this.pathfinder = new PathfinderController()
+    this.manualMovement = new ManualMovementController({
+      onStart: () => {
+        this._cancelDoorOperation()
+        this.mining.stop('Stopped for manual movement.')
+        this.pvp.stopAttacking()
+        this.pvp._clearTarget()
+        const options = this.behavior.setPathfinderOptions({ followEnabled: false, cancelGoTo: true })
+        this.emit('pathfinderOptions', options)
+      },
+    })
     this.creeperWatch = new CreeperWatch({
+      isManuallyControlled: () => this.manualMovement.isActive(),
       pathfinder: this.pathfinder,
       onAlert: (message) => this.chat.pushSystemMessage(message),
     })
     this.pvp = new PvpController({
       autoTool: this.autoTool,
       autoShield: this.autoShield,
-      isFleeing: () => this.creeperWatch.isFleeing(),
+      isFleeing: () => this.creeperWatch.isFleeing() || this.manualMovement.isActive(),
       onDefend: (mob) =>
         this.chat.pushSystemMessage(`Attacked by ${mob.displayName ?? mob.name ?? 'a mob'}, fighting back.`),
     })
@@ -70,6 +82,7 @@ class BotManager extends EventEmitter {
     this.autoSleep = new AutoSleep({
       bed: this.bed,
       isBusy: () =>
+        this.manualMovement.isActive() ||
         this.behavior.getPathfinderOptions().followEnabled ||
         this.mining.getState().active ||
         this.creeperWatch.isFleeing() ||
@@ -267,6 +280,7 @@ class BotManager extends EventEmitter {
       this.gestures.attach(this.bot)
       this.creeperWatch.attach(this.bot)
       this.mining.attach(this.bot)
+      this.manualMovement.attach(this.bot)
       this.behavior.applyCurrentState()
 
       const markWorldDirty = () => {
@@ -348,6 +362,7 @@ class BotManager extends EventEmitter {
   }
 
   async disconnect() {
+    this.manualMovement.detach()
     this._cancelDoorOperation()
     this._stopStateStream()
 
@@ -589,6 +604,25 @@ class BotManager extends EventEmitter {
       }
     }
     return this.behavior.setPathfinderOptions(options || {})
+  }
+
+  followEntity(entityId) {
+    const entity = this.bot?.entities?.[entityId]
+    if (!entity?.isValid || entity === this.bot.entity || entity.name === 'item') {
+      return { ok: false, message: 'That entity is no longer available.' }
+    }
+    this._cancelDoorOperation()
+    this.mining.stop('Stopped to follow an entity.')
+    this.pvp.stopAttacking()
+    const name = entity.username ?? entity.displayName ?? entity.name ?? 'entity'
+    const options = this.behavior.setPathfinderOptions({
+      followEnabled: true,
+      followTarget: name,
+      cancelGoTo: true,
+    })
+    this.pathfinder.followEntity(entity)
+    this.emit('pathfinderOptions', options)
+    return { ok: true }
   }
 
   // Chases and attacks one entity (picked in the watcher) until it dies or gets away.

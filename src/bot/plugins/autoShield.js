@@ -1,5 +1,6 @@
 class AutoShieldController {
-  constructor() {
+  constructor({ isManuallyControlled = () => false } = {}) {
+    this.isManuallyControlled = isManuallyControlled
     this.bot = null
     this.desiredEnabled = false
     this.enabled = false
@@ -241,7 +242,7 @@ class AutoShieldController {
   }
 
   _focusOnThreat(entity) {
-    if (!entity?.position || !this.bot?.entity) {
+    if (this.isManuallyControlled() || !entity?.position || !this.bot?.entity) {
       return
     }
 
@@ -267,11 +268,9 @@ class AutoShieldController {
       return
     }
 
-    this.bot
-      .lookAt(aim, true)
-      .catch(() => {
-        /* ignore look failures */
-      })
+    this.bot.lookAt(aim, true).catch(() => {
+      /* ignore look failures */
+    })
     this.lastLookTargetId = entity.id
     this.nextAllowedLookTime = now + 250
   }

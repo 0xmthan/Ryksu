@@ -1,12 +1,12 @@
 import React, { useCallback, useEffect, useState } from 'react'
-import { Backpack } from 'lucide-react'
 import ChatPanel from './ChatPanel'
 import InventoryPage from './InventoryPage'
 import Surroundings3D from './Surroundings3D'
+import EntityPopover from './watcher/EntityPopover'
 import LocationManager from './LocationManager'
 import StatsSummary from './StatsSummary'
 import { useSavedLocations } from '../hooks/useSavedLocations'
-import type { BotSnapshot, ChatMessage, WorldView } from '../types'
+import type { BotSnapshot, ChatMessage, MotionEntity, WorldView } from '../types'
 
 type ConnectedSnapshot = Extract<BotSnapshot, { connected: true }>
 
@@ -53,6 +53,11 @@ const Dashboard: React.FC<DashboardProps> = ({
   const [worldView, setWorldView] = useState<WorldView | null>(null)
   const [inventoryOpen, setInventoryOpen] = useState(false)
   const [hover, setHover] = useState<string | null>(null)
+  const [entityContext, setEntityContext] = useState<{
+    entity: MotionEntity
+    position: { x: number; y: number }
+  } | null>(null)
+  const closeEntityContext = useCallback(() => setEntityContext(null), [])
   const closePage = useCallback(() => setInventoryOpen(false), [])
 
   useEffect(() => {
@@ -80,6 +85,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         return
       if (event.key.toLowerCase() === 'e') {
         event.preventDefault()
+        setEntityContext(null)
         setInventoryOpen((open) => !open)
       }
     }
@@ -90,9 +96,11 @@ const Dashboard: React.FC<DashboardProps> = ({
   return (
     <div className="relative min-h-0 min-w-0 flex-1 bg-neutral-950 text-neutral-100">
       <Surroundings3D
+        movementEnabled={!inventoryOpen && !showChat && !entityContext}
         blocks={worldView?.blocks ?? null}
         chest={snapshot.mining?.chest ?? null}
         onHover={setHover}
+        onEntityContext={(entity, position) => setEntityContext({ entity, position })}
         onWalkTo={(target) =>
           updatePathfinder({
             followEnabled: false,
@@ -193,20 +201,12 @@ const Dashboard: React.FC<DashboardProps> = ({
               })
             }}
           />
-          <button
-            type="button"
-            onClick={() => setInventoryOpen(true)}
-            className="flex items-center gap-2 rounded-full border border-neutral-800 bg-neutral-900/90 px-3
-              py-2 text-xs text-neutral-200 hover:text-sky-300"
-          >
-            <Backpack className="h-4 w-4" /> Inventory <kbd className="text-neutral-500">E</kbd>
-          </button>
         </div>
         <div className="absolute inset-x-3 bottom-3 flex items-center justify-between gap-4 text-xs">
           <span className="max-w-[65%] truncate rounded-md bg-neutral-950/80 px-2.5 py-1.5 text-neutral-300">
             {hover ??
-              (worldView?.blocks
-                ? 'Click to walk · Double-click mobs to attack · Drag to orbit · Scroll to zoom · E inventory'
+              (snapshot.position
+                ? `X ${Math.floor(snapshot.position.x)} · Y ${Math.floor(snapshot.position.y)} · Z ${Math.floor(snapshot.position.z)}`
                 : 'Waiting for the bot to spawn…')}
           </span>
           {snapshot.mining?.active ? (
@@ -218,6 +218,14 @@ const Dashboard: React.FC<DashboardProps> = ({
       </div>
       {inventoryOpen && !showChat ? (
         <InventoryPage inventory={worldView?.inventory ?? null} onClose={closePage} />
+      ) : null}
+      {entityContext && !inventoryOpen && !showChat ? (
+        <EntityPopover
+          key={`${entityContext.entity.id}:${entityContext.position.x}:${entityContext.position.y}`}
+          entity={entityContext.entity}
+          position={entityContext.position}
+          onClose={closeEntityContext}
+        />
       ) : null}
       {showChat ? (
         <div className="absolute inset-x-0 bottom-0 top-12 z-40 flex bg-neutral-950 px-6">

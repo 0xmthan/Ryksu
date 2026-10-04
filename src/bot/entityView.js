@@ -144,9 +144,13 @@ const describeEntity = (bot, entity) => {
     }
   }
   const equipment = kind === 'item' ? undefined : entityEquipment(entity)
+  const health = metadataReader(bot, entity)('health')
+  const ping = kind === 'player' ? bot.players?.[entity.username]?.ping : undefined
   return {
     id: entity.id,
     kind,
+    ...(Number.isFinite(health) ? { health } : {}),
+    ...(Number.isFinite(ping) ? { ping } : {}),
     // Mob type (zombie, cow, …) for picking its model, and what a dropped item is.
     type: entity.name ?? null,
     item,

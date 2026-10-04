@@ -146,6 +146,17 @@ export type InventoryAction =
 
 export type EntityKind = 'player' | 'hostile' | 'passive' | 'item'
 
+export type MovementControls = {
+  sprint: boolean
+  sneak: boolean
+  jump: boolean
+  forward: boolean
+  back: boolean
+  left: boolean
+  right: boolean
+  yaw: number
+}
+
 export type EquipmentSlot = 'mainhand' | 'offhand' | 'head' | 'chest' | 'legs' | 'feet'
 
 // A held or worn item; leather armor carries its dye.
@@ -169,6 +180,8 @@ export type EntityPose = {
 }
 
 export type MotionEntity = EntityPose & {
+  health?: number
+  ping?: number
   id: number
   kind: EntityKind
   type: string | null
