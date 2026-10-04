@@ -3,6 +3,7 @@
 import type * as THREE from 'three'
 import type { MotionEntity } from '../../types'
 import { entityData, modelType } from './data'
+import { addCape } from './cape'
 import { addEquipment } from './equipment'
 import { addCoat, buildMobModel, hasMobModel, type MobModel } from './model'
 import { layeredTexture, textureFromUrl, villagerTexture } from './textures'
@@ -40,6 +41,7 @@ export const lookOf = (entity: MotionEntity) =>
     entity.wool,
     entity.villager,
     entity.skin,
+    entity.cape,
     entity.slim,
     entity.equipment,
   ])
@@ -67,6 +69,9 @@ export const buildEntityModel = (entity: MotionEntity): MobModel | null => {
   }
   if (entity.skin) {
     applySkin(model, entity.skin)
+  }
+  if (entity.kind === 'player' && entity.cape && entity.equipment?.chest?.name !== 'elytra') {
+    addCape(model, entity.cape, Boolean(entity.equipment?.chest))
   }
   addEquipment(model, entity.equipment)
   return model

@@ -2,6 +2,7 @@
 // move smoothly, so everything here stays cheap.
 const { entityEvents } = require('./entityEvents')
 const { entityVariant } = require('./entityVariants')
+const { skinUrl, capeUrl } = require('./profileTextures')
 
 const ENTITY_RANGE = 80
 // mineflayer's entity.equipment order.
@@ -26,14 +27,6 @@ const metadataReader = (bot, entity) => {
     const index = Array.isArray(keys) ? keys.indexOf(key) : -1
     return index >= 0 ? entity.metadata?.[index] : undefined
   }
-}
-
-// Only Mojang's skin server; the URL comes from the server, so nothing else gets fetched.
-const skinUrl = (player) => {
-  const url = player?.skinData?.url
-  return typeof url === 'string' && /^https?:\/\/textures\.minecraft\.net\//.test(url)
-    ? url.replace(/^http:/, 'https:')
-    : null
 }
 
 // Leather armor's dye: a dyed_color component on 1.20.5+, display.color NBT before.
@@ -91,6 +84,8 @@ const appearance = (bot, entity, kind) => {
     const player = bot.players?.[entity.username]
     const skin = skinUrl(player)
     if (skin) result.skin = skin
+    const cape = capeUrl(player, read('player_mode_customisation'))
+    if (cape) result.cape = cape
     // Slim ("Alex") skins are drawn for 3-pixel-wide arms.
     if (player?.skinData?.model === 'slim') result.slim = true
   }
@@ -179,7 +174,10 @@ const getMotion = (bot) => {
     bot: {
       // The bot looks where it faces.
       ...pose(bot, bot.entity, bot.entity.yaw, bot.entity.yaw),
+      name: bot.username ?? bot.player?.username ?? 'Bot',
+      ...(Number.isFinite(bot.health) ? { health: bot.health } : {}),
       skin: skinUrl(bot.player),
+      cape: capeUrl(bot.player, metadataReader(bot, bot.entity)('player_mode_customisation')),
       slim: bot.player?.skinData?.model === 'slim',
       ...(equipment ? { equipment } : {}),
     },

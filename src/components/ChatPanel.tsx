@@ -1,151 +1,97 @@
-import React, { useMemo } from 'react'
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { ChatMessage } from '../types'
 
 type ChatPanelProps = {
   chatMessages: ChatMessage[]
   chatInput: string
   onChatInputChange: (value: string) => void
-  onChatSubmit: () => void
+  onChatSubmit: () => Promise<boolean>
   isSendingChat: boolean
-  fullHeight?: boolean
+  open: boolean
+  onClose: () => void
+  hidden?: boolean
 }
 
-const ChatPanel: React.FC<ChatPanelProps> = ({
-  chatMessages,
-  chatInput,
-  onChatInputChange,
-  onChatSubmit,
-  isSendingChat,
-  fullHeight = false,
-}) => {
-  const emptyStateCopy = useMemo(
-    () =>
-      chatMessages.length === 0
-        ? 'No messages yet. Start the conversation!'
-        : 'You are caught up. Load older messages to browse history.',
-    [chatMessages.length]
-  )
+const ChatPanel: React.FC<ChatPanelProps> = ({ chatMessages, chatInput, onChatInputChange, onChatSubmit, isSendingChat, open, onClose, hidden = false }) => {
+  const input = useRef<HTMLInputElement>(null)
+  const log = useRef<HTMLDivElement>(null)
+  const atBottom = useRef(true)
+  const submitted = useRef<string[]>([])
+  const historyIndex = useRef(0)
+  const draft = useRef('')
+  const [now, setNow] = useState(Date.now())
+  const [unread, setUnread] = useState(false)
+  const close = () => { onChatInputChange(''); onClose() }
 
-  const groupedMessages = useMemo(() => {
-    if (chatMessages.length === 0) {
-      return []
+  useEffect(() => {
+    if (open) {
+      input.current?.focus()
+      historyIndex.current = submitted.current.length
+      draft.current = chatInput
+      atBottom.current = true
+      if (log.current) log.current.scrollTop = log.current.scrollHeight
+      setUnread(false)
     }
+  }, [open])
+  useEffect(() => {
+    if (open) return
+    setNow(Date.now())
+    const timer = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(timer)
+  }, [open])
+  useLayoutEffect(() => {
+    if (!open || !log.current) return
+    if (atBottom.current) log.current.scrollTop = log.current.scrollHeight
+    else setUnread(true)
+  }, [chatMessages, open])
 
-    const groups: Array<{
-      author: string
-      timestamp: number
-      messages: ChatMessage[]
-    }> = []
-
-    for (const message of chatMessages) {
-      const bucket = Math.floor(message.timestamp / 60000)
-      const lastGroup = groups[groups.length - 1]
-      if (lastGroup && lastGroup.author === message.author && lastGroup.timestamp === bucket) {
-        lastGroup.messages.push(message)
-      } else {
-        groups.push({
-          author: message.author,
-          timestamp: bucket,
-          messages: [message],
-        })
-      }
-    }
-
-    return groups
-  }, [chatMessages])
-
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const visible = open ? chatMessages : chatMessages.filter(message => now - message.timestamp < 10000).slice(-8)
+  const submit = async (event: React.FormEvent) => {
     event.preventDefault()
-    onChatSubmit()
+    if (!chatInput.trim() || isSendingChat) return
+    const message = chatInput.trim()
+    if (await onChatSubmit()) {
+      if (submitted.current[submitted.current.length - 1] !== message) submitted.current.push(message)
+      historyIndex.current = submitted.current.length
+      onClose()
+    }
   }
-
-  return (
-    <section
-      className={`flex flex-1 flex-col rounded-3xl border border-neutral-800 bg-neutral-900/70 shadow-md ${
-        fullHeight ? 'h-full w-full' : ''
-      }`}
-    >
-      <header className="flex items-center justify-between border-b border-neutral-800 px-5 py-4">
-        <div className="flex flex-col gap-1">
-          <h2 className="text-base font-semibold text-neutral-50">Server Chat</h2>
-          <p className="text-xs text-neutral-400">Live feed from your current connection.</p>
-        </div>
-      </header>
-
-      <div className="flex-1 px-5 py-4">
-        {groupedMessages.length === 0 ? (
-          <p
-            className="rounded-2xl border border-dashed border-neutral-800 bg-neutral-900/70 px-4 py-6
-              text-center text-sm text-neutral-500"
-          >
-            {emptyStateCopy}
-          </p>
-        ) : (
-          <ul className="flex flex-col gap-2 text-sm">
-            {groupedMessages.map((group) => {
-              const timestamp = new Date(group.timestamp * 60000)
-              const timeLabel = timestamp.toLocaleTimeString([], {
-                hour: '2-digit',
-                minute: '2-digit',
-              })
-              const firstMessage = group.messages[0]
-              const isSystem = firstMessage.type === 'system'
-              const authorIsRyksu =
-                group.author.trim().toLowerCase() === 'ryksu' ||
-                firstMessage.author.trim().toLowerCase() === 'ryksu'
-              return (
-                <li
-                  key={`${group.messages[0].id}-group`}
-                  className={`flex flex-col gap-1 rounded-xl border border-neutral-800/70 bg-neutral-900/80
-                    p-3 ${isSystem ? 'text-neutral-300' : 'text-neutral-50'}`}
-                >
-                  <div
-                    className="flex items-center justify-between text-[0.68rem] uppercase tracking-[0.22em]
-                      text-neutral-500"
-                  >
-                    <span className={authorIsRyksu ? 'text-purple-300' : undefined}>{group.author}</span>
-                    <span className="text-neutral-400">{timeLabel}</span>
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    {group.messages.map((entry) => (
-                      <p key={entry.id} className="text-sm leading-relaxed text-neutral-200">
-                        {entry.text}
-                      </p>
-                    ))}
-                  </div>
-                </li>
-              )
-            })}
-          </ul>
-        )}
-      </div>
-
-      <form onSubmit={handleSubmit} className="border-t border-neutral-800 px-5 py-4">
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={chatInput}
-            onChange={(event) => onChatInputChange(event.target.value)}
-            placeholder="Type a message..."
-            className="flex-1 rounded-full border border-neutral-800 bg-neutral-950/70 px-4 py-2 text-sm
-              text-neutral-100 transition focus:border-sky-500 focus:outline-none focus:ring-2
-              focus:ring-sky-500/30 disabled:opacity-60"
-            disabled={isSendingChat}
-          />
-          <button
-            type="submit"
-            disabled={isSendingChat || !chatInput.trim()}
-            className="rounded-full bg-sky-500 px-5 py-2 text-sm font-semibold text-neutral-950 transition
-              hover:bg-sky-400 focus-visible:outline focus-visible:outline-offset-2
-              focus-visible:outline-sky-400 disabled:cursor-not-allowed disabled:bg-neutral-800
-              disabled:text-neutral-500"
-          >
-            {isSendingChat ? 'Sending…' : 'Send'}
-          </button>
-        </div>
+  return <section aria-label="Server chat" className={`absolute bottom-12 left-3 z-30 w-[min(560px,calc(100%_-_24px))] font-mono text-[13px] leading-5 ${open ? '' : 'pointer-events-none'} ${hidden ? 'hidden' : ''}`}>
+    <div ref={log} role={open ? 'log' : undefined} aria-live="polite" aria-relevant="additions"
+      onScroll={() => {
+        const element = log.current
+        if (!element) return
+        atBottom.current = element.scrollHeight - element.scrollTop - element.clientHeight < 24
+        if (atBottom.current) setUnread(false)
+      }}
+      className={open ? 'max-h-[min(360px,55vh)] min-h-16 overflow-y-auto rounded-t-lg bg-neutral-950/65 px-3 py-2 backdrop-blur-xl' : 'flex flex-col items-start'}>
+      {visible.map(message => <p key={message.id}
+        className={`${open ? 'py-0.5' : 'bg-neutral-950/55 px-2 py-0.5'} break-words whitespace-pre-wrap text-neutral-100 [text-shadow:1px_1px_2px_#000]`}
+        style={!open ? { opacity: Math.min(1, Math.max(0, (10000 - (now - message.timestamp)) / 2000)) } : undefined}>
+        {message.position === 'client' && <span className="text-purple-300">[{message.author}] </span>}
+        {message.text}
+      </p>)}
+      {open && !visible.length && <p className="text-neutral-500">No messages yet.</p>}
+    </div>
+    {open && <>
+      {unread && <button type="button" className="absolute right-2 bottom-12 rounded bg-neutral-800/90 px-2 py-1 text-xs text-sky-300"
+        onClick={() => { if (log.current) log.current.scrollTop = log.current.scrollHeight; atBottom.current = true; setUnread(false) }}>New messages ↓</button>}
+      <form onSubmit={submit} className="mt-1 flex items-center rounded-b-lg border border-white/10 bg-neutral-950/85 px-3 py-2 backdrop-blur-xl">
+        <span aria-hidden className="mr-2 text-neutral-500">&gt;</span>
+        <input ref={input} aria-label="Chat message" value={chatInput} maxLength={256} autoComplete="off" spellCheck={false}
+          onChange={event => { onChatInputChange(event.target.value); historyIndex.current = submitted.current.length; draft.current = event.target.value }}
+          onKeyDown={event => {
+            event.stopPropagation()
+            if (event.key === 'Escape') { event.preventDefault(); close(); return }
+            if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return
+            event.preventDefault()
+            if (historyIndex.current === submitted.current.length) draft.current = chatInput
+            historyIndex.current = Math.max(0, Math.min(submitted.current.length, historyIndex.current + (event.key === 'ArrowUp' ? -1 : 1)))
+            onChatInputChange(submitted.current[historyIndex.current] ?? draft.current)
+          }} className="min-w-0 flex-1 bg-transparent text-neutral-100 outline-none" />
+        {isSendingChat && <span role="status" className="ml-2 text-[10px] text-neutral-500">Sending…</span>}
       </form>
-    </section>
-  )
+    </>}
+  </section>
 }
-
 export default ChatPanel

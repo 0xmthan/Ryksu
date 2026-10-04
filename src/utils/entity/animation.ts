@@ -4,6 +4,7 @@
 import * as THREE from 'three'
 import type { MobModel } from './model'
 import { createPostures } from './postures'
+import { animateCape } from './cape'
 
 type Limb = { bone: THREE.Group; rest: THREE.Euler; phase: number; side: number; front: boolean }
 
@@ -71,6 +72,7 @@ export type PoseInput = {
 
 export const createAnimator = (model: MobModel) => {
   const rig = findRig(model)
+  const cape = model.bones.get('cape')
   const raised = RAISED_ARMS.has(model.type)
   const flyer = FLYERS.has(model.type)
   const postures = createPostures(model, rig.legs)
@@ -128,6 +130,8 @@ export const createAnimator = (model: MobModel) => {
     for (const tail of rig.tails) {
       tail.bone.rotation.y = tail.rest.y + Math.sin(now * 7) * 0.3 * walk * (1 - pose.sitting)
     }
+
+    if (cape?.children.length) animateCape(cape, now, stride, walk, delta)
 
     setTint(now - hurtAt < HURT_SECONDS || deadAt !== null)
     // Falls onto its side over about a second, like the game's death animation.

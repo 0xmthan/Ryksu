@@ -1,0 +1,90 @@
+const test = require('node:test')
+const assert = require('node:assert/strict')
+const fs = require('node:fs')
+const vm = require('node:vm')
+const ts = require('typescript')
+const THREE = require('three')
+const { skinUrl, capeUrl } = require('../src/bot/profileTextures')
+const compile = (file, requireModule, extras = {}) => {
+  const exportsObject = {}
+  vm.runInNewContext(ts.transpileModule(fs.readFileSync(file, 'utf8'), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2021 },
+  }).outputText, { exports: exportsObject, require: requireModule, ...extras })
+  return exportsObject
+}
+const geometry = compile('src/utils/entity/geometry.ts', require)
+let fetchTexture = async () => 'data:image/png;base64,test'
+const cape = compile('src/utils/entity/cape.ts', name => {
+  if (name === './geometry') return geometry
+  if (name === './model') return { mobMaterial: map => {
+    const material = new THREE.MeshLambertMaterial({ map })
+    material.userData.sharedMap = true
+    return material
+  } }
+  if (name === './textures') return { textureFromUrl: () => new THREE.Texture() }
+  return require(name)
+}, { window: { electronAPI: { bot: { getSkin: url => fetchTexture(url) } } } })
+
+test('profile cape URLs accept Mojang textures and normalize HTTP', () => {
+  const player = { skinData: { url: 'http://textures.minecraft.net/texture/abc123', capeUrl: 'http://textures.minecraft.net/texture/deadbeef' } }
+  assert.equal(skinUrl(player), 'https://textures.minecraft.net/texture/abc123')
+  assert.equal(capeUrl(player), 'https://textures.minecraft.net/texture/deadbeef')
+  assert.equal(capeUrl(player, 126), null)
+  assert.equal(capeUrl(player, 127), 'https://textures.minecraft.net/texture/deadbeef')
+  assert.equal(capeUrl({ skinData: { capeUrl: 'https://example.com/cape.png' } }), null)
+  assert.equal(capeUrl({}), null)
+})
+test('cape geometry hangs from the shoulders behind the player and uses its own atlas', () => {
+  const mesh = cape.createCapeGeometry()
+  mesh.computeBoundingBox()
+  const bounds = mesh.boundingBox
+  const size = bounds.getSize(new THREE.Vector3())
+  assert.ok(Math.abs(size.x - 10) < 0.0001)
+  assert.ok(Math.abs(size.y - 16) < 0.0001)
+  assert.ok(Math.abs(size.z - 1) < 0.0001)
+  assert.equal(bounds.max.y, 0)
+  assert.equal(bounds.min.y, -16)
+  assert.ok(bounds.min.z > -0.0001)
+  const uv = mesh.getAttribute('uv')
+  for (let i = 0; i < uv.count; i++) {
+    assert.ok(uv.getX(i) >= 0 && uv.getX(i) <= 22 / 64)
+    assert.ok(uv.getY(i) >= 0 && uv.getY(i) <= 17 / 32)
+  }
+  mesh.dispose()
+})
+test('walking smoothly lifts the cape backward and it settles when standing', () => {
+  const attachment = new THREE.Group()
+  cape.animateCape(attachment, 0, 0, 1, 1 / 60)
+  assert.ok(attachment.rotation.x < 0 && attachment.rotation.x > -0.47)
+  for (let i = 0; i < 60; i++) cape.animateCape(attachment, 0, 0, 1, 1 / 60)
+  assert.ok(attachment.rotation.x < -0.45)
+  for (let i = 0; i < 60; i++) cape.animateCape(attachment, 0, 0, 0, 1 / 60)
+  assert.ok(Math.abs(attachment.rotation.x + 0.12) < 0.01)
+})
+test('a cape texture finishing after disposal never revives the model', async () => {
+  let resolve
+  fetchTexture = () => new Promise(done => { resolve = done })
+  const attachment = new THREE.Group()
+  const model = { bones: new Map([['cape', attachment]]), materials: [] }
+  cape.addCape(model, 'https://textures.minecraft.net/texture/deadbeef')
+  const mesh = attachment.children[0]
+  model.materials[0].dispose()
+  resolve('data:image/png;base64,test')
+  await Promise.resolve()
+  assert.equal(mesh.visible, false)
+  mesh.geometry.dispose()
+})
+
+test('cape sits close to the jacket and leaves additional clearance for chest armor', () => {
+  fetchTexture = async () => null
+  for (const [armored, offset] of [[false, 2.4], [true, 2.65]]) {
+    const attachment = new THREE.Group()
+    attachment.position.z = 3
+    const model = { bones: new Map([['cape', attachment]]), materials: [] }
+    cape.addCape(model, 'https://textures.minecraft.net/texture/deadbeef', armored)
+    assert.equal(attachment.position.z, offset)
+    model.materials[0].map.dispose()
+    model.materials[0].dispose()
+    attachment.children[0].geometry.dispose()
+  }
+})

@@ -223,20 +223,14 @@ const TitleBar: React.FC<TitleBarProps> = ({
             </ToolbarButton>
           </>
         ) : null}
-        <ToolbarButton
-          label={isConnected ? 'Chat' : 'Saved Chats'}
-          description={
-            isChatActive
-              ? 'Click to hide the chat panel.'
-              : isConnected
-                ? 'Click to open the chat panel.'
-                : 'Click to view saved conversations.'
-          }
+        {!isConnected && <ToolbarButton
+          label="Saved Chats"
+          description={isChatActive ? 'Click to hide saved conversations.' : 'Click to view saved conversations.'}
           active={isChatActive}
           onClick={onToggleChat}
         >
           <MessageSquareText aria-hidden="true" className="h-[18px] w-[18px]" strokeWidth={1.75} />
-        </ToolbarButton>
+        </ToolbarButton>}
         {isConnected ? (
           <SleepButton isSleeping={isSleeping} canSleep={canSleep} bedPickupPending={bedPickupPending} />
         ) : null}

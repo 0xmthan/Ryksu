@@ -110,8 +110,21 @@ export type InventoryItem = {
   count: number
 } | null
 
+export type InventoryWindow = {
+  id: number
+  type: string
+  title: string
+  slots: InventoryItem[]
+  inventoryStart: number
+  resultSlot: number
+}
+
 export type WorldView = {
   inventory: {
+    window: InventoryWindow | null
+    crafting: InventoryItem[]
+    craftingResult: InventoryItem
+    cursor: InventoryItem
     main: InventoryItem[]
     hotbar: InventoryItem[]
     armor: { head: InventoryItem; torso: InventoryItem; legs: InventoryItem; feet: InventoryItem }
@@ -139,7 +152,12 @@ export type WorldView = {
   }
 }
 
+export type InventoryClick = { slot: number; button: number; mode: 0 | 1 | 2 | 4 }
+
 export type InventoryAction =
+  | { type: 'click'; clicks: InventoryClick[]; windowId?: number }
+  | { type: 'close'; windowId?: number }
+  | { type: 'rename'; name: string; windowId: number }
   | { type: 'move'; from: number; to: number }
   | { type: 'drop'; slot: number; all: boolean }
   | { type: 'hold'; slot: number }
@@ -196,6 +214,7 @@ export type MotionEntity = EntityPose & {
   // Registry ids of the villager's biome type and profession.
   villager?: { type: number; profession: number }
   // Mojang skin URL for players.
+  cape?: string
   skin?: string
   // The skin is made for slim (3-pixel) arms.
   slim?: boolean
@@ -204,6 +223,6 @@ export type MotionEntity = EntityPose & {
 export type Motion = {
   // World time of day in ticks (0 sunrise, 6000 noon, 12000 sunset, 18000 midnight).
   time: number
-  bot: EntityPose & { skin: string | null; slim: boolean }
+  bot: EntityPose & { name?: string; health?: number; skin: string | null; cape?: string | null; slim: boolean }
   entities: MotionEntity[]
 }

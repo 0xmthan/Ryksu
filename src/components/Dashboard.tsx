@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import ChatPanel from './ChatPanel'
 import InventoryPage from './InventoryPage'
 import Surroundings3D from './Surroundings3D'
@@ -15,19 +15,13 @@ type DashboardProps = {
   chatMessages: ChatMessage[]
   chatInput: string
   onChatInputChange: (value: string) => void
-  onChatSubmit: () => void
+  onChatSubmit: () => Promise<boolean>
+  onChatOpen: () => void
+  onChatClose: () => void
   isSendingChat: boolean
   showChat: boolean
-  pathfinderEnabled: boolean
-  pathfinderTarget: string
   pathfinder: import('../types').PathfinderOptions
-  onPathfinderToggle: (value: boolean) => void
-  onPathfinderTargetChange: (value: string) => void
   updatePathfinder: (options: import('../types').PathfinderOptions) => void
-  pvpPlayerEnabled: boolean
-  pvpPlayerTarget: string
-  onPvpPlayerToggle: (value: boolean) => void
-  onPvpPlayerTargetChange: (value: string) => void
 }
 
 const Dashboard: React.FC<DashboardProps> = ({
@@ -37,21 +31,18 @@ const Dashboard: React.FC<DashboardProps> = ({
   chatInput,
   onChatInputChange,
   onChatSubmit,
+  onChatOpen,
+  onChatClose,
   isSendingChat,
   showChat,
-  pathfinderEnabled,
-  pathfinderTarget,
-  onPathfinderToggle,
-  onPathfinderTargetChange,
   updatePathfinder,
-  pvpPlayerEnabled,
-  pvpPlayerTarget,
-  onPvpPlayerToggle,
-  onPvpPlayerTargetChange,
 }) => {
   const { locations, saveLocation, deleteLocation } = useSavedLocations()
   const [worldView, setWorldView] = useState<WorldView | null>(null)
   const [inventoryOpen, setInventoryOpen] = useState(false)
+  const [openingBlock, setOpeningBlock] = useState(false)
+  const [blockFeedback, setBlockFeedback] = useState<string | null>(null)
+  const containerId = useRef<number | null>(null)
   const [hover, setHover] = useState<string | null>(null)
   const [entityContext, setEntityContext] = useState<{
     entity: MotionEntity
@@ -68,13 +59,36 @@ const Dashboard: React.FC<DashboardProps> = ({
     })
     return window.electronAPI.bot.onWorld(setWorldView)
   }, [])
-  const pathfinderLabelId = 'dashboard-pathfinder-label'
+  useEffect(() => {
+    const id = worldView?.inventory.window?.id ?? null
+    if (containerId.current !== null && id === null) setInventoryOpen(false)
+    containerId.current = id
+  }, [worldView])
+  const interactBlock = async (position: { x: number; y: number; z: number }) => {
+    if (openingBlock || inventoryOpen) return
+    setOpeningBlock(true)
+    setBlockFeedback('Opening block…')
+    try {
+      const result = await window.electronAPI.bot.interactBlock(position)
+      if (!result.ok) { setBlockFeedback(result.message ?? 'Could not open block.'); return }
+      const view = await window.electronAPI.bot.getWorldView()
+      if (view?.inventory.window) { setWorldView(view); setInventoryOpen(true); setBlockFeedback(null) }
+      else setBlockFeedback('The block closed before it could be displayed.')
+    } catch (error) { setBlockFeedback(error instanceof Error ? error.message : 'Could not open block.') }
+    finally { setOpeningBlock(false) }
+  }
+  useEffect(() => {
+    if (!blockFeedback || openingBlock) return
+    const timer = setTimeout(() => setBlockFeedback(null), 5000)
+    return () => clearTimeout(timer)
+  }, [blockFeedback, openingBlock])
 
   useEffect(() => {
     const handleKey = (event: KeyboardEvent) => {
       const target = event.target instanceof HTMLElement ? event.target : null
       if (
         showChat ||
+        openingBlock ||
         event.repeat ||
         event.ctrlKey ||
         event.metaKey ||
@@ -83,6 +97,12 @@ const Dashboard: React.FC<DashboardProps> = ({
         document.querySelector('[aria-modal="true"]')
       )
         return
+      if (!inventoryOpen && !entityContext && (event.code === 'KeyT' || event.code === 'Slash')) {
+        event.preventDefault()
+        onChatInputChange(event.code === 'Slash' ? '/' : '')
+        onChatOpen()
+        return
+      }
       if (event.key.toLowerCase() === 'e') {
         event.preventDefault()
         setEntityContext(null)
@@ -91,12 +111,13 @@ const Dashboard: React.FC<DashboardProps> = ({
     }
     window.addEventListener('keydown', handleKey)
     return () => window.removeEventListener('keydown', handleKey)
-  }, [showChat])
+  }, [showChat, openingBlock, inventoryOpen, entityContext, onChatInputChange, onChatOpen])
 
   return (
     <div className="relative min-h-0 min-w-0 flex-1 bg-neutral-950 text-neutral-100">
       <Surroundings3D
-        movementEnabled={!inventoryOpen && !showChat && !entityContext}
+        onBlockInteract={interactBlock}
+        movementEnabled={!openingBlock && !inventoryOpen && !showChat && !entityContext}
         blocks={worldView?.blocks ?? null}
         chest={snapshot.mining?.chest ?? null}
         onHover={setHover}
@@ -114,67 +135,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         <div className="pointer-events-auto absolute left-3 top-15 w-64">
           <StatsSummary snapshot={snapshot} />
         </div>
-        <div className="pointer-events-auto absolute right-3 top-15">
-          <div
-            className="flex items-center gap-2 rounded-full border border-neutral-800 bg-neutral-900/70 px-4
-              py-2 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-300"
-          >
-            <label className="flex items-center gap-2">
-              <span className="text-[0.68rem] uppercase tracking-[0.2em] text-neutral-400">Follow</span>
-              <input
-                type="text"
-                value={pathfinderTarget}
-                onChange={(event) => onPathfinderTargetChange(event.target.value)}
-                placeholder="Player username"
-                className="w-32 rounded-md border border-neutral-700 bg-neutral-950/70 px-2 py-1 text-xs
-                  text-neutral-100 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/30"
-              />
-            </label>
-            <label className="flex items-center gap-2" htmlFor="dashboard-pathfinder-toggle">
-              <input
-                id="dashboard-pathfinder-toggle"
-                type="checkbox"
-                checked={pathfinderEnabled}
-                onChange={(event) => onPathfinderToggle(event.target.checked)}
-                className="h-4 w-4 accent-sky-500"
-                aria-labelledby={pathfinderLabelId}
-              />
-              <span id={pathfinderLabelId} className="tracking-normal text-neutral-200">
-                Follow
-              </span>
-            </label>
-          </div>
-        </div>
-        <div className="pointer-events-auto absolute bottom-14 right-3">
-          <div
-            className="flex items-center gap-2 rounded-full border border-neutral-800 bg-neutral-900/70 px-4
-              py-2 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-300"
-          >
-            <label className="flex items-center gap-2">
-              <span className="text-[0.68rem] uppercase tracking-[0.2em] text-neutral-400">
-                Attack Player
-              </span>
-              <input
-                type="text"
-                value={pvpPlayerTarget}
-                onChange={(event) => onPvpPlayerTargetChange(event.target.value)}
-                placeholder="Player username"
-                className="w-32 rounded-md border border-neutral-700 bg-neutral-950/70 px-2 py-1 text-xs
-                  text-neutral-100 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/30"
-              />
-            </label>
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={pvpPlayerEnabled}
-                onChange={(event) => onPvpPlayerToggle(event.target.checked)}
-                className="h-4 w-4 accent-sky-500"
-              />
-              <span className="tracking-normal text-neutral-200">Enable</span>
-            </label>
-          </div>
-        </div>
-        <div className="pointer-events-auto absolute bottom-14 left-3 flex items-center gap-2">
+        <div className="pointer-events-auto absolute right-3 top-15 flex items-center gap-2">
           <LocationManager
             currentPosition={snapshot.position}
             savedLocations={locations}
@@ -216,8 +177,9 @@ const Dashboard: React.FC<DashboardProps> = ({
           ) : null}
         </div>
       </div>
+      {blockFeedback && <div role="status" className="absolute bottom-12 left-1/2 z-30 -translate-x-1/2 rounded-lg border border-white/10 bg-neutral-900/80 px-4 py-2 text-xs backdrop-blur-xl">{blockFeedback}</div>}
       {inventoryOpen && !showChat ? (
-        <InventoryPage inventory={worldView?.inventory ?? null} onClose={closePage} />
+        <InventoryPage key={worldView?.inventory.window?.id ?? 0} inventory={worldView?.inventory ?? null} onClose={closePage} />
       ) : null}
       {entityContext && !inventoryOpen && !showChat ? (
         <EntityPopover
@@ -227,18 +189,17 @@ const Dashboard: React.FC<DashboardProps> = ({
           onClose={closeEntityContext}
         />
       ) : null}
-      {showChat ? (
-        <div className="absolute inset-x-0 bottom-0 top-12 z-40 flex bg-neutral-950 px-6">
-          <ChatPanel
-            chatMessages={chatMessages}
-            chatInput={chatInput}
-            onChatInputChange={onChatInputChange}
-            onChatSubmit={onChatSubmit}
-            isSendingChat={isSendingChat}
-            fullHeight
-          />
-        </div>
-      ) : null}
+      <ChatPanel
+        chatMessages={chatMessages}
+        chatInput={chatInput}
+        onChatInputChange={onChatInputChange}
+        onChatSubmit={onChatSubmit}
+        isSendingChat={isSendingChat}
+        open={showChat}
+        onClose={onChatClose}
+        hidden={inventoryOpen || Boolean(entityContext)}
+      />
+
     </div>
   )
 }

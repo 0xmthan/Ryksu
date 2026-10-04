@@ -2,8 +2,6 @@ import type { AccountType, ChatMessage } from '../types'
 
 export const STORAGE_KEY = 'ryksu:lastConnection'
 export const CHAT_STORAGE_PREFIX = 'ryksu:chat:'
-export const CHAT_PAGE_SIZE = 50
-export const CHAT_HISTORY_LIMIT = 2000
 
 export const normalizeHost = (value: string) => {
   const trimmed = value.trim().toLowerCase()
@@ -33,9 +31,6 @@ export const mergeChatHistory = (existing: ChatMessage[], incoming: ChatMessage[
   }
 
   const merged = Array.from(map.values()).sort((a, b) => a.timestamp - b.timestamp)
-  if (merged.length > CHAT_HISTORY_LIMIT) {
-    return merged.slice(-CHAT_HISTORY_LIMIT)
-  }
   return merged
 }
 

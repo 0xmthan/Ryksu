@@ -22,6 +22,7 @@ const { getWorldView } = require('./bot/worldView')
 const { getMotion } = require('./bot/entityView')
 const { attachEntityTracking } = require('./bot/entityEvents')
 const { runInventoryAction } = require('./bot/inventoryActions')
+const { openInteractiveBlock } = require('./bot/blockInteraction')
 
 const WORLD_INTERVAL_MS = 500
 const MOTION_INTERVAL_MS = 100
@@ -50,7 +51,7 @@ class BotManager extends EventEmitter {
     this.armorManager = new ArmorManagerController()
     this.autoEat = new AutoEatController()
     this.autoTool = new AutoToolController()
-    this.autoShield = new AutoShieldController({ isManuallyControlled: () => this.manualMovement.isActive() })
+    this.autoShield = new AutoShieldController({ isManuallyControlled: () => this.manualMovement.isActive() || this.openingBlock || Boolean(this.bot?.currentWindow) })
     this.pathfinder = new PathfinderController()
     this.manualMovement = new ManualMovementController({
       onStart: () => {
@@ -63,14 +64,14 @@ class BotManager extends EventEmitter {
       },
     })
     this.creeperWatch = new CreeperWatch({
-      isManuallyControlled: () => this.manualMovement.isActive(),
+      isManuallyControlled: () => this.manualMovement.isActive() || this.openingBlock || Boolean(this.bot?.currentWindow),
       pathfinder: this.pathfinder,
       onAlert: (message) => this.chat.pushSystemMessage(message),
     })
     this.pvp = new PvpController({
       autoTool: this.autoTool,
       autoShield: this.autoShield,
-      isFleeing: () => this.creeperWatch.isFleeing() || this.manualMovement.isActive(),
+      isFleeing: () => this.creeperWatch.isFleeing() || this.manualMovement.isActive() || this.openingBlock || Boolean(this.bot?.currentWindow),
       onDefend: (mob) =>
         this.chat.pushSystemMessage(`Attacked by ${mob.displayName ?? mob.name ?? 'a mob'}, fighting back.`),
     })
@@ -83,6 +84,8 @@ class BotManager extends EventEmitter {
       bed: this.bed,
       isBusy: () =>
         this.manualMovement.isActive() ||
+        this.openingBlock ||
+        Boolean(this.bot?.currentWindow) ||
         this.behavior.getPathfinderOptions().followEnabled ||
         this.mining.getState().active ||
         this.creeperWatch.isFleeing() ||
@@ -485,7 +488,7 @@ class BotManager extends EventEmitter {
         const blocksKey = view.blocks?.key
         const inv = view.inventory
         const invSummary = inv
-          ? `${inv.selectedHotbar}:${inv.freeSlots}:${inv.hotbar?.map((i) => (i ? `${i.name}:${i.count}` : '')).join(',')}`
+          ? JSON.stringify(inv)
           : ''
         if (blocksKey !== this._lastBlocksKey || invSummary !== this._lastInvSummary) {
           this._lastBlocksKey = blocksKey
@@ -500,6 +503,26 @@ class BotManager extends EventEmitter {
 
   getWorldView() {
     return getWorldView(this.bot)
+  }
+
+  async interactBlock(position) {
+    if (this.openingBlock) throw new Error('Already opening a block.')
+    const bot = this.bot
+    if (!bot?.entity) throw new Error('The bot is not connected.')
+    this.openingBlock = true
+    try {
+      this.manualMovement.stop()
+      this._cancelDoorOperation()
+      this.mining.stop('Stopped to open a block.')
+      this.pvp.stopAttacking()
+      this.pvp._clearTarget()
+      const options = { followEnabled: false, cancelGoTo: true }
+      this.pathfinder.setOptions(options)
+      this.emit('pathfinderOptions', this.behavior.setPathfinderOptions(options))
+      await openInteractiveBlock(bot, position)
+      if (bot !== this.bot) throw new Error('The connection changed.')
+      this._emitWorld()
+    } finally { this.openingBlock = false }
   }
 
   async inventoryAction(action) {

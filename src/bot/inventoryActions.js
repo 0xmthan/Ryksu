@@ -1,12 +1,12 @@
 // Inventory changes requested from the dashboard. Slot numbers are the player window's:
-// 5-8 armor, 9-35 main inventory, 36-44 hotbar, 45 offhand.
-const FIRST_SLOT = 5
+// 0 crafting result, 1-4 crafting inputs, 5-8 armor, 9-35 main, 36-44 hotbar, 45 offhand.
+const FIRST_SLOT = 0
 const LAST_SLOT = 45
 const HOTBAR_START = 36
 const DROP_MODE = 4
 
-const assertSlot = (slot) => {
-  if (!Number.isInteger(slot) || slot < FIRST_SLOT || slot > LAST_SLOT) {
+const assertSlot = (slot, last = LAST_SLOT) => {
+  if (!Number.isInteger(slot) || slot < FIRST_SLOT || slot > last) {
     throw new Error(`Invalid inventory slot ${slot}.`)
   }
 }
@@ -15,11 +15,44 @@ const runInventoryAction = async (bot, action = {}) => {
   if (!bot?.inventory) {
     throw new Error('The bot is not in the world yet.')
   }
-  if (bot.currentWindow) {
-    throw new Error('The bot has a chest open right now. Try again in a moment.')
+  const window = bot.currentWindow ?? bot.inventory
+  if (action.windowId !== undefined && action.windowId !== window.id) {
+    throw new Error('This inventory is no longer open.')
+  }
+  if (bot.currentWindow && !['click', 'close', 'rename'].includes(action.type)) {
+    throw new Error('Close the container before using player inventory actions.')
   }
 
   switch (action.type) {
+    case 'click': {
+      if (!Array.isArray(action.clicks) || !action.clicks.length || action.clicks.length > 128) {
+        throw new Error('Invalid inventory clicks.')
+      }
+      // Validate the entire gesture before sending any clicks to the server.
+      for (const { slot, button, mode } of action.clicks) {
+        if (slot !== -999) assertSlot(slot, window.slots.length - 1)
+        if (![0, 1, 2, 4].includes(mode) || !Number.isInteger(button) ||
+            button < 0 || button > (mode === 2 ? 8 : 1) ||
+            (slot === -999 && mode !== 0)) throw new Error('Invalid inventory click.')
+      }
+      for (const { slot, button, mode } of action.clicks) await bot.clickWindow(slot, button, mode)
+      return
+    }
+    case 'close': {
+      // Closing window zero lets the server return crafting ingredients and the cursor stack.
+      await bot.closeWindow(window)
+      return
+    }
+    case 'rename': {
+      if (!/anvil/.test(window.type) || typeof action.name !== 'string' || action.name.length > 35) {
+        throw new Error('Invalid anvil name (maximum 35 characters).')
+      }
+      if (bot.supportFeature('useMCItemName')) {
+        bot._client.registerChannel('MC|ItemName', 'string')
+        bot._client.writeChannel('MC|ItemName', action.name)
+      } else bot._client.write('name_item', { name: action.name })
+      return
+    }
     case 'move': {
       assertSlot(action.from)
       assertSlot(action.to)

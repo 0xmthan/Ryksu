@@ -113,6 +113,13 @@ export const boneGeometry = (
     const cubePivot = new THREE.Vector3(...(cube.pivot ?? [0, 0, 0]))
     for (const { dir, corners, u0, v0, u1, v1 } of FACES) {
       const base = positions.length / 3
+      // Keep nearest-neighbor samples inside this face's atlas rectangle.
+      // A tiny inset avoids neighboring (often white) texels at cube seams
+      // without trimming half a pixel from Minecraft's small face textures.
+      const uStart = dot(u0, cube.size), uEnd = dot(u1, cube.size)
+      const vStart = dot(v0, cube.size), vEnd = dot(v1, cube.size)
+      const uInset = Math.sign(uEnd - uStart) * Math.min(0.01, Math.abs(uEnd - uStart) / 2)
+      const vInset = Math.sign(vEnd - vStart) * Math.min(0.01, Math.abs(vEnd - vStart) / 2)
       for (const corner of corners) {
         point.set(
           cube.origin[0] + corner[0] * cube.size[0] + (corner[0] ? inflate : -inflate),
@@ -129,8 +136,8 @@ export const boneGeometry = (
         positions.push(point.x, point.y, point.z)
         normals.push(dir[0], dir[1], dir[2])
         uvs.push(
-          (cube.uv[0] + dot(corner[3] ? u1 : u0, cube.size)) * uScale,
-          (cube.uv[1] + dot(corner[4] ? v1 : v0, cube.size)) * vScale
+          (cube.uv[0] + (corner[3] ? uEnd - uInset : uStart + uInset)) * uScale,
+          (cube.uv[1] + (corner[4] ? vEnd - vInset : vStart + vInset)) * vScale
         )
       }
       indices.push(base, base + 1, base + 2, base + 2, base + 1, base + 3)

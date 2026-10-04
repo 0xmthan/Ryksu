@@ -6,6 +6,7 @@ import { entityData } from './data'
 export const pixelated = <T extends THREE.Texture>(texture: T) => {
   texture.magFilter = THREE.NearestFilter
   texture.minFilter = THREE.NearestFilter
+  texture.generateMipmaps = false
   texture.flipY = false
   texture.colorSpace = THREE.SRGBColorSpace
   return texture

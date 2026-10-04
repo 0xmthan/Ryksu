@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { Swords, UserRound, Footprints, X } from 'lucide-react'
 import type { MotionEntity } from '../../types'
 import { prettyName } from '../../utils/blockColors'
@@ -11,6 +11,7 @@ type Props = {
 
 const EntityPopover: React.FC<Props> = ({ entity: initialEntity, position, onClose }) => {
   const panel = useRef<HTMLDivElement>(null)
+  const pending = useRef(false)
   const [entity, setEntity] = useState(initialEntity)
   const [distance, setDistance] = useState<number | null>(null)
   const [gone, setGone] = useState(false)
@@ -48,18 +49,15 @@ const EntityPopover: React.FC<Props> = ({ entity: initialEntity, position, onClo
     const dismiss = (event: PointerEvent) => {
       if (event.target instanceof Node && !panel.current?.contains(event.target)) onClose()
     }
-    const key = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
-    }
     window.addEventListener('pointerdown', dismiss)
-    window.addEventListener('keydown', key)
     return () => {
       window.removeEventListener('pointerdown', dismiss)
-      window.removeEventListener('keydown', key)
     }
   }, [onClose])
 
-  const act = async (action: 'fight' | 'follow') => {
+  const act = useCallback(async (action: 'fight' | 'follow') => {
+    if (pending.current || gone || entity.dead || entity.kind === 'item') return
+    pending.current = true
     setBusy(true)
     setFeedback(null)
     try {
@@ -71,9 +69,29 @@ const EntityPopover: React.FC<Props> = ({ entity: initialEntity, position, onClo
     } catch {
       setFeedback('Action failed. Try again.')
     } finally {
+      pending.current = false
       setBusy(false)
     }
-  }
+  }, [entity.id, entity.kind, entity.dead, gone, onClose])
+  useEffect(() => { panel.current?.focus() }, [])
+  useEffect(() => {
+    const key = (event: KeyboardEvent) => {
+      if (event.repeat || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return
+      const target = event.target instanceof HTMLElement ? event.target : null
+      if (target?.closest('input, textarea, select, [contenteditable="true"]')) return
+      if (event.code === 'Escape') {
+        event.preventDefault()
+        event.stopImmediatePropagation()
+        onClose()
+      } else if (event.code === 'KeyF' || event.code === 'KeyG') {
+        event.preventDefault()
+        event.stopImmediatePropagation()
+        act(event.code === 'KeyF' ? 'fight' : 'follow')
+      }
+    }
+    window.addEventListener('keydown', key, true)
+    return () => window.removeEventListener('keydown', key, true)
+  }, [act, onClose])
   const gear = Object.entries(entity.equipment ?? {})
   const actionable = !gone && !busy && entity.kind !== 'item' && !entity.dead
 
@@ -81,10 +99,11 @@ const EntityPopover: React.FC<Props> = ({ entity: initialEntity, position, onClo
     <div
       ref={panel}
       role="dialog"
+      tabIndex={-1}
       aria-label={`Info about ${entity.name}`}
       style={placement}
       className="fixed z-50 w-64 rounded-2xl border border-white/15 bg-neutral-950/70 p-4 text-xs
-        text-neutral-300 shadow-2xl backdrop-blur-xl"
+        text-neutral-300 shadow-2xl outline-none backdrop-blur-xl"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
@@ -157,21 +176,23 @@ const EntityPopover: React.FC<Props> = ({ entity: initialEntity, position, onClo
             type="button"
             disabled={!actionable}
             onClick={() => act('fight')}
+            aria-keyshortcuts="F"
             className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-rose-400/30
               bg-rose-500/10 py-2 text-rose-200 hover:bg-rose-500/20 disabled:opacity-40"
           >
             <Swords className="h-4 w-4" />
-            Fight
+            Fight <kbd className="rounded border border-white/15 px-1 text-[10px] opacity-60">F</kbd>
           </button>
           <button
             type="button"
             disabled={!actionable}
             onClick={() => act('follow')}
+            aria-keyshortcuts="G"
             className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-sky-400/30
               bg-sky-500/10 py-2 text-sky-200 hover:bg-sky-500/20 disabled:opacity-40"
           >
             <Footprints className="h-4 w-4" />
-            Follow
+            Follow <kbd className="rounded border border-white/15 px-1 text-[10px] opacity-60">G</kbd>
           </button>
         </div>
       ) : (

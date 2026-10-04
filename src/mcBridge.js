@@ -125,6 +125,13 @@ const registerMinecraftIpc = (ipcMain) => {
     return { ok: true, state: botManager.stopMining() }
   })
 
+  ipcMain.handle('bot:interactBlock', async (_event, position) => {
+    try {
+      await botManager.interactBlock(position)
+      return { ok: true }
+    } catch (error) { return { ok: false, message: error?.message || String(error) } }
+  })
+
   ipcMain.handle('bot:inventoryAction', async (_event, action) => {
     try {
       await botManager.inventoryAction(action)

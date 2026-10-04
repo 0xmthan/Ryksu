@@ -118,7 +118,7 @@ class ChatBridge {
   }
 
   getHistory() {
-    return this.chatLog.slice(-200)
+    return this.chatLog.slice()
   }
 
   send(bot, message) {
@@ -164,9 +164,6 @@ class ChatBridge {
     }
 
     this.chatLog.push(entry)
-    if (this.chatLog.length > 200) {
-      this.chatLog.shift()
-    }
 
     if (this.emitter) {
       this.emitter.emit('chat', entry)

@@ -80,6 +80,7 @@ declare global {
           standLocation?: { x: number; y: number; z: number }
         ) => Promise<{ ok: boolean; message?: string }>
         onWorld: (callback: (view: WorldView) => void) => () => void
+        interactBlock: (position: { x: number; y: number; z: number }) => Promise<{ ok: boolean; message?: string }>
         inventoryAction: (action: InventoryAction) => Promise<{ ok: boolean; message?: string }>
         onMotion: (callback: (motion: Motion) => void) => () => void
         setArmorManagerEnabled: (enabled: boolean) => Promise<{ ok: boolean; enabled: boolean }>

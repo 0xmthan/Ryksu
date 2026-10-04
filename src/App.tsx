@@ -59,8 +59,6 @@ const App: React.FC = () => {
     togglePvp,
     pvpPlayerEnabled,
     pvpPlayerTarget,
-    togglePvpPlayer,
-    updatePvpPlayerTarget,
     pvpOptions,
     updatePvpOptions,
   } = usePluginControls()
@@ -270,8 +268,8 @@ const App: React.FC = () => {
 
   const handleChatSubmit = useCallback(async () => {
     const trimmed = chatInput.trim()
-    if (!trimmed) {
-      return
+    if (!trimmed || isSendingChat) {
+      return false
     }
 
     setIsSendingChat(true)
@@ -281,16 +279,18 @@ const App: React.FC = () => {
       if (!response?.ok) {
         const errorMessage = response?.message ?? 'Failed to send chat message.'
         pushSystemChat(errorMessage)
-        return
+        return false
       }
       setChatInput('')
+      return true
     } catch (error) {
       console.error('Failed to send chat message', error)
       pushSystemChat('Failed to send chat message.')
+      return false
     } finally {
       setIsSendingChat(false)
     }
-  }, [chatInput, pushSystemChat])
+  }, [chatInput, pushSystemChat, isSendingChat])
 
   const handleOpenAutoEatSettings = useCallback(() => {
     setIsAutoEatModalOpen(true)
@@ -338,20 +338,6 @@ const App: React.FC = () => {
       await updatePvpOptions({ jumpAttackEnabled: enabled })
     },
     [updatePvpOptions]
-  )
-
-  const handlePathfinderTargetChange = useCallback(
-    (target: string) => {
-      updatePathfinder({ ...pathfinder, followTarget: target })
-    },
-    [pathfinder, updatePathfinder]
-  )
-
-  const handlePathfinderToggle = useCallback(
-    (enabled: boolean) => {
-      updatePathfinder({ ...pathfinder, followEnabled: enabled })
-    },
-    [pathfinder, updatePathfinder]
   )
 
   const connectedState = isConnected ? (botState as Extract<BotSnapshot, { connected: true }>) : null
@@ -504,16 +490,10 @@ const App: React.FC = () => {
             onChatSubmit={handleChatSubmit}
             isSendingChat={isSendingChat}
             showChat={isChatPanelOpen}
-            pathfinderEnabled={pathfinder.followEnabled}
-            pathfinderTarget={pathfinder.followTarget}
+            onChatOpen={() => setIsChatPanelOpen(true)}
+            onChatClose={() => setIsChatPanelOpen(false)}
             pathfinder={pathfinder}
-            onPathfinderToggle={handlePathfinderToggle}
-            onPathfinderTargetChange={handlePathfinderTargetChange}
             updatePathfinder={updatePathfinder}
-            pvpPlayerEnabled={pvpPlayerEnabled}
-            pvpPlayerTarget={pvpPlayerTarget}
-            onPvpPlayerToggle={togglePvpPlayer}
-            onPvpPlayerTargetChange={updatePvpPlayerTarget}
           />
         ) : isViewingSavedChats ? (
           <SavedChats transcripts={savedTranscripts} onDelete={handleDeleteTranscript} />

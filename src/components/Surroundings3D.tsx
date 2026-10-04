@@ -1,3 +1,4 @@
+import interactiveBlocks from '../shared/interactiveBlocks.json'
 import React, { useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
@@ -13,6 +14,7 @@ import { createSky } from './watcher/sky'
 import { createWalkMarker } from './watcher/walkMarker'
 import useManualMovement from '../hooks/useManualMovement'
 import { createCameraRig, type CameraMode } from './watcher/cameraRig'
+import { createPlayerHover } from './watcher/playerHover'
 
 type Blocks = WorldView['blocks']
 
@@ -30,6 +32,7 @@ type Surroundings3DProps = {
   onHover: (text: string | null) => void
   // A click (not a drag) on a block or mob: the world block the bot should walk to.
   onWalkTo: (target: { x: number; y: number; z: number; door?: { x: number; y: number; z: number } }) => void
+  onBlockInteract: (position: { x: number; y: number; z: number }) => void
   onEntityContext: (entity: MotionEntity, position: { x: number; y: number }) => void
   // Sizes the view; the canvas fills it.
   className?: string
@@ -54,6 +57,7 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
   onHover,
   onWalkTo,
   onEntityContext,
+  onBlockInteract,
   className = 'mt-3 h-[360px] w-full',
 }) => {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -87,6 +91,8 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
   }, [])
   const onHoverRef = useRef(onHover)
   onHoverRef.current = onHover
+  const onBlockInteractRef = useRef(onBlockInteract)
+  onBlockInteractRef.current = onBlockInteract
   const onWalkToRef = useRef(onWalkTo)
   onWalkToRef.current = onWalkTo
   const onEntityContextRef = useRef(onEntityContext)
@@ -114,6 +120,8 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
     // Minecraft and three.js are both Y-up and right-handed, so world axes map straight across.
     const camera = new THREE.PerspectiveCamera(50, container.clientWidth / height(), 0.1, 800)
     camera.position.set(16, 22, 24)
+    const playerHover = createPlayerHover(renderer, scene, camera)
+    let hoveredPlayer: number | null = null
     const controls = new OrbitControls(camera, renderer.domElement)
     controls.target.set(0, 1, 0)
     controls.enableDamping = true
@@ -210,8 +218,9 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
           kind: 'player',
           type: 'player',
           item: null,
-          name: 'Bot',
+          name: motion.bot.name ?? 'Bot',
           skin: motion.bot.skin ?? undefined,
+      cape: motion.bot.cape ?? undefined,
           slim: motion.bot.slim,
         },
         bot,
@@ -264,13 +273,18 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
       const dx = controls.target.x - camera.position.x
       const dz = controls.target.z - camera.position.z
       if (dx * dx + dz * dz > 0.0001) movementYaw.current = Math.atan2(-dx, -dz)
-      renderer.render(scene, camera)
+      const selected = hoveredPlayer !== null ? entities.get(hoveredPlayer) : null
+      for (const entry of [...entities.values(), ...(bot ? [bot] : [])]) {
+        entry.nametag?.setHovered(entry === selected)
+      }
+      playerHover.render(selected?.model?.root ?? null, delta)
     }
     render()
 
     const resizeObserver = new ResizeObserver(() => {
       const width = container.clientWidth
       renderer.setSize(width, height())
+      playerHover.resize(width, height())
       camera.aspect = width / height()
       camera.updateProjectionMatrix()
     })
@@ -291,6 +305,7 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
       if (pressed && Math.hypot(event.clientX - pressed.x, event.clientY - pressed.y) > 5)
         pressed.dragged = true
       const picked = pick(event)
+      hoveredPlayer = picked?.kind === 'entity' && picked.id !== null && entityInfo.get(picked.id)?.kind === 'player' ? picked.id : null
       if (!picked) {
         onHoverRef.current(null)
       } else {
@@ -332,6 +347,9 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
         if (pendingClick) {
           clearTimeout(pendingClick.timer)
           pendingClick = null
+        }
+        if (picked.kind === 'block' && interactiveBlocks.includes(picked.name)) {
+          onBlockInteractRef.current({ x: picked.position.x, y: picked.position.y, z: picked.position.z })
         }
         if (picked.kind === 'entity' && picked.id !== null) {
           const entity = entityInfo.get(picked.id)
@@ -381,7 +399,7 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
       }
       walk()
     }
-    const handlePointerLeave = () => onHoverRef.current(null)
+    const handlePointerLeave = () => { hoveredPlayer = null; onHoverRef.current(null) }
     const handleContextMenu = (event: MouseEvent) => event.preventDefault()
     const handleCameraKey = (event: KeyboardEvent) => {
       if (
@@ -415,6 +433,7 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
       renderer.domElement.removeEventListener('pointerdown', handlePointerDown)
       renderer.domElement.removeEventListener('pointerup', handlePointerUp)
       renderer.domElement.removeEventListener('contextmenu', handleContextMenu)
+      playerHover.dispose()
       cameraRig.dispose()
       controls.dispose()
       cameraRigRef.current = null

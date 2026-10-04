@@ -7,3 +7,5 @@
 require('./assets/itemIcons')()
 require('./assets/blockModels')()
 require('./assets/mobModels')()
+
+require('./assets/shieldModel')()

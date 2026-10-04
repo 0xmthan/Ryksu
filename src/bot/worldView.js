@@ -51,6 +51,17 @@ const getInventory = (bot) => {
   }
   return {
     // Slots 9-35 are the main inventory and 36-44 the hotbar, same as the in-game layout.
+    crafting: slots.slice(1, 5).map(toItem),
+    craftingResult: toItem(slots[0]),
+    cursor: toItem((bot.currentWindow ?? bot.inventory)?.selectedItem),
+    window: bot.currentWindow ? {
+      id: bot.currentWindow.id,
+      type: bot.currentWindow.type,
+      title: String(bot.currentWindow.title ?? ''),
+      slots: bot.currentWindow.slots.map(toItem),
+      inventoryStart: bot.currentWindow.inventoryStart,
+      resultSlot: bot.currentWindow.craftingResultSlot,
+    } : null,
     main: slots.slice(9, HOTBAR_START).map(toItem),
     hotbar: slots.slice(HOTBAR_START, HOTBAR_START + 9).map(toItem),
     armor,

@@ -6,6 +6,7 @@ import { entityData } from './data'
 import { buildItemMesh } from './itemMesh'
 import { addLayer, mobMaterial, textureSize, type MobModel } from './model'
 import { loadTexture } from './textures'
+import { buildHeldShield } from './shield'
 
 type Equipment = Partial<Record<EquipmentSlot, WornItem>>
 
@@ -69,11 +70,17 @@ const armorBones = (model: MobModel, parts: [string, number[], number][], extra 
     const bone = model.boneData.get(name)
     const cube = bone?.cubes?.[0]
     if (!bone || !cube) return []
+    // Armor sleeves retain the standard four-pixel arm and atlas layout on
+    // Alex skins. Copying a three-pixel skin arm shifts the sleeve face UVs.
+    const armorCube = /^(left|right)arm$/.test(name) && cube.size[0] === 3
+      ? { ...cube, size: [4, cube.size[1], cube.size[2]],
+          origin: [cube.origin[0] - (name === 'rightarm' ? 1 : 0), cube.origin[1], cube.origin[2]] }
+      : cube
     return [
       {
         name: bone.name,
         pivot: bone.pivot,
-        cubes: [{ origin: cube.origin, size: cube.size, uv, inflate: inflate + extra }],
+        cubes: [{ origin: armorCube.origin, size: armorCube.size, uv, inflate: inflate + extra }],
       },
     ]
   })
@@ -122,8 +129,19 @@ const HANDHELD =
 const holdItem = (model: MobModel, arm: string, name: string) => {
   const group = model.bones.get(arm)
   const hand = handOffset(model, arm)
+  if (!group || !hand) return
+  if (name === 'shield') {
+    const holder = buildHeldShield(arm === 'leftarm' ? 1 : -1)
+    holder.position.add(hand)
+    holder.traverse(object => {
+      const material = (object as THREE.Mesh).material
+      if (material && !Array.isArray(material)) model.materials.push(material as THREE.MeshLambertMaterial)
+    })
+    group.add(holder)
+    return
+  }
   const item = buildItemMesh(name)
-  if (!group || !hand || !item) return
+  if (!item) return
   // Placed in pixels from the hand.
   const holder = new THREE.Group()
   holder.position.copy(hand)

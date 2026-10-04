@@ -1,350 +1,177 @@
-import React, { useCallback, useEffect, useState } from 'react'
-import { Hand, LoaderCircle, Trash2, X } from 'lucide-react'
-import type { InventoryAction, InventoryItem, WorldView } from '../types'
-import { blockColor } from '../utils/blockColors'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
+import type { InventoryAction, InventoryClick, InventoryItem, WorldView } from '../types'
 import { itemIcon } from '../utils/itemIcons'
 import ItemIcon from './ItemIcon'
+import InventoryPlayer from './InventoryPlayer'
+import './inventory.css'
+import { inventoryWindowLayout } from '../utils/inventoryWindows'
 
 type Inventory = WorldView['inventory']
-
-// Player window slot numbers, same as the bot uses.
-const MAIN_START = 9
-const HOTBAR_START = 36
-const ARMOR_SLOTS = [
-  { key: 'head', slot: 5, label: 'Head' },
-  { key: 'torso', slot: 6, label: 'Chest' },
-  { key: 'legs', slot: 7, label: 'Legs' },
-  { key: 'feet', slot: 8, label: 'Feet' },
-] as const
-const OFFHAND_SLOT = 45
-const DRAG_TYPE = 'application/x-ryksu-slot'
-
-type SlotProps = {
-  slot: number
-  item: InventoryItem
-  selected: boolean
-  held?: boolean
-  placeholder?: string
-  onSelect: (slot: number) => void
-  onMove: (from: number, to: number) => void
+const ARMOR = ['Helmet', 'Chestplate', 'Leggings', 'Boots']
+const EMPTY_ICONS: Record<string, string> = { Helmet: 'iron_helmet', Chestplate: 'iron_chestplate', Leggings: 'iron_leggings', Boots: 'iron_boots', Shield: 'shield' }
+const Item: React.FC<{ item: InventoryItem }> = ({ item }) => {
+  if (!item) return null
+  const icon = itemIcon(item.name)
+  return <>
+    {icon ? <ItemIcon icon={icon} alt={item.displayName} /> : <span className="mc-item-fallback">{item.displayName}</span>}
+    {item.count > 1 && <span className="mc-count">{item.count}</span>}
+  </>
 }
 
-const Slot: React.FC<SlotProps> = ({ slot, item, selected, held = false, placeholder, onSelect, onMove }) => {
-  const [isOver, setIsOver] = useState(false)
-  const icon = item ? itemIcon(item.name) : null
-
-  return (
-    <button
-      type="button"
-      draggable={Boolean(item)}
-      onClick={() => item && onSelect(slot)}
-      onDragStart={(event) => {
-        event.dataTransfer.setData(DRAG_TYPE, String(slot))
-        event.dataTransfer.effectAllowed = 'move'
-        onSelect(slot)
-      }}
-      onDragOver={(event) => {
-        if (event.dataTransfer.types.includes(DRAG_TYPE)) {
-          event.preventDefault()
-          setIsOver(true)
-        }
-      }}
-      onDragLeave={() => setIsOver(false)}
-      onDrop={(event) => {
-        event.preventDefault()
-        setIsOver(false)
-        const from = Number(event.dataTransfer.getData(DRAG_TYPE))
-        if (Number.isInteger(from)) {
-          onMove(from, slot)
-        }
-      }}
-      title={item ? `${item.displayName} ×${item.count}` : placeholder}
-      className={`relative flex h-11 w-11 items-center justify-center overflow-hidden rounded-md border-2
-        text-center transition ${
-          isOver
-            ? 'border-sky-300 bg-sky-900/40'
-            : selected
-              ? 'border-amber-400'
-              : held
-                ? 'border-sky-500'
-                : 'border-neutral-800 hover:border-neutral-600'
-        } ${item ? 'cursor-grab bg-neutral-900 active:cursor-grabbing' : 'cursor-default bg-neutral-950'}`}
-    >
-      {item ? (
-        <>
-          {icon ? (
-            <ItemIcon icon={icon} alt={item.displayName} />
-          ) : (
-            <>
-              <span
-                className="pointer-events-none absolute inset-0 opacity-30"
-                style={{ backgroundColor: blockColor(item.name) }}
-                aria-hidden
-              />
-              <span
-                className="pointer-events-none relative line-clamp-2 px-0.5 text-[0.5rem] leading-tight
-                  text-neutral-100"
-              >
-                {item.displayName}
-              </span>
-            </>
-          )}
-          {item.count > 1 ? (
-            <span
-              className="pointer-events-none absolute bottom-0 right-0.5 text-[0.65rem] font-bold text-white
-                drop-shadow"
-            >
-              {item.count}
-            </span>
-          ) : null}
-        </>
-      ) : placeholder ? (
-        <span className="pointer-events-none text-[0.5rem] text-neutral-600">{placeholder}</span>
-      ) : null}
-    </button>
-  )
-}
-
-type InventoryPageProps = {
-  inventory: Inventory | null
-  onClose: () => void
-}
-
-const InventoryPage: React.FC<InventoryPageProps> = ({ inventory, onClose }) => {
-  const [selected, setSelected] = useState<number | null>(null)
-  const [isBusy, setIsBusy] = useState(false)
+const InventoryPage: React.FC<{ inventory: Inventory | null; onClose: () => void }> = ({ inventory, onClose }) => {
+  const container = inventory?.window ?? null
+  const layout = container ? inventoryWindowLayout(container) : null
+  const mainStart = container?.inventoryStart ?? 9
+  const resultSlot = container?.resultSlot ?? 0
+  const openedId = useRef(container?.id ?? 0)
+  const [anvilName, setAnvilName] = useState('')
+  const [mouse, setMouse] = useState({ x: 0, y: 0 })
+  const [hover, setHover] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [dropZoneActive, setDropZoneActive] = useState(false)
-
-  const itemAt = useCallback(
-    (slot: number): InventoryItem => {
-      if (!inventory) return null
-      if (slot >= HOTBAR_START && slot < HOTBAR_START + 9) return inventory.hotbar[slot - HOTBAR_START]
-      if (slot >= MAIN_START && slot < HOTBAR_START) return inventory.main[slot - MAIN_START]
-      if (slot === OFFHAND_SLOT) return inventory.offhand
-      const armor = ARMOR_SLOTS.find((entry) => entry.slot === slot)
-      return armor ? inventory.armor[armor.key] : null
-    },
-    [inventory]
-  )
-
-  const selectedItem = selected !== null ? itemAt(selected) : null
-  const selectedIsHotbar = selected !== null && selected >= HOTBAR_START && selected < HOTBAR_START + 9
-
-  const run = useCallback(async (action: InventoryAction) => {
-    setIsBusy(true)
-    setError(null)
-    try {
-      const response = await window.electronAPI.bot.inventoryAction(action)
-      if (!response.ok) {
-        setError(response.message ?? 'That did not work.')
-      }
-    } finally {
-      setIsBusy(false)
-    }
+  const [dragSlots, setDragSlots] = useState<number[]>([])
+  const gesture = useRef<{ button: number; slots: number[] } | null>(null)
+  const queue = useRef(Promise.resolve())
+  const latest = useRef(inventory)
+  latest.current = inventory
+  const run = useCallback((action: InventoryAction) => {
+    if (action.type === 'click') action = { ...action, windowId: latest.current?.window?.id ?? 0 }
+    queue.current = queue.current.then(async () => {
+      try {
+        const result = await window.electronAPI.bot.inventoryAction(action)
+        setError(result.ok ? null : result.message ?? 'Could not move that item.')
+      } catch (reason) { setError(reason instanceof Error ? reason.message : 'Inventory action failed.') }
+    })
   }, [])
-
-  const move = useCallback(
-    (from: number, to: number) => {
-      if (from === to) return
-      setSelected(to)
-      run({ type: 'move', from, to })
-    },
-    [run]
-  )
-
-  const drop = useCallback(
-    (slot: number, all: boolean) => {
-      run({ type: 'drop', slot, all })
-    },
-    [run]
-  )
-
-  // Clear the selection once the selected slot is emptied (dropped or moved away).
+  // Finish pending gestures before closing, so no cursor stack remains stranded.
+  useEffect(() => () => {
+    queue.current = queue.current.then(async () => {
+      await window.electronAPI.bot.inventoryAction({ type: 'close', windowId: openedId.current })
+    }).catch(() => {})
+  }, [])
+  const click = useCallback((slot: number, button = 0, mode: InventoryClick['mode'] = 0) => {
+    run({ type: 'click', clicks: [{ slot, button, mode }] })
+  }, [run])
+  const itemAt = (slot: number): InventoryItem => {
+    if (!inventory) return null
+    if (container) return container.slots[slot] ?? null
+    if (slot === 0) return inventory.craftingResult
+    if (slot < 5) return inventory.crafting[slot - 1] ?? null
+    if (slot < 9) return inventory.armor[(['head', 'torso', 'legs', 'feet'] as const)[slot - 5]]
+    if (slot < 36) return inventory.main[slot - 9] ?? null
+    if (slot < 45) return inventory.hotbar[slot - 36] ?? null
+    return inventory.offhand
+  }
   useEffect(() => {
-    if (selected !== null && !itemAt(selected)) {
-      setSelected(null)
+    const finish = () => {
+      const drag = gesture.current
+      gesture.current = null
+      setDragSlots([])
+      if (!drag) return
+      const count = latest.current?.cursor?.count ?? 0
+      if (drag.slots.length === 1) { click(drag.slots[0], drag.button); return }
+      // Prismarine does not implement native drag mode: use ordinary right clicks
+      // to distribute evenly (left drag), or place one per slot (right drag).
+      const perSlot = drag.button === 1 ? 1 : Math.floor(count / drag.slots.length)
+      let remaining = count
+      const clicks: InventoryClick[] = []
+      for (const slot of drag.slots) {
+        for (let n = 0; n < perSlot && remaining > 0; n++, remaining--) clicks.push({ slot, button: 1, mode: 0 })
+      }
+      if (clicks.length) run({ type: 'click', clicks })
     }
-  }, [itemAt, selected])
-
-  useEffect(() => {
-    const handleKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        onClose()
-        return
+    const key = (event: KeyboardEvent) => {
+      if (event.repeat || event.metaKey || event.ctrlKey || event.altKey) return
+      const typing = event.target instanceof HTMLElement && event.target.closest('input, textarea, [contenteditable="true"]')
+      if (event.code === 'Escape' || (!typing && event.code === 'KeyE')) {
+        event.preventDefault(); event.stopImmediatePropagation(); onClose(); return
       }
-      if ((event.key === 'q' || event.key === 'Q') && selected !== null && selectedItem && !isBusy) {
-        drop(selected, event.shiftKey)
-        return
-      }
-      const digit = Number(event.key)
-      if (Number.isInteger(digit) && digit >= 1 && digit <= 9 && !isBusy) {
-        // Like in game: a number key while an item is selected moves it to that hotbar slot.
-        if (selected !== null && selectedItem) {
-          move(selected, HOTBAR_START + digit - 1)
-        } else {
-          run({ type: 'hold', slot: HOTBAR_START + digit - 1 })
+      if (typing || hover === null) return
+      if (event.code === 'KeyQ') { event.preventDefault(); click(hover, event.shiftKey ? 1 : 0, 4) }
+      if (/^Digit[1-9]$/.test(event.code)) { event.preventDefault(); click(hover, Number(event.code.slice(-1)) - 1, 2) }
+    }
+    const cancel = () => { gesture.current = null; setDragSlots([]) }
+    window.addEventListener('mouseup', finish)
+    window.addEventListener('blur', cancel)
+    window.addEventListener('keydown', key)
+    return () => {
+      window.removeEventListener('mouseup', finish)
+      window.removeEventListener('blur', cancel)
+      window.removeEventListener('keydown', key)
+    }
+  }, [click, hover, onClose, run])
+  const slot = (id: number, placeholder?: string, extra = '') => {
+    const item = itemAt(id)
+    const ghost = placeholder ? itemIcon(EMPTY_ICONS[placeholder]) : null
+    return <button key={id} type="button" data-slot={id}
+      aria-label={`${placeholder ?? `Slot ${id}`}${item ? `: ${item.displayName}, ${item.count}` : ': empty'}`}
+      className={`mc-slot ${dragSlots.includes(id) ? 'mc-slot-drag' : ''} ${extra}`}
+      onFocus={() => setHover(id)}
+      onClick={(event) => { if (event.detail === 0) click(id) }}
+      onMouseEnter={() => {
+        setHover(id)
+        const drag = gesture.current
+        if (drag && id !== resultSlot && !drag.slots.includes(id) && (!item || item.name === inventory?.cursor?.name)) {
+          drag.slots.push(id); setDragSlots([...drag.slots])
         }
-      }
-    }
-    window.addEventListener('keydown', handleKey)
-    return () => window.removeEventListener('keydown', handleKey)
-  }, [drop, isBusy, move, onClose, run, selected, selectedItem])
-
-  const slotProps = { onSelect: setSelected, onMove: move }
-
-  return (
-    <div className="fixed inset-x-0 bottom-0 top-12 z-40 flex flex-col overflow-y-auto bg-neutral-950">
-      <button
-        type="button"
-        onClick={onClose}
-        title="Close (Esc)"
-        className="absolute right-3 top-3 rounded-full p-1.5 text-neutral-400 transition hover:bg-neutral-800
-          hover:text-neutral-100"
-      >
-        <X className="h-4 w-4" />
-      </button>
-
-      {inventory ? (
-        <div className="flex flex-1 flex-col items-center justify-center gap-3 px-4 py-4">
-          <div className="flex gap-3">
-            <div className="flex flex-col gap-1">
-              {ARMOR_SLOTS.map((entry) => (
-                <Slot
-                  key={entry.key}
-                  slot={entry.slot}
-                  item={inventory.armor[entry.key]}
-                  selected={selected === entry.slot}
-                  placeholder={entry.label}
-                  {...slotProps}
-                />
-              ))}
-            </div>
-            <div className="flex flex-col justify-end">
-              <div className="grid grid-cols-9 gap-1">
-                {inventory.main.map((item, index) => (
-                  <Slot
-                    key={index}
-                    slot={MAIN_START + index}
-                    item={item}
-                    selected={selected === MAIN_START + index}
-                    {...slotProps}
-                  />
-                ))}
-              </div>
-              <div className="mt-2 grid grid-cols-9 gap-1">
-                {inventory.hotbar.map((item, index) => (
-                  <Slot
-                    key={index}
-                    slot={HOTBAR_START + index}
-                    item={item}
-                    selected={selected === HOTBAR_START + index}
-                    held={index === inventory.selectedHotbar}
-                    {...slotProps}
-                  />
-                ))}
-              </div>
-            </div>
-            {/* Offhand sits beside the hotbar, like the shield slot in game. */}
-            <div className="flex flex-col justify-end">
-              <Slot
-                slot={OFFHAND_SLOT}
-                item={inventory.offhand}
-                selected={selected === OFFHAND_SLOT}
-                placeholder="Offhand"
-                {...slotProps}
-              />
-            </div>
-
-            <div className="flex w-36 flex-col gap-1.5">
-              <span
-                className="flex items-center gap-1.5 text-[0.65rem] uppercase tracking-[0.16em]
-                  text-neutral-500"
-              >
-                {inventory.freeSlots} free slots
-                {isBusy ? <LoaderCircle className="h-3 w-3 animate-spin" /> : null}
-              </span>
-              <span className="min-h-8 text-xs leading-snug text-neutral-300">
-                {selectedItem ? (
-                  <>
-                    <span className="font-semibold text-neutral-100">{selectedItem.displayName}</span> ×
-                    {selectedItem.count}
-                  </>
-                ) : (
-                  <span className="text-neutral-500">Click an item to select it.</span>
-                )}
-              </span>
-              <button
-                type="button"
-                disabled={!selectedItem || isBusy}
-                onClick={() => selected !== null && drop(selected, false)}
-                className="flex items-center gap-2 rounded-full border border-neutral-700 px-3 py-1 text-xs
-                  font-semibold text-neutral-200 transition hover:border-neutral-500 disabled:opacity-40"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-                Drop one
-              </button>
-              <button
-                type="button"
-                disabled={!selectedItem || isBusy}
-                onClick={() => selected !== null && drop(selected, true)}
-                className="flex items-center gap-2 rounded-full border border-red-900 bg-red-950/50 px-3 py-1
-                  text-xs font-semibold text-red-200 transition hover:border-red-700 disabled:opacity-40"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-                Drop stack
-              </button>
-              <button
-                type="button"
-                disabled={!selectedIsHotbar || isBusy}
-                onClick={() => selected !== null && run({ type: 'hold', slot: selected })}
-                className="flex items-center gap-2 rounded-full border border-sky-800 bg-sky-950/50 px-3 py-1
-                  text-xs font-semibold text-sky-200 transition hover:border-sky-600 disabled:opacity-40"
-              >
-                <Hand className="h-3.5 w-3.5" />
-                Hold
-              </button>
-              {error ? <p className="text-xs leading-snug text-red-400">{error}</p> : null}
-            </div>
+      }}
+      onMouseLeave={() => setHover(null)}
+      onMouseDown={(event) => {
+        if (event.button > 1) return
+        event.preventDefault(); event.stopPropagation()
+        if (event.shiftKey) { click(id, event.button, 1); return }
+        if (inventory?.cursor && id !== resultSlot && (!item || item.name === inventory.cursor.name)) {
+          gesture.current = { button: event.button, slots: [id] }; setDragSlots([id])
+        } else click(id, event.button)
+      }}>
+      <Item item={item} />
+      {!item && placeholder && <span className="mc-placeholder">{ghost ? <ItemIcon icon={ghost} alt={placeholder} /> : placeholder}</span>}
+    </button>
+  }
+  useEffect(() => {
+    if (layout?.anvil) setAnvilName(container?.slots[0]?.displayName ?? '')
+  }, [container?.id, container?.slots[0]?.displayName, layout?.anvil])
+  const hovered = hover === null ? null : itemAt(hover)
+  return <div className="mc-inventory-overlay" role="dialog" aria-modal="true" aria-label="Inventory"
+    onContextMenu={(event) => event.preventDefault()}
+    onMouseMove={(event) => setMouse({ x: event.clientX, y: event.clientY })}
+    onMouseDown={(event) => {
+      if (event.target === event.currentTarget && event.button <= 1 && inventory?.cursor) click(-999, event.button)
+    }}>
+    {inventory ? <div className="mc-inventory-panel">
+      {container && layout ? <div className="mc-container-upper">
+        <div className="mc-container-title">{layout.title}</div>
+        {layout.anvil && <input className="mc-anvil-name" aria-label="Anvil item name" placeholder="Item name" maxLength={35}
+          value={anvilName} onChange={(event) => {
+            setAnvilName(event.target.value)
+            run({ type: 'rename', name: event.target.value, windowId: container.id })
+          }} />}
+        <div className={`mc-container-row ${layout.storage ? 'mc-storage-row' : ''}`}>
+          <div className="mc-container-grid" style={{ gridTemplateColumns: `repeat(${layout.columns}, 40px)` }}>
+            {layout.inputs.map(id => slot(id))}
           </div>
-
-          <div
-            onDragOver={(event) => {
-              if (event.dataTransfer.types.includes(DRAG_TYPE)) {
-                event.preventDefault()
-                setDropZoneActive(true)
-              }
-            }}
-            onDragLeave={() => setDropZoneActive(false)}
-            onDrop={(event) => {
-              event.preventDefault()
-              setDropZoneActive(false)
-              const from = Number(event.dataTransfer.getData(DRAG_TYPE))
-              if (Number.isInteger(from)) {
-                drop(from, true)
-              }
-            }}
-            className={`flex h-11 w-full max-w-2xl items-center justify-center gap-2 rounded-lg border-2
-              border-dashed text-xs transition ${
-                dropZoneActive
-                  ? 'border-red-400 bg-red-950/40 text-red-200'
-                  : 'border-neutral-800 text-neutral-500'
-              }`}
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-            Drag an item here to drop it on the ground
-          </div>
-
-          <p className="max-w-2xl text-center text-[0.65rem] leading-snug text-neutral-500">
-            Drag between slots to move or swap. Q drops one, Shift+Q the stack, 1–9 moves the selected item to
-            that hotbar slot (or holds it when nothing is selected), Esc closes.
-          </p>
+          {layout.result !== null && <><span className="mc-arrow" aria-hidden>➜</span>{slot(layout.result, undefined, 'mc-result')}</>}
         </div>
-      ) : (
-        <p className="p-6 text-sm text-neutral-500">Waiting for the bot to spawn…</p>
-      )}
-    </div>
-  )
+      </div> : <div className="mc-upper">
+        <div className="mc-armor">{ARMOR.map((label, i) => slot(5 + i, label))}</div>
+        <InventoryPlayer />
+        <div className="mc-offhand">{slot(45, 'Shield')}</div>
+        <div className="mc-crafting">
+          <span className="mc-label">Crafting</span>
+          <div className="mc-crafting-row">
+            <div className="mc-crafting-grid">{[1, 2, 3, 4].map((id) => slot(id))}</div>
+            <span className="mc-arrow" aria-hidden>➜</span>
+            {slot(0, undefined, 'mc-result')}
+          </div>
+        </div>
+      </div>}
+      <div className="mc-main">{Array.from({ length: 27 }, (_, i) => slot(mainStart + i))}</div>
+      <div className="mc-hotbar">{Array.from({ length: 9 }, (_, i) => slot(mainStart + 27 + i))}</div>
+      {error && <div className="mc-error" role="alert">{error}</div>}
+    </div> : <p>Waiting for the bot to spawn…</p>}
+    {hovered && !inventory?.cursor && <div className="mc-tooltip" style={{ left: Math.min(mouse.x + 16, window.innerWidth - 230), top: Math.min(mouse.y - 28, window.innerHeight - 65) }}>
+      {hovered.displayName}<span>{hovered.name}</span>
+    </div>}
+    {inventory?.cursor && <div className="mc-cursor" style={{ left: mouse.x - 16, top: mouse.y - 16 }}><Item item={inventory.cursor} /></div>}
+  </div>
 }
-
 export default InventoryPage

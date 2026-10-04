@@ -7,6 +7,7 @@ import { buildEntityModel, lookOf } from '../../utils/entity/appearance'
 import { buildItemMesh } from '../../utils/entity/itemMesh'
 import type { MobModel } from '../../utils/entity/model'
 import { disposeObject, shortestAngle } from './sceneUtils'
+import { createPlayerNametag, type PlayerNametag } from './playerNametag'
 
 export const ENTITY_COLORS: Record<EntityKind, string> = {
   player: '#38bdf8',
@@ -30,6 +31,7 @@ const BLOCK_ITEM_SIZE = 0.25
 
 export type Tracked = {
   object: THREE.Object3D
+  nametag: PlayerNametag | null
   target: THREE.Vector3
   yaw: number
   headYaw: number
@@ -82,12 +84,15 @@ export const createTracked = (
   const model = buildEntityModel(entity)
   const spinner = !model && entity.kind === 'item' && entity.item ? droppedItem(entity.item) : null
   object.add(model?.root ?? spinner ?? placeholder(entity.kind))
+  const nametag = entity.kind === 'player' && !options.bot ? createPlayerNametag(entity) : null
+  if (nametag) object.add(nametag.sprite)
 
   object.position.copy(previous ? previous.object.position : target)
   object.rotation.y = previous ? previous.object.rotation.y : entity.yaw
   if (previous) disposeObject(previous.object)
   return {
     object,
+    nametag,
     target,
     yaw: entity.yaw,
     headYaw: entity.headYaw,
@@ -110,6 +115,7 @@ export const createTracked = (
 // Takes in a motion update; returns false when the look changed and the entity needs rebuilding.
 export const syncTracked = (entry: Tracked, entity: MotionEntity, target: THREE.Vector3, now: number) => {
   if (entry.look !== lookOf(entity)) return false
+  entry.nametag?.update(entity)
   entry.target.copy(target)
   entry.yaw = entity.yaw
   entry.headYaw = entity.headYaw
