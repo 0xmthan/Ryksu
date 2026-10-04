@@ -7,6 +7,7 @@ import type {
   PvpOptions,
   InventoryAction,
   TradeOffer,
+  PlayerList,
   Motion,
   MovementControls,
   WorldView,
@@ -56,6 +57,8 @@ declare global {
         onState: (callback: (state: BotSnapshot) => void) => () => void
         onChat: (callback: (entry: ChatMessage) => void) => () => void
         onPathfinderOptions: (callback: (options: PathfinderOptions) => void) => () => void
+        // Short results of actions (a door opened, …).
+        onNotice: (callback: (text: string) => void) => () => void
         onChatHistory: (callback: (entries: ChatMessage[]) => void) => () => void
         getChatHistory: () => Promise<ChatMessage[]>
         sendChat: (message: string) => Promise<{ ok: boolean; message?: string }>
@@ -71,6 +74,12 @@ declare global {
         getWorldView: () => Promise<WorldView | null>
         // A player skin as a data URL, or null if it couldn't be fetched.
         getSkin: (url: string) => Promise<string | null>
+        // A player's name from their UUID (dashless), or null if Mojang doesn't know it.
+        lookupPlayerName: (uuid: string) => Promise<string | null>
+        // The skin texture URL of a player on the server, or null (offline mode has none).
+        getPlayerSkin: (name: string) => Promise<string | null>
+        // Who's on the server now, and remembered players who aren't.
+        getPlayerList: () => Promise<PlayerList>
         // Chase and attack an entity by id until it dies or gets away.
         attackEntity: (entityId: number) => Promise<{ ok: boolean; message?: string }>
         followEntity: (entityId: number) => Promise<{ ok: boolean; message?: string }>

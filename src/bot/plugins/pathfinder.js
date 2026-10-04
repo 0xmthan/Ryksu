@@ -5,28 +5,83 @@ const { applyBlockEditing } = require('./blockEditing')
 // mineflayer-pathfinder treats open doors as solid obstacles because prismarine-block
 // assigns them boundingBox: 'block'. This patch marks open doors and open fence gates as safe and non-physical
 // so the pathfinder can walk right through them instead of seeing an impassable obstacle or trying to break them.
+const isOpenDoorway = (b) => {
+  if (
+    !b ||
+    !(b.name?.endsWith('_door') || b.name === 'door' || b.name === 'wooden_door' || b.name?.includes('gate')) ||
+    b.name?.endsWith('trapdoor')
+  ) {
+    return false
+  }
+  const props = typeof b.getProperties === 'function' ? b.getProperties() : b._properties || {}
+  return props.open === true || props.open === 'true'
+}
+
 if (!Movements.prototype._openDoorPatched) {
   Movements.prototype._openDoorPatched = true
   const originalGetBlock = Movements.prototype.getBlock
   Movements.prototype.getBlock = function (pos, dx, dy, dz) {
     const b = originalGetBlock.call(this, pos, dx, dy, dz)
-    if (
-      b &&
-      (b.name?.endsWith('_door') ||
-        b.name === 'door' ||
-        b.name === 'wooden_door' ||
-        b.name?.includes('gate')) &&
-      !b.name?.endsWith('trapdoor')
-    ) {
-      const props = typeof b.getProperties === 'function' ? b.getProperties() : b._properties || {}
-      if (props.open === true || props.open === 'true') {
-        b.safe = true
-        b.physical = false
-        b.height = (pos ? pos.y : 0) + dy
-      }
+    if (isOpenDoorway(b)) {
+      b.safe = true
+      b.physical = false
+      b.height = (pos ? pos.y : 0) + dy
+      b.openDoorway = true
     }
     return b
   }
+
+  // An open door still has its panel along one edge of the block, so only straight moves fit through.
+  // Diagonals that start, end or cut a corner in a doorway clip the panel and leave the bot stuck on it.
+  const originalGetMoveDiagonal = Movements.prototype.getMoveDiagonal
+  Movements.prototype.getMoveDiagonal = function (node, dir, neighbors) {
+    for (const [dx, dz] of [
+      [0, 0],
+      [dir.x, dir.z],
+      [dir.x, 0],
+      [0, dir.z],
+    ]) {
+      for (const dy of [0, 1]) {
+        if (this.getBlock(node, dx, dy, dz).openDoorway) return
+      }
+    }
+    return originalGetMoveDiagonal.call(this, node, dir, neighbors)
+  }
+}
+
+// The pathfinder picks walk / sprint / sprint-jump each tick by simulating ahead. Coming into a doorway
+// slightly off-center, the walk simulation clips the door panel and it falls back to jumping, which a
+// two-high door never needs. Runs right after the pathfinder sets its controls and calls the jump off
+// (and the sprint, which overshoots the turn into the door) while an open doorway is right there, unless
+// a real step up is directly ahead.
+const DOORWAY_REACH = 1.6
+
+const nearOpenDoorway = (bot) => {
+  const feet = bot.entity.position.floored()
+  for (let dx = -1; dx <= 1; dx++) {
+    for (let dz = -1; dz <= 1; dz++) {
+      const block = bot.blockAt(feet.offset(dx, 0, dz))
+      if (!isOpenDoorway(block)) continue
+      const center = block.position.offset(0.5, 0, 0.5)
+      if (Math.hypot(center.x - bot.entity.position.x, center.z - bot.entity.position.z) <= DOORWAY_REACH) return true
+    }
+  }
+  return false
+}
+
+const stepAhead = (bot) => {
+  const yaw = bot.entity.yaw
+  const ahead = bot.entity.position.offset(-Math.sin(yaw) * 0.8, 0, -Math.cos(yaw) * 0.8).floored()
+  const block = bot.blockAt(ahead)
+  return Boolean(block && block.boundingBox === 'block' && !isOpenDoorway(block))
+}
+
+const smoothDoorways = (bot) => () => {
+  if (!bot.entity || !bot.pathfinder?.isMoving?.() || bot.entity.isInWater) return
+  if (!bot.getControlState('jump') && !bot.getControlState('sprint')) return
+  if (!nearOpenDoorway(bot) || stepAhead(bot)) return
+  bot.setControlState('jump', false)
+  bot.setControlState('sprint', false)
 }
 
 class PathfinderController {
@@ -50,6 +105,10 @@ class PathfinderController {
     this.bot = bot
     this._ensurePlugin()
     this._bindPathfinderEvents()
+    // After _ensurePlugin, so it runs after the pathfinder's own tick handler.
+    if (this.doorwayListener) bot.removeListener('physicsTick', this.doorwayListener)
+    this.doorwayListener = smoothDoorways(bot)
+    bot.on('physicsTick', this.doorwayListener)
 
     if (this.options.followEnabled) {
       this._startFollowing()
@@ -57,6 +116,8 @@ class PathfinderController {
   }
 
   detach() {
+    if (this.doorwayListener) this.bot?.removeListener('physicsTick', this.doorwayListener)
+    this.doorwayListener = null
     this.followedEntity = null
     this._stopFollowing()
     this._unbindPathfinderEvents()

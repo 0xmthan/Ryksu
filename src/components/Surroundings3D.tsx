@@ -139,6 +139,7 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
     camera.position.set(16, 22, 24)
     const playerHover = createPlayerHover(renderer, scene, camera)
     let hoveredPlayer: number | null = null
+    let botWalking = false
     const controls = new OrbitControls(camera, renderer.domElement)
     controls.target.set(0, 1, 0)
     controls.enableDamping = true
@@ -205,6 +206,7 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
     }
 
     const handleMotion = (motion: Motion) => {
+      botWalking = Boolean(motion.bot.walking)
       entityInfo = new Map(motion.entities.map((entity) => [entity.id, entity]))
       timeOfDay = motion.time
       const world = new THREE.Vector3(motion.bot.x, motion.bot.y, motion.bot.z)
@@ -320,7 +322,7 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
       for (const entry of entities.values()) {
         stepTracked(entry, blend, delta, now)
       }
-      walkMarker.update(now, bot ? bot.object.position : null)
+      walkMarker.update(now, bot ? bot.object.position : null, botWalking)
 
       controls.update()
       const dx = controls.target.x - camera.position.x
@@ -406,6 +408,18 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
         if (picked.kind === 'block' && interactiveBlocks.includes(picked.name)) {
           onBlockInteractRef.current({ x: picked.position.x, y: picked.position.y, z: picked.position.z })
         }
+        // Right-clicking a wooden/copper door walks up to it and toggles it (open/close); no walk marker,
+        // since the door is the target.
+        if (picked.kind === 'block' && isDoorBlock(picked.name) && !picked.name.includes('iron')) {
+          changeCameraMode('overview')
+          const target = walkTarget(picked)
+          onWalkToRef.current({
+            x: target.x,
+            y: target.y,
+            z: target.z,
+            door: { x: picked.position.x, y: picked.position.y, z: picked.position.z },
+          })
+        }
         if (picked.kind === 'entity' && picked.id !== null) {
           const entity = entityInfo.get(picked.id)
           if (entity) onEntityContextRef.current(entity, { x: event.clientX, y: event.clientY })
@@ -423,22 +437,12 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
         walkMarker.show(target.clone().sub(state.anchor), clock.elapsedTime)
         onWalkToRef.current({ x: target.x, y: target.y, z: target.z })
       }
-      // Clicking a block walks to it; clicking a wooden/copper door walks up to it and toggles it (open/close).
+      // Clicking a block walks to it (doors open with a right click).
       if (picked.kind === 'block') {
         changeCameraMode('overview')
         const target = walkTarget(picked)
         walkMarker.show(target.clone().sub(state.anchor), clock.elapsedTime)
-        const isDoor = isDoorBlock(picked.name) && !picked.name.includes('iron')
-        onWalkToRef.current(
-          isDoor
-            ? {
-                x: target.x,
-                y: target.y,
-                z: target.z,
-                door: { x: picked.position.x, y: picked.position.y, z: picked.position.z },
-              }
-            : { x: target.x, y: target.y, z: target.z }
-        )
+        onWalkToRef.current({ x: target.x, y: target.y, z: target.z })
         return
       }
       // On a mob or player, wait a moment for a second click: a double click attacks it instead.

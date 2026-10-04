@@ -6,6 +6,7 @@ import EntityPopover from './watcher/EntityPopover'
 import LocationManager from './LocationManager'
 import StatsSummary from './StatsSummary'
 import TradePanel from './TradePanel'
+import TabPanel from './TabPanel'
 import { prettyName } from '../utils/blockColors'
 import VitalBars, { Hotbar } from './VitalBars'
 import { useSavedLocations } from '../hooks/useSavedLocations'
@@ -58,6 +59,21 @@ const Dashboard: React.FC<DashboardProps> = ({
     position: { x: number; y: number }
   } | null>(null)
   const closeEntityContext = useCallback(() => setEntityContext(null), [])
+  // The player list, shown while Tab is held.
+  const [tabOpen, setTabOpen] = useState(false)
+  useEffect(() => {
+    if (!tabOpen) return
+    const release = (event: KeyboardEvent) => {
+      if (event.code === 'Tab') setTabOpen(false)
+    }
+    const hide = () => setTabOpen(false)
+    window.addEventListener('keyup', release)
+    window.addEventListener('blur', hide)
+    return () => {
+      window.removeEventListener('keyup', release)
+      window.removeEventListener('blur', hide)
+    }
+  }, [tabOpen])
   const [trader, setTrader] = useState<{ title: string; trades: TradeOffer[] } | null>(null)
   const closeTrader = useCallback(() => {
     setTrader(null)
@@ -95,6 +111,7 @@ const Dashboard: React.FC<DashboardProps> = ({
     } catch (error) { setBlockFeedback(error instanceof Error ? error.message : 'Could not open block.') }
     finally { setOpeningBlock(false) }
   }
+  useEffect(() => window.electronAPI.bot.onNotice(setBlockFeedback), [])
   useEffect(() => {
     if (!blockFeedback || openingBlock) return
     const timer = setTimeout(() => setBlockFeedback(null), 5000)
@@ -113,7 +130,8 @@ const Dashboard: React.FC<DashboardProps> = ({
       if (
         showChat ||
         openingBlock ||
-        event.repeat ||
+        // Held Tab repeats; those still need their default (focus moving) stopped.
+        (event.repeat && event.code !== 'Tab') ||
         event.ctrlKey ||
         event.metaKey ||
         event.altKey ||
@@ -121,6 +139,11 @@ const Dashboard: React.FC<DashboardProps> = ({
         document.querySelector('[aria-modal="true"]')
       )
         return
+      if (event.code === 'Tab') {
+        event.preventDefault()
+        if (!inventoryOpen) setTabOpen(true)
+        return
+      }
       if (!inventoryOpen && !entityContext && (event.code === 'KeyT' || event.code === 'Slash')) {
         event.preventDefault()
         onChatInputChange(event.code === 'Slash' ? '/' : '')
@@ -151,13 +174,14 @@ const Dashboard: React.FC<DashboardProps> = ({
         chest={snapshot.mining?.chest ?? null}
         onHover={setHover}
         onEntityContext={(entity, position) => setEntityContext({ entity, position })}
-        onWalkTo={(target) =>
+        onWalkTo={(target) => {
+          if (target.door) setBlockFeedback('Going to the door…')
           updatePathfinder({
             followEnabled: false,
             followTarget: pathfinder.followTarget,
             goToLocation: target,
           })
-        }
+        }}
         botHands={{
           main: worldView?.inventory.hotbar[worldView.inventory.selectedHotbar] ?? null,
           off: worldView?.inventory.offhand ?? null,
@@ -244,6 +268,7 @@ const Dashboard: React.FC<DashboardProps> = ({
           }}
         />
       ) : null}
+      {tabOpen && !inventoryOpen && !showChat && !trader ? <TabPanel /> : null}
       {trader && !showChat ? (
         <TradePanel
           title={trader.title}

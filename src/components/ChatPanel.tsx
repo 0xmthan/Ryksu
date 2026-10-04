@@ -1,5 +1,6 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { ChatMessage } from '../types'
+import PlayerHead from './PlayerHead'
 
 type ChatPanelProps = {
   chatMessages: ChatMessage[]
@@ -68,6 +69,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ chatMessages, chatInput, onChatIn
       {visible.map(message => <p key={message.id}
         className={`${open ? 'py-0.5' : 'bg-neutral-950/55 px-2 py-0.5'} break-words whitespace-pre-wrap text-neutral-100 [text-shadow:1px_1px_2px_#000]`}
         style={!open ? { opacity: Math.min(1, Math.max(0, (10000 - (now - message.timestamp)) / 2000)) } : undefined}>
+        {message.player && <PlayerHead name={message.player} className="mr-1.5 -mt-px align-middle" />}
         {message.position === 'client' && <span className="text-purple-300">[{message.author}] </span>}
         {message.text}
       </p>)}

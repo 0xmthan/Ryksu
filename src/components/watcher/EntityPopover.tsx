@@ -21,6 +21,20 @@ const EntityPopover: React.FC<Props> = ({ entity: initialEntity, position, onClo
   const [gone, setGone] = useState(false)
   const [busy, setBusy] = useState(false)
   const [feedback, setFeedback] = useState<string | null>(null)
+  // Owners the bot couldn't name are looked up through Mojang, which only knows online-mode UUIDs
+  // (version 4; offline-mode ones are version 3).
+  const [ownerName, setOwnerName] = useState<string | null>(null)
+  const ownerUuid = entity.owner && !entity.owner.name && entity.owner.uuid[12] === '4' ? entity.owner.uuid : null
+  useEffect(() => {
+    if (!ownerUuid) return
+    let cancelled = false
+    window.electronAPI.bot.lookupPlayerName(ownerUuid).then((name) => {
+      if (!cancelled) setOwnerName(name)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [ownerUuid])
   const [placement, setPlacement] = useState({ left: Math.max(8, position.x), top: Math.max(56, position.y) })
 
   useEffect(
@@ -153,6 +167,41 @@ const EntityPopover: React.FC<Props> = ({ entity: initialEntity, position, onClo
           <div className="flex justify-between">
             <dt>Health</dt>
             <dd>{entity.health.toFixed(1)}</dd>
+          </div>
+        ) : null}
+        {entity.tamed ? (
+          <div className="flex justify-between gap-2">
+            <dt>{entity.owner ? 'Owner' : 'Tamed'}</dt>
+            <dd className="flex min-w-0 items-center gap-1.5 text-neutral-100">
+              {entity.owner ? (
+                <>
+                  {entity.owner.source === 'online' ? (
+                    <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400" title="Online now" />
+                  ) : null}
+                  <span
+                    className={`truncate ${entity.owner.name || ownerName ? '' : 'text-neutral-400'}`}
+                    title={`${
+                      entity.owner.source === 'seen'
+                        ? 'Seen on this server before'
+                        : entity.owner.source === 'matched'
+                          ? 'Matched from their offline-mode UUID'
+                          : entity.owner.name || ownerName
+                            ? 'Online now'
+                            : 'Never seen; name unknown'
+                    }\n${entity.owner.uuid}`}
+                  >
+                    {entity.owner.name ?? ownerName ?? `Unknown · ${entity.owner.uuid.slice(0, 8)}`}
+                  </span>
+                  {entity.owner.source === 'seen' || entity.owner.source === 'matched' ? (
+                    <span className="shrink-0 text-[0.6rem] text-neutral-500">
+                      {entity.owner.source === 'seen' ? 'offline' : 'matched'}
+                    </span>
+                  ) : null}
+                </>
+              ) : (
+                'Yes'
+              )}
+            </dd>
           </div>
         ) : null}
         {entity.ping !== undefined ? (

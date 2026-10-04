@@ -2,6 +2,7 @@
 // move smoothly, so everything here stays cheap.
 const { Vec3 } = require('vec3')
 const { entityEvents } = require('./entityEvents')
+const { nameForUuid } = require('./playerNames')
 const { entityVariant } = require('./entityVariants')
 const { skinUrl, capeUrl } = require('./profileTextures')
 
@@ -95,6 +96,23 @@ const appearance = (bot, entity, kind) => {
 
 // Cats, wolves and parrots told to sit keep it in bit 0 of their tameable flags.
 const TAMEABLE = new Set(['cat', 'wolf', 'parrot'])
+// Horse-family mobs keep "tamed" in bit 1 of their flags, but no longer say who tamed them.
+const HORSES = new Set(['horse', 'donkey', 'mule', 'llama', 'trader_llama', 'skeleton_horse', 'zombie_horse', 'camel'])
+
+const plainUuid = (uuid) => String(uuid).replace(/-/g, '').toLowerCase()
+
+// Tamed or not, and for pets, the owner: named when they're online, remembered, or matched by their
+// offline-mode UUID (see playerNames.js), else just their UUID.
+const tameness = (bot, entity) => {
+  const flags = Number(metadataReader(bot, entity)('flags'))
+  if (HORSES.has(entity.name)) return flags & 2 ? { tamed: true } : {}
+  if (!TAMEABLE.has(entity.name) || !(flags & 4)) return {}
+  const uuid = entityEvents(bot, entity).typed.owner_uuid ?? metadataReader(bot, entity)('owneruuid')
+  if (!uuid) return { tamed: true }
+  const found = nameForUuid(bot, uuid)
+  return { tamed: true, owner: { uuid: plainUuid(uuid), ...(found ?? {}) } }
+}
+
 const SLEEPING_POSE = 2
 const CROUCHING_POSE = 5
 // Yaw that faces each way; a bed's facing points from its foot to its head.
@@ -209,6 +227,7 @@ const describeEntity = (bot, entity) => {
     ...pose(bot, entity, entity.yaw ?? 0, entity.headYaw ?? entity.yaw ?? 0),
     ...(equipment ? { equipment } : {}),
     ...appearance(bot, entity, kind),
+    ...tameness(bot, entity),
   }
 }
 
@@ -232,6 +251,8 @@ const getMotion = (bot) => {
       ...pose(bot, bot.entity, bot.entity.yaw, bot.entity.yaw),
       name: bot.username ?? bot.player?.username ?? 'Bot',
       ...(Number.isFinite(bot.health) ? { health: bot.health } : {}),
+      // Still on its way somewhere (a click, a door, following), for the walk marker.
+      walking: Boolean(bot.pathfinder?.goal),
       skin: skinUrl(bot.player),
       cape: capeUrl(bot.player, metadataReader(bot, bot.entity)('player_mode_customisation')),
       slim: bot.player?.skinData?.model === 'slim',

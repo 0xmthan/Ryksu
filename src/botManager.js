@@ -24,6 +24,8 @@ const { attachEntityTracking } = require('./bot/entityEvents')
 const { runInventoryAction } = require('./bot/inventoryActions')
 const { openInteractiveBlock } = require('./bot/blockInteraction')
 const { isTrader, openTrader, describeTrades, runTrade } = require('./bot/trading')
+const { attachPlayerNames, playerList } = require('./bot/playerNames')
+const { skinUrl } = require('./bot/profileTextures')
 
 const WORLD_INTERVAL_MS = 500
 const MOTION_INTERVAL_MS = 100
@@ -273,6 +275,7 @@ class BotManager extends EventEmitter {
       }
 
       attachEntityTracking(this.bot)
+      attachPlayerNames(this.bot, `${host}:${port}`)
       this.armorManager.attach(this.bot)
       this.autoEat.attach(this.bot)
       this.autoTool.attach(this.bot)
@@ -575,6 +578,15 @@ class BotManager extends EventEmitter {
     this._emitWorld()
   }
 
+  getPlayerList() {
+    return this.bot ? playerList(this.bot) : { online: [], offline: [] }
+  }
+
+  // The skin texture URL of a player on the server, for chat heads.
+  playerSkin(name) {
+    return skinUrl(this.bot?.players?.[name])
+  }
+
   async inventoryAction(action) {
     await runInventoryAction(this.bot, action)
     // Show the result right away instead of waiting for the next update.
@@ -744,7 +756,9 @@ class BotManager extends EventEmitter {
     const op = { aborted: false, interval: null, timeout: null }
     this.doorOperation = op
 
+    // Also stops the polling for good: the first check can toggle before the interval below exists.
     const cleanup = () => {
+      op.aborted = true
       if (op.interval) clearInterval(op.interval)
       if (op.timeout) clearTimeout(op.timeout)
       if (this.doorOperation === op) {
@@ -765,7 +779,7 @@ class BotManager extends EventEmitter {
       }
 
       if (block.name.includes('iron')) {
-        this.chat.pushSystemMessage('Iron doors cannot be opened by hand.')
+        this.emit('notice', 'Iron doors cannot be opened by hand.')
         cleanup()
         return
       }
@@ -798,21 +812,18 @@ class BotManager extends EventEmitter {
         try {
           await this.bot.lookAt(doorCenter)
           await this.bot.activateBlock(doorBlock)
-          this.chat.pushSystemMessage(`${actionLabel} ${doorBlock.displayName ?? doorBlock.name}.`)
+          this.emit('notice', `${actionLabel} ${doorBlock.displayName ?? doorBlock.name}.`)
         } catch (error) {
           console.error(`[BotManager] Failed to ${wasOpen ? 'close' : 'open'} door`, error)
+          this.emit('notice', `Could not ${wasOpen ? 'close' : 'open'} the door.`)
         }
       }
     }
 
-    // Try immediately in case the bot is already close to the door
-    tryToggle()
-
-    // Poll while walking towards the door
+    // Poll while walking towards the door, after one try in case the bot is already close to it.
     op.interval = setInterval(tryToggle, 100)
-
-    // Timeout after 30 seconds
     op.timeout = setTimeout(cleanup, 30000)
+    tryToggle()
   }
 
   // Walks up to a door clicked in the watcher and opens it.

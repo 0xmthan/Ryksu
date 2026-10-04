@@ -49,6 +49,8 @@ export type ChatMessage = {
   type: 'chat' | 'system'
   position: string | null
   timestamp: number
+  // The player who sent it, when it could be told, for drawing their head.
+  player?: string
 }
 
 export type StoredTranscriptMeta = {
@@ -158,6 +160,12 @@ export type WorldView = {
 
 export type InventoryClick = { slot: number; button: number; mode: 0 | 1 | 2 | 4 }
 
+// The tab list: players on now (`bot` marks ours), and remembered ones who aren't (`lastSeen` in ms).
+export type PlayerList = {
+  online: { name: string; uuid: string; ping: number | null; bot?: boolean }[]
+  offline: { name: string; uuid: string; lastSeen: number | null }[]
+}
+
 // One offer from an open villager or wandering trader.
 export type TradeOffer = {
   index: number
@@ -220,6 +228,10 @@ export type EntityPose = {
 }
 
 export type MotionEntity = EntityPose & {
+  // Tamed pets and horses; pets also carry their owner.
+  tamed?: boolean
+  // `source`: online now, seen on this server before, or matched by hashing known names (offline mode).
+  owner?: { uuid: string; name?: string; source?: 'online' | 'seen' | 'matched' }
   health?: number
   ping?: number
   id: number
@@ -245,6 +257,13 @@ export type MotionEntity = EntityPose & {
 export type Motion = {
   // World time of day in ticks (0 sunrise, 6000 noon, 12000 sunset, 18000 midnight).
   time: number
-  bot: EntityPose & { name?: string; health?: number; skin: string | null; cape?: string | null; slim: boolean }
+  bot: EntityPose & {
+    name?: string
+    health?: number
+    skin: string | null
+    cape?: string | null
+    slim: boolean
+    walking?: boolean
+  }
   entities: MotionEntity[]
 }

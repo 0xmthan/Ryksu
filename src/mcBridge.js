@@ -44,6 +44,11 @@ const registerMinecraftIpc = (ipcMain) => {
     emitToRenderer('bot:pathfinderOptions', options)
   })
 
+  // Short results of actions (a door opened, …), shown in the watcher's status bubble.
+  botManager.on('notice', (text) => {
+    emitToRenderer('bot:notice', text)
+  })
+
   botManager.on('chat', (entry) => {
     emitToRenderer('bot:chat', entry)
   })
@@ -184,6 +189,7 @@ const registerMinecraftIpc = (ipcMain) => {
 
   // Player skins for the watcher, fetched here since the page can't load other sites' images into WebGL.
   const skinCache = new Map()
+  const playerNameCache = new Map()
   ipcMain.handle('bot:getSkin', async (_event, url) => {
     if (typeof url !== 'string' || !/^https:\/\/textures\.minecraft\.net\/texture\/[0-9a-f]+$/i.test(url)) {
       return null
@@ -205,6 +211,30 @@ const registerMinecraftIpc = (ipcMain) => {
     }
     return skinCache.get(url)
   })
+
+  // A player's name from their UUID, for pet owners who aren't online. Null for offline-mode UUIDs.
+  ipcMain.handle('bot:lookupPlayerName', async (_event, uuid) => {
+    if (typeof uuid !== 'string' || !/^[0-9a-f]{32}$/.test(uuid)) return null
+    if (!playerNameCache.has(uuid)) {
+      playerNameCache.set(
+        uuid,
+        fetch(`https://sessionserver.mojang.com/session/minecraft/profile/${uuid}`)
+          .then((response) => (response.ok && response.status !== 204 ? response.json() : null))
+          .then((profile) => (typeof profile?.name === 'string' ? profile.name : null))
+          .catch(() => {
+            playerNameCache.delete(uuid)
+            return null
+          })
+      )
+    }
+    return playerNameCache.get(uuid)
+  })
+
+  ipcMain.handle('bot:getPlayerList', () => botManager.getPlayerList())
+
+  ipcMain.handle('bot:getPlayerSkin', (_event, name) =>
+    typeof name === 'string' ? botManager.playerSkin(name) : null
+  )
 
   ipcMain.handle('bot:getWorldView', () => {
     return botManager.getWorldView()

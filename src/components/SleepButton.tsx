@@ -9,11 +9,29 @@ type SleepButtonProps = {
 
 type Feedback = { text: string; isError: boolean }
 
+// Beds work from this tick of the day (or in a thunderstorm), the same window the bot checks.
+const NIGHT_STARTS = 12541
+const TICKS_PER_DAY = 24000
+
+// Real time until night at 20 ticks a second, like "4m 12s".
+const untilNight = (timeOfDay: number) => {
+  const ticks = (NIGHT_STARTS - timeOfDay + TICKS_PER_DAY) % TICKS_PER_DAY
+  const seconds = Math.ceil(ticks / 20)
+  const minutes = Math.floor(seconds / 60)
+  return minutes ? `${minutes}m ${String(seconds % 60).padStart(2, '0')}s` : `${seconds}s`
+}
+
 const SleepButton: React.FC<SleepButtonProps> = ({ isSleeping, canSleep, bedPickupPending }) => {
   const [isBusy, setIsBusy] = useState(false)
   const [busyLabel, setBusyLabel] = useState('Going to bed…')
   const [feedback, setFeedback] = useState<Feedback | null>(null)
   const tooltipId = React.useId()
+  // The time of day, from the watcher's updates, for the countdown to night.
+  const [timeOfDay, setTimeOfDay] = useState<number | null>(null)
+  useEffect(() => {
+    if (canSleep) return
+    return window.electronAPI.bot.onMotion((motion) => setTimeOfDay(motion.time))
+  }, [canSleep])
 
   useEffect(() => {
     if (!feedback) return
@@ -85,6 +103,12 @@ const SleepButton: React.FC<SleepButtonProps> = ({ isSleeping, canSleep, bedPick
           opacity-0 transition group-hover:opacity-100 group-has-[:focus-visible]:opacity-100">
           <span className="mb-1 block font-semibold text-neutral-100">{label}</span>
           {description}
+          {!canSleep && !isSleeping && timeOfDay !== null ? (
+            <span className="mt-2 flex items-center justify-between border-t border-neutral-800 pt-2">
+              <span>Night in</span>
+              <span className="font-mono text-sky-300">{untilNight(timeOfDay)}</span>
+            </span>
+          ) : null}
         </div>
       ) : null}
     </div>

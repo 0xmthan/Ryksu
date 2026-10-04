@@ -1,7 +1,25 @@
+const { rememberName } = require('./playerNames')
+
 const stripFormattingCodes = (value) => value.replace(/§[0-9a-fklmnor]/gi, '')
 
 const createEntryId = (suffix) =>
   `${Date.now()}-${Math.random().toString(36).slice(2, 8)}${suffix ? `-${suffix}` : ''}`
+
+const plainUuid = (uuid) => String(uuid).replace(/-/g, '').toLowerCase()
+
+// Which player a chat line is from: the sender's UUID on signed player chat, else "<Name>" (vanilla) or a
+// "[Rank] Name: …" style prefix, as long as Name is someone on the server.
+const chatPlayer = (bot, text, sender) => {
+  if (typeof sender === 'string') {
+    const id = plainUuid(sender)
+    const player = Object.values(bot.players ?? {}).find((candidate) => plainUuid(candidate.uuid) === id)
+    if (player?.username) return player.username
+  }
+  const vanilla = text.match(/^<([A-Za-z0-9_]{1,16})>/)
+  if (vanilla) return vanilla[1]
+  const prefixed = text.match(/^(?:\[[^\]]{0,24}\]\s*)*([A-Za-z0-9_]{1,16})\s*(?::|»|>|›|\|)/)
+  return prefixed && bot.players?.[prefixed[1]] ? prefixed[1] : null
+}
 
 class ChatBridge {
   constructor(emitter) {
@@ -58,6 +76,11 @@ class ChatBridge {
         position: typeof position === 'string' ? position : null,
         timestamp: Date.now(),
       }
+      const player = chatPlayer(bot, text, sender)
+      if (player) {
+        entry.player = player
+        rememberName(bot, player)
+      }
 
       this._pushEntry(entry)
       this._attemptAutoAuth(bot, entry.text)
@@ -84,6 +107,8 @@ class ChatBridge {
         return
       }
 
+      const player = chatPlayer(bot, text, null)
+      if (player) rememberName(bot, player)
       this._pushEntry({
         id: createEntryId(),
         text,
@@ -91,6 +116,7 @@ class ChatBridge {
         type: 'system',
         position: null,
         timestamp: Date.now(),
+        ...(player ? { player } : {}),
       })
 
       this._attemptAutoAuth(bot, text)

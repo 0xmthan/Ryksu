@@ -1,10 +1,12 @@
-// A pulsing square on the ground where the bot was told to walk, fading once it gets there (or after a
-// while, if it can't).
+// A pulsing square on the ground where the bot was told to walk, fading once the walk is over: it got
+// there, stopped short on purpose (at a door), or gave up.
 import * as THREE from 'three'
 
 const COLOR = '#38bdf8'
 const ARRIVED_DISTANCE = 1.2
 const MAX_SECONDS = 20
+// A walk that hasn't started by now isn't going to (unreachable, or already there).
+const START_SECONDS = 2
 const FADE_SECONDS = 0.4
 
 export const createWalkMarker = (scene: THREE.Scene) => {
@@ -24,6 +26,7 @@ export const createWalkMarker = (scene: THREE.Scene) => {
 
   let shownAt = 0
   let fadingFrom: number | null = null
+  let started = false
 
   return {
     // `position` is the block the bot should stand in, in scene coordinates.
@@ -32,12 +35,16 @@ export const createWalkMarker = (scene: THREE.Scene) => {
       marker.visible = true
       shownAt = now
       fadingFrom = null
+      started = false
     },
-    update: (now: number, bot: THREE.Vector3 | null) => {
+    // `walking`: whether the bot still has somewhere to go.
+    update: (now: number, bot: THREE.Vector3 | null, walking: boolean) => {
       if (!marker.visible) return
+      if (walking) started = true
       const arrived =
         bot && Math.hypot(bot.x - marker.position.x, bot.z - marker.position.z) < ARRIVED_DISTANCE
-      if (fadingFrom === null && (arrived || now - shownAt > MAX_SECONDS)) fadingFrom = now
+      const over = (started && !walking) || (!started && now - shownAt > START_SECONDS)
+      if (fadingFrom === null && (arrived || over || now - shownAt > MAX_SECONDS)) fadingFrom = now
       const fade = fadingFrom === null ? 1 : 1 - (now - fadingFrom) / FADE_SECONDS
       if (fade <= 0) {
         marker.visible = false
