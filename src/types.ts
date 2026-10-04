@@ -108,6 +108,10 @@ export type InventoryItem = {
   name: string
   displayName: string
   count: number
+  // Only on items that wear out.
+  durability?: { used: number; max: number }
+  // Ready to show, e.g. "Sharpness V"; curses are drawn red.
+  enchantments?: { label: string; curse?: boolean }[]
 } | null
 
 export type InventoryWindow = {
@@ -154,6 +158,22 @@ export type WorldView = {
 
 export type InventoryClick = { slot: number; button: number; mode: 0 | 1 | 2 | 4 }
 
+// One offer from an open villager or wandering trader.
+export type TradeOffer = {
+  index: number
+  // What the bot pays: the first item's count is the current price (after demand and discounts).
+  inputs: NonNullable<InventoryItem>[]
+  // The listed price before demand and discounts, to show a change.
+  basePrice: number
+  output: NonNullable<InventoryItem>
+  uses: number
+  maxUses: number
+  // Sold out until the trader restocks.
+  disabled: boolean
+  // How many times the bot can make it right now with what it carries.
+  affordable: number
+}
+
 export type InventoryAction =
   | { type: 'click'; clicks: InventoryClick[]; windowId?: number }
   | { type: 'close'; windowId?: number }
@@ -194,6 +214,8 @@ export type EntityPose = {
   // Sneaking (players), and sitting on command (cats, wolves, parrots).
   crouching?: boolean
   sitting?: boolean
+  // Set while asleep: the yaw from the bed's foot to its head.
+  sleeping?: number
   equipment?: Partial<Record<EquipmentSlot, WornItem>>
 }
 

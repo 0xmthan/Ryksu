@@ -29,9 +29,10 @@ const faceStyle = (src: string, tint: string | null): React.CSSProperties => ({
     : {}),
 })
 
-const ItemIcon: React.FC<{ icon: ItemIconInfo; alt: string }> = ({ icon, alt }) => {
+// `glint` adds the enchantment shimmer (see itemStack.css).
+const ItemIcon: React.FC<{ icon: ItemIconInfo; alt: string; glint?: boolean }> = ({ icon, alt, glint = false }) => {
   if (icon.kind === 'flat') {
-    return (
+    const image = (
       <img
         src={icon.src}
         alt={alt}
@@ -39,13 +40,33 @@ const ItemIcon: React.FC<{ icon: ItemIconInfo; alt: string }> = ({ icon, alt }) 
         className="pointer-events-none h-8 w-8 object-contain [image-rendering:pixelated]"
       />
     )
+    if (!glint) return image
+    const mask = `url(${icon.src})`
+    return (
+      <span className="pointer-events-none relative block h-8 w-8">
+        {image}
+        <span
+          className="item-glint absolute inset-0"
+          style={{
+            maskImage: mask,
+            WebkitMaskImage: mask,
+            maskSize: 'contain',
+            WebkitMaskSize: 'contain',
+            maskRepeat: 'no-repeat',
+            WebkitMaskRepeat: 'no-repeat',
+            maskPosition: 'center',
+            WebkitMaskPosition: 'center',
+          }}
+        />
+      </span>
+    )
   }
 
   return (
     <span
       role="img"
       aria-label={alt}
-      className="pointer-events-none flex h-8 w-8 items-center justify-center"
+      className={`pointer-events-none flex h-8 w-8 items-center justify-center ${glint ? 'item-glint-glow' : ''}`}
     >
       <span
         className="relative"

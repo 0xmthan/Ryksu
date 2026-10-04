@@ -2,7 +2,7 @@ import interactiveBlocks from '../shared/interactiveBlocks.json'
 import React, { useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
-import type { Motion, MotionEntity, WorldView } from '../types'
+import type { InventoryItem, Motion, MotionEntity, WorldView } from '../types'
 import { prettyName } from '../utils/blockColors'
 import { loadBlockAtlas, type BlockAtlas } from '../utils/blockAtlas'
 import { buildBlockMeshes } from '../utils/blockMesher'
@@ -15,6 +15,8 @@ import { createWalkMarker } from './watcher/walkMarker'
 import useManualMovement from '../hooks/useManualMovement'
 import { createCameraRig, type CameraMode } from './watcher/cameraRig'
 import { createPlayerHover } from './watcher/playerHover'
+import HandCard from './watcher/HandCard'
+import ArmorSlot from './watcher/ArmorSlot'
 
 type Blocks = WorldView['blocks']
 
@@ -22,6 +24,8 @@ type Blocks = WorldView['blocks']
 const FOLLOW_RATE = 12
 // Two clicks on the same entity within this long make a double click (attack).
 const DOUBLE_CLICK_MS = 280
+// When clicked, the armor pieces start fading in this long after the hand cards.
+const ARMOR_DELAY_MS = 180
 // Scene coordinates are world coordinates minus an anchor, to keep float precision far from 0,0.
 const REANCHOR_DISTANCE = 2000
 
@@ -34,6 +38,10 @@ type Surroundings3DProps = {
   onWalkTo: (target: { x: number; y: number; z: number; door?: { x: number; y: number; z: number } }) => void
   onBlockInteract: (position: { x: number; y: number; z: number }) => void
   onEntityContext: (entity: MotionEntity, position: { x: number; y: number }) => void
+  // What the bot holds, shown at its sides when it's clicked.
+  botHands?: { main: InventoryItem; off: InventoryItem }
+  // Helmet, chestplate, leggings, boots: shown in an arc over the bot when it's clicked.
+  botArmor?: InventoryItem[]
   // Sizes the view; the canvas fills it.
   className?: string
 }
@@ -58,9 +66,18 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
   onWalkTo,
   onEntityContext,
   onBlockInteract,
-  className = 'mt-3 h-[360px] w-full',
+  botHands,
+  botArmor,
+  className = 'relative mt-3 h-[360px] w-full',
 }) => {
   const containerRef = useRef<HTMLDivElement>(null)
+  const mainHandRef = useRef<HTMLDivElement>(null)
+  const offHandRef = useRef<HTMLDivElement>(null)
+  const armorRef = useRef<HTMLDivElement>(null)
+  // Clicking the bot shows what it holds and wears.
+  const [gearOpen, setGearOpen] = useState(false)
+  const gearOpenRef = useRef(gearOpen)
+  gearOpenRef.current = gearOpen
   const stateRef = useRef<SceneState | null>(null)
   const movementYaw = useRef(0)
   const movementEnabledRef = useRef(movementEnabled)
@@ -245,6 +262,42 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
     }
     const unsubscribeMotion = window.electronAPI.bot.onMotion(handleMotion)
 
+    // Keeps the hand cards beside the bot: the main hand's card on the side of the arm that holds it as
+    // the camera sees it, the off hand's on the other, clear of its body.
+    const projected = new THREE.Vector3()
+    const toScreen = (point: THREE.Vector3) => {
+      projected.copy(point).project(camera)
+      return { x: ((projected.x + 1) / 2) * container.clientWidth, y: ((1 - projected.y) / 2) * height() }
+    }
+    const placeHands = () => {
+      const cards = [mainHandRef.current, offHandRef.current]
+      if (!bot) return
+      const yaw = bot.object.rotation.y
+      // The model's held-item arm sits on this side of it.
+      const right = new THREE.Vector3(-Math.cos(yaw), 0, Math.sin(yaw)).multiplyScalar(0.4)
+      const chest = bot.object.position.clone().add(new THREE.Vector3(0, 1.15, 0))
+      const center = toScreen(chest)
+      const rightX = toScreen(chest.clone().add(right)).x
+      const tall = Math.abs(toScreen(chest.clone().setY(chest.y + 0.75)).y - center.y) * 2
+      const gap = Math.max(Math.abs(rightX - center.x), tall * 0.3) + 14
+      const mainOnRight = rightX >= center.x
+      cards.forEach((card, index) => {
+        if (!card) return
+        const onRight = index === 0 ? mainOnRight : !mainOnRight
+        card.dataset.side = onRight ? 'right' : 'left'
+        const x = center.x + (onRight ? gap : -gap)
+        card.style.transform = `translate(${x}px, ${center.y}px) translate(${onRight ? '0' : '-100%'}, -50%)`
+      })
+    }
+
+    // Keeps the armor arc centered over the bot's head.
+    const placeArmor = () => {
+      const arc = armorRef.current
+      if (!arc || !bot) return
+      const top = toScreen(bot.object.position.clone().add(new THREE.Vector3(0, 2.05, 0)))
+      arc.style.transform = `translate(${top.x}px, ${top.y}px) translate(-50%, -100%)`
+    }
+
     let frame = 0
     const render = () => {
       frame = requestAnimationFrame(render)
@@ -273,7 +326,9 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
       const dx = controls.target.x - camera.position.x
       const dz = controls.target.z - camera.position.z
       if (dx * dx + dz * dz > 0.0001) movementYaw.current = Math.atan2(-dx, -dz)
-      const selected = hoveredPlayer !== null ? entities.get(hoveredPlayer) : null
+      const selected = gearOpenRef.current ? bot : hoveredPlayer !== null ? entities.get(hoveredPlayer) : null
+      placeHands()
+      placeArmor()
       for (const entry of [...entities.values(), ...(bot ? [bot] : [])]) {
         entry.nametag?.setHovered(entry === selected)
       }
@@ -357,6 +412,10 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
         }
         return
       }
+      // Clicking the bot shows (or hides) its armor; any other click hides it.
+      const clickedBot = picked.kind === 'entity' && picked.id === null
+      setGearOpen((open) => clickedBot && !open)
+      if (clickedBot) return
       const walk = () => {
         if (!state.anchor) return
         changeCameraMode('overview')
@@ -402,6 +461,7 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
     const handlePointerLeave = () => { hoveredPlayer = null; onHoverRef.current(null) }
     const handleContextMenu = (event: MouseEvent) => event.preventDefault()
     const handleCameraKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setGearOpen(false)
       if (
         !movementEnabledRef.current ||
         event.code !== 'KeyF' ||
@@ -527,7 +587,42 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
     <div
       ref={containerRef}
       className={`${className} cursor-grab overflow-hidden rounded-md active:cursor-grabbing`}
-    />
+    >
+      {botHands
+        ? [
+            { ref: mainHandRef, label: 'Main hand', item: botHands.main },
+            { ref: offHandRef, label: 'Off hand', item: botHands.off },
+          ].map(({ ref, label, item }) => (
+            <div key={label} ref={ref} className="group pointer-events-none absolute left-0 top-0 z-10">
+              {/* The hand cards come first, then the armor. */}
+              <div
+                className={`transition duration-200 ease-out ${gearOpen ? 'opacity-100' : 'scale-95 opacity-0'}`}
+              >
+                <HandCard label={label} item={item} />
+              </div>
+            </div>
+          ))
+        : null}
+      {botArmor ? (
+        <div ref={armorRef} className="pointer-events-none absolute left-0 top-0 z-10">
+          {/* An arc: the chestplate and leggings ride higher than the helmet and boots at the ends. */}
+          <div className="flex items-end gap-2 pb-3">
+            {['Helmet', 'Chestplate', 'Leggings', 'Boots'].map((label, index) => (
+              <div
+                key={label}
+                className={`transition duration-200 ease-out ${index === 1 || index === 2 ? '-translate-y-3.5' : ''} ${
+                  gearOpen ? 'pointer-events-auto opacity-100' : 'scale-90 opacity-0'
+                }`}
+                // One by one from the helmet, after the hand cards, when opening; all together when closing.
+                style={{ transitionDelay: gearOpen ? `${ARMOR_DELAY_MS + index * 70}ms` : '0ms' }}
+              >
+                <ArmorSlot index={index} label={label} item={botArmor[index] ?? null} />
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </div>
   )
 }
 

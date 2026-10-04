@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import ConnectionForm from './components/ConnectionForm'
 import Dashboard from './components/Dashboard'
 import SavedChats from './components/SavedChats'
@@ -32,6 +32,7 @@ const App: React.FC = () => {
   const isConnected = botState.connected
   const [isConnecting, setIsConnecting] = useState(false)
   const [lastError, setLastError] = useState<string | null>(null)
+  const lastAuthMessage = useRef<string | null>(null)
   const [availableVersions, setAvailableVersions] = useState<string[]>([])
   const [version, setVersion] = useState<string>('auto')
   const [isChatPanelOpen, setIsChatPanelOpen] = useState(false)
@@ -376,7 +377,18 @@ const App: React.FC = () => {
       const resolvedMessage = normalizeProtocolError(incomingStatus.message)
       setStatus({ ...incomingStatus, message: resolvedMessage ?? undefined })
 
+      // The pill only says sign-in is pending; the code and link go to chat to read.
+      if (incomingStatus.stage === 'auth-required' && resolvedMessage && resolvedMessage !== lastAuthMessage.current) {
+        lastAuthMessage.current = resolvedMessage
+        pushSystemChat(
+          incomingStatus.microsoftAuth?.verificationUri
+            ? `${resolvedMessage} ${incomingStatus.microsoftAuth.verificationUri}`
+            : resolvedMessage
+        )
+      }
+
       if (incomingStatus.stage === 'connected') {
+        lastAuthMessage.current = null
         setIsConnecting(false)
         setLastError(null)
         setConnectionStartTimestamp((previous) => previous ?? Date.now())
@@ -451,8 +463,11 @@ const App: React.FC = () => {
         <TitleBar
           status={status}
           lastError={lastError}
+          onDismissError={() => setLastError(null)}
           isConnecting={isConnecting}
           isConnected={isConnected}
+          ping={connectedState?.ping ?? null}
+          position={connectedState?.position ?? null}
           canConnect={canAttemptConnect}
           onConnect={connectWithCurrentFields}
           onDisconnect={handleDisconnect}
@@ -494,6 +509,7 @@ const App: React.FC = () => {
             onChatClose={() => setIsChatPanelOpen(false)}
             pathfinder={pathfinder}
             updatePathfinder={updatePathfinder}
+            autoEat={autoEatEnabled ? autoEatOptions : null}
           />
         ) : isViewingSavedChats ? (
           <SavedChats transcripts={savedTranscripts} onDelete={handleDeleteTranscript} />

@@ -141,6 +141,31 @@ const registerMinecraftIpc = (ipcMain) => {
     }
   })
 
+  ipcMain.handle('bot:openTrader', async (_event, entityId) => {
+    if (!Number.isInteger(entityId)) return { ok: false, message: 'Invalid entity.' }
+    try {
+      return { ok: true, trades: await botManager.openTrader(entityId) }
+    } catch (error) {
+      return { ok: false, message: error?.message || String(error) }
+    }
+  })
+
+  ipcMain.handle('bot:trade', async (_event, index, count) => {
+    if (!Number.isInteger(index) || !Number.isInteger(count) || count < 1) {
+      return { ok: false, message: 'Invalid trade.' }
+    }
+    try {
+      return { ok: true, trades: await botManager.trade(index, count) }
+    } catch (error) {
+      return { ok: false, message: error?.message || String(error) }
+    }
+  })
+
+  ipcMain.handle('bot:closeTrader', () => {
+    botManager.closeTrader()
+    return { ok: true }
+  })
+
   ipcMain.handle('bot:attackEntity', (_event, entityId) =>
     Number.isInteger(entityId) ? botManager.attackEntity(entityId) : { ok: false, message: 'Invalid entity.' }
   )

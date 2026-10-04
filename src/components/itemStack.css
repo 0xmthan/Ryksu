@@ -1,0 +1,15 @@
+/* The enchantment glint: a purple sheen sweeping across the item, masked to its shape where possible. */
+@keyframes item-glint-sweep { from { background-position: 150% 0; } to { background-position: -50% 0; } }
+@keyframes item-glint-pulse { 0%, 100% { filter: drop-shadow(0 0 2px #a855f799); } 50% { filter: drop-shadow(0 0 4px #c084fccc); } }
+.item-glint {
+  background: linear-gradient(110deg, transparent 30%, #d8b4fe 45%, #a855f7 50%, #d8b4fe 55%, transparent 70%);
+  background-size: 250% 100%;
+  mix-blend-mode: screen;
+  opacity: 0.75;
+  animation: item-glint-sweep 2.6s linear infinite;
+}
+.item-glint-glow { animation: item-glint-pulse 2.6s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .item-glint { animation: none; background-position: 50% 0; opacity: 0.4; }
+  .item-glint-glow { animation: none; filter: drop-shadow(0 0 3px #a855f7aa); }
+}

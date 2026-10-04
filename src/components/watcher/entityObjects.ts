@@ -25,6 +25,10 @@ const ENTITY_SIZES: Record<EntityKind, [number, number, number]> = {
 
 // Further than this in one update is a teleport, so jump instead of gliding.
 export const SNAP_DISTANCE = 8
+// Lying in bed, the feet sit this far toward the bed's foot from where the game puts the sleeper (the
+// head block), as the game's renderer shifts them.
+const SLEEP_SHIFT = 1.52
+
 // Dropped items are this big (blocks a bit smaller, like the game).
 const ITEM_SIZE = 0.35
 const BLOCK_ITEM_SIZE = 0.25
@@ -40,6 +44,9 @@ export type Tracked = {
   shownPitch: number
   sitting: boolean
   crouching: boolean
+  // The bed's yaw while asleep, and how far into lying down the model is (0-1).
+  sleeping: number | null
+  lying: number
   model: MobModel | null
   animator: Animator | null
   // Dropped items spin and bob.
@@ -101,6 +108,8 @@ export const createTracked = (
     shownPitch: previous?.shownPitch ?? entity.pitch,
     sitting: Boolean(entity.sitting),
     crouching: Boolean(entity.crouching),
+    sleeping: entity.sleeping ?? null,
+    lying: previous?.lying ?? 0,
     model,
     animator: model ? createAnimator(model) : null,
     spinner,
@@ -122,6 +131,7 @@ export const syncTracked = (entry: Tracked, entity: MotionEntity, target: THREE.
   entry.pitch = entity.pitch
   entry.sitting = Boolean(entity.sitting)
   entry.crouching = Boolean(entity.crouching)
+  entry.sleeping = entity.sleeping ?? null
   if (entity.swing > entry.swing) entry.animator?.swing(now)
   if (entity.hurt > entry.hurt) entry.animator?.hurt(now)
   entry.swing = entity.swing
@@ -144,7 +154,16 @@ export const stepTracked = (entry: Tracked, blend: number, delta: number, now: n
   // The head leads a gentler body turn; both take the shortest route across the yaw wrap.
   const bodyBlend = 1 - Math.exp(-delta * 7)
   const headBlend = 1 - Math.exp(-delta * 10)
-  object.rotation.y += shortestAngle(object.rotation.y, entry.yaw) * bodyBlend
+  // Asleep, it turns at once to lie along the bed, head toward the headboard.
+  const asleep = entry.sleeping !== null
+  const yaw = asleep ? entry.sleeping! + Math.PI : entry.yaw
+  object.rotation.y += shortestAngle(object.rotation.y, yaw) * (asleep ? 1 : bodyBlend)
+  entry.lying += ((asleep ? 1 : 0) - entry.lying) * Math.min(1, delta / 0.15)
+  if (entry.model) {
+    // On its back: the model's up turns to point at the headboard and its face to the sky.
+    entry.model.root.rotation.x = (Math.PI / 2) * entry.lying
+    entry.model.root.position.z = -SLEEP_SHIFT * entry.lying
+  }
   entry.shownHeadYaw += shortestAngle(entry.shownHeadYaw, entry.headYaw) * headBlend
   entry.shownPitch += (entry.pitch - entry.shownPitch) * headBlend
 
@@ -160,12 +179,12 @@ export const stepTracked = (entry: Tracked, blend: number, delta: number, now: n
     entry.animator.update({
       now,
       stride: entry.stride,
-      walk: entry.walk,
+      walk: entry.walk * (1 - entry.lying),
       delta,
       sitting: entry.sitting,
       crouching: entry.crouching,
-      headYaw: shortestAngle(object.rotation.y, entry.shownHeadYaw),
-      pitch: entry.shownPitch,
+      headYaw: asleep ? 0 : shortestAngle(object.rotation.y, entry.shownHeadYaw),
+      pitch: asleep ? 0 : entry.shownPitch,
     })
   }
 }

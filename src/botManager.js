@@ -23,6 +23,7 @@ const { getMotion } = require('./bot/entityView')
 const { attachEntityTracking } = require('./bot/entityEvents')
 const { runInventoryAction } = require('./bot/inventoryActions')
 const { openInteractiveBlock } = require('./bot/blockInteraction')
+const { isTrader, openTrader, describeTrades, runTrade } = require('./bot/trading')
 
 const WORLD_INTERVAL_MS = 500
 const MOTION_INTERVAL_MS = 100
@@ -523,6 +524,55 @@ class BotManager extends EventEmitter {
       if (bot !== this.bot) throw new Error('The connection changed.')
       this._emitWorld()
     } finally { this.openingBlock = false }
+  }
+
+  // Walks to a villager or wandering trader and opens its trades.
+  async openTrader(entityId) {
+    if (this.openingBlock) throw new Error('Already opening something.')
+    const bot = this.bot
+    if (!bot?.entity) throw new Error('The bot is not connected.')
+    const entity = bot.entities?.[entityId]
+    if (!entity?.isValid || !isTrader(entity)) throw new Error('That is not a trader.')
+    this.openingBlock = true
+    try {
+      this.manualMovement.stop()
+      this._cancelDoorOperation()
+      this.mining.stop('Stopped to trade.')
+      this.pvp.stopAttacking()
+      this.pvp._clearTarget()
+      const options = { followEnabled: false, cancelGoTo: true }
+      this.pathfinder.setOptions(options)
+      this.emit('pathfinderOptions', this.behavior.setPathfinderOptions(options))
+      const window = await openTrader(bot, entity)
+      if (bot !== this.bot) throw new Error('The connection changed.')
+      this.trader = window
+      window.once('close', () => {
+        if (this.trader === window) this.trader = null
+      })
+      this._emitWorld()
+      return describeTrades(bot, window)
+    } finally {
+      this.openingBlock = false
+    }
+  }
+
+  async trade(index, count) {
+    const bot = this.bot
+    const window = this.trader
+    if (!bot || !window || bot.currentWindow !== window) throw new Error('The trade window is closed.')
+    try {
+      await runTrade(bot, window, index, count)
+    } finally {
+      this._emitWorld()
+    }
+    return describeTrades(bot, window)
+  }
+
+  closeTrader() {
+    const window = this.trader
+    this.trader = null
+    if (window && this.bot?.currentWindow === window) this.bot.closeWindow(window)
+    this._emitWorld()
   }
 
   async inventoryAction(action) {

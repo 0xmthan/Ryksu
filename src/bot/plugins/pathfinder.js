@@ -1,5 +1,6 @@
 const { pathfinder: pathfinderPlugin, Movements, goals } = require('mineflayer-pathfinder')
 const { Vec3 } = require('vec3')
+const { applyBlockEditing } = require('./blockEditing')
 
 // mineflayer-pathfinder treats open doors as solid obstacles because prismarine-block
 // assigns them boundingBox: 'block'. This patch marks open doors and open fence gates as safe and non-physical
@@ -66,7 +67,7 @@ class PathfinderController {
   setBlockBreakingAllowed(allowed) {
     this.allowBlockBreak = Boolean(allowed)
     if (this.movements) {
-      this.movements.canDig = this.allowBlockBreak
+      applyBlockEditing(this.movements, this.allowBlockBreak)
     }
     return this.allowBlockBreak
   }
@@ -173,7 +174,7 @@ class PathfinderController {
     }
 
     if (this.movements) {
-      this.movements.canDig = this.allowBlockBreak
+      applyBlockEditing(this.movements, this.allowBlockBreak)
     }
 
     if (this.bot.pathfinder) {
@@ -245,7 +246,7 @@ class PathfinderController {
       this.movements = new Movements(this.bot)
     }
     if (this.movements) {
-      this.movements.canDig = this.allowBlockBreak
+      applyBlockEditing(this.movements, this.allowBlockBreak)
     }
 
     try {
@@ -315,7 +316,7 @@ class PathfinderController {
       this.movements = new Movements(this.bot)
     }
     if (this.movements) {
-      this.movements.canDig = this.allowBlockBreak
+      applyBlockEditing(this.movements, this.allowBlockBreak)
     }
 
     this._cancelGoTo('replace-goal')

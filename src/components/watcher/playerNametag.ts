@@ -23,7 +23,7 @@ export const createPlayerNametag = (entity: MotionEntity) => {
   let signature = '', aspect = 1, hovered = false, current = entity
   const update = (next: MotionEntity) => {
     current = next
-    sprite.position.y = next.crouching ? 2.05 : 2.35
+    sprite.position.y = next.sleeping != null ? 1.1 : next.crouching ? 2.05 : 2.35
     sprite.visible = !next.dead
     const health = playerHealthText(next.health)
     const key = `${next.name}:${health}:${hovered}`

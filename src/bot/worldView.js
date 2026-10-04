@@ -3,6 +3,7 @@ const prismarineBlock = require('prismarine-block')
 // Blocks that are one solid 16³ cube in every state (generated from the block models).
 const FULL_CUBES = new Set(require('../generated/fullCubes.json'))
 const { analyzeView } = require('./viewModes')
+const { registryOrder } = require('./entityEvents')
 
 // Blocks around the bot for the 3D view: only blocks with a face touching air (or water, glass, …)
 // are sent, each with a mask of those faces, so buried blocks and hidden faces are never drawn.
@@ -40,10 +41,67 @@ const ARMOR_SLOTS = { 5: 'head', 6: 'torso', 7: 'legs', 8: 'feet' }
 const OFFHAND_SLOT = 45
 const HOTBAR_START = 36
 
-const toItem = (item) =>
-  item ? { name: item.name, displayName: item.displayName ?? item.name, count: item.count } : null
+const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X']
+
+// 1.20.5+ keeps enchantments in item components as registry ids (in the order the server sent the
+// registry); older versions in NBT, which prismarine-item reads.
+const enchantmentsOf = (bot, item) => {
+  let list = null
+  for (const key of ['enchantments', 'stored_enchantments']) {
+    const data = item.componentMap?.get?.(key)?.data
+    const entries = Array.isArray(data) ? data : data?.enchantments
+    if (Array.isArray(entries) && entries.length) {
+      const order = registryOrder(bot, 'enchantment')
+      list = entries.map((entry) => {
+        const name = entry.name ?? order?.[entry.id] ?? bot.registry.enchantments?.[entry.id]?.name
+        return { name, level: entry.level ?? entry.lvl ?? 1 }
+      })
+      break
+    }
+  }
+  if (!list) {
+    try {
+      list = (item.enchants ?? []).map((entry) => ({ name: entry.name, level: entry.lvl ?? 1 }))
+    } catch {
+      list = []
+    }
+  }
+  return list
+    .filter((entry) => entry.name)
+    .map(({ name, level }) => {
+      const key = String(name).replace(/^minecraft:/, '')
+      const info = bot.registry.enchantmentsByName?.[key]
+      const title = info?.displayName ?? key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+      // Like the game: no numeral on single-level enchantments.
+      const numeral = info?.maxLevel === 1 && level === 1 ? '' : ` ${ROMAN[level] ?? level}`
+      return { label: `${title}${numeral}`, ...(key.endsWith('curse') ? { curse: true } : {}) }
+    })
+}
+
+const durabilityOf = (item) => {
+  const max = item.componentMap?.get?.('max_damage')?.data ?? item.maxDurability
+  if (!max) return null
+  let used = 0
+  try {
+    used = item.durabilityUsed ?? 0
+  } catch {
+    // Version without a known durability spot.
+  }
+  return { used: Math.max(0, Math.min(max, used)), max }
+}
+
+const describeItem = (bot, item) => {
+  if (!item) return null
+  const result = { name: item.name, displayName: item.displayName ?? item.name, count: item.count }
+  const durability = durabilityOf(item)
+  if (durability) result.durability = durability
+  const enchantments = enchantmentsOf(bot, item)
+  if (enchantments.length) result.enchantments = enchantments
+  return result
+}
 
 const getInventory = (bot) => {
+  const toItem = (item) => describeItem(bot, item)
   const slots = bot.inventory?.slots ?? []
   const armor = {}
   for (const [slot, key] of Object.entries(ARMOR_SLOTS)) {
@@ -288,4 +346,4 @@ const getWorldView = (bot) => {
   }
 }
 
-module.exports = { getWorldView }
+module.exports = { getWorldView, describeItem }

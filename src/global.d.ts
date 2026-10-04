@@ -6,6 +6,7 @@ import type {
   PathfinderOptions,
   PvpOptions,
   InventoryAction,
+  TradeOffer,
   Motion,
   MovementControls,
   WorldView,
@@ -82,6 +83,11 @@ declare global {
         onWorld: (callback: (view: WorldView) => void) => () => void
         interactBlock: (position: { x: number; y: number; z: number }) => Promise<{ ok: boolean; message?: string }>
         inventoryAction: (action: InventoryAction) => Promise<{ ok: boolean; message?: string }>
+        // Walk to a villager or wandering trader and open its trades.
+        openTrader: (entityId: number) => Promise<{ ok: boolean; message?: string; trades?: TradeOffer[] }>
+        // Make one trade from the open trader `count` times.
+        trade: (index: number, count: number) => Promise<{ ok: boolean; message?: string; trades?: TradeOffer[] }>
+        closeTrader: () => Promise<{ ok: boolean }>
         onMotion: (callback: (motion: Motion) => void) => () => void
         setArmorManagerEnabled: (enabled: boolean) => Promise<{ ok: boolean; enabled: boolean }>
         setAutoEatEnabled: (enabled: boolean) => Promise<{ ok: boolean; enabled: boolean }>

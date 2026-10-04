@@ -21,6 +21,7 @@
 .mc-item-fallback { font-size: 8px; color: #fff; padding: 2px; }
 .mc-tooltip { position: fixed; pointer-events: none; z-index: 42; padding: 8px 12px; background: #171717e6; backdrop-filter: blur(20px); border: 1px solid #ffffff1a; border-radius: 8px; box-shadow: 0 8px 24px #0006; color: #f5f5f5; font-size: 12px; max-width: 220px; }
 .mc-tooltip span { display: block; font-size: 10px; color: #737373; margin-top: 3px; }
+.mc-tooltip-line { display: block; font-style: normal; font-size: 11px; color: #a3a3a3; margin-top: 2px; }
 .mc-cursor { position: fixed; z-index: 43; pointer-events: none; width: 36px; height: 36px; display: flex; justify-content: center; align-items: center; }
 .mc-error { position: absolute; top: calc(100% + 12px); left: 0; right: 0; background: #171717e6; backdrop-filter: blur(20px); border: 1px solid #f8717133; border-radius: 8px; color: #fca5a5; padding: 10px; font-size: 12px; }
 @media (max-height: 470px) { .mc-inventory-panel { transform: scale(.85); } }

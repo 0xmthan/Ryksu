@@ -1,15 +1,19 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { Swords, UserRound, Footprints, X } from 'lucide-react'
-import type { MotionEntity } from '../../types'
+import { Swords, UserRound, Footprints, Store, X } from 'lucide-react'
+import type { MotionEntity, TradeOffer } from '../../types'
 import { prettyName } from '../../utils/blockColors'
 
 type Props = {
   entity: MotionEntity
   position: { x: number; y: number }
   onClose: () => void
+  // Called with the offers once the bot has walked over and opened the trader.
+  onTrade: (trades: TradeOffer[]) => void
 }
 
-const EntityPopover: React.FC<Props> = ({ entity: initialEntity, position, onClose }) => {
+const TRADERS = new Set(['villager', 'wandering_trader'])
+
+const EntityPopover: React.FC<Props> = ({ entity: initialEntity, position, onClose, onTrade }) => {
   const panel = useRef<HTMLDivElement>(null)
   const pending = useRef(false)
   const [entity, setEntity] = useState(initialEntity)
@@ -55,12 +59,20 @@ const EntityPopover: React.FC<Props> = ({ entity: initialEntity, position, onClo
     }
   }, [onClose])
 
-  const act = useCallback(async (action: 'fight' | 'follow') => {
+  const trader = TRADERS.has(entity.type ?? '')
+  const act = useCallback(async (action: 'fight' | 'follow' | 'trade') => {
     if (pending.current || gone || entity.dead || entity.kind === 'item') return
+    if (action === 'trade' && !trader) return
     pending.current = true
     setBusy(true)
-    setFeedback(null)
+    setFeedback(action === 'trade' ? 'Walking to the trader…' : null)
     try {
+      if (action === 'trade') {
+        const response = await window.electronAPI.bot.openTrader(entity.id)
+        if (response.ok && response.trades) onTrade(response.trades)
+        else setFeedback(response.message ?? 'Could not open the trades.')
+        return
+      }
       const response = await (action === 'fight'
         ? window.electronAPI.bot.attackEntity(entity.id)
         : window.electronAPI.bot.followEntity(entity.id))
@@ -72,7 +84,7 @@ const EntityPopover: React.FC<Props> = ({ entity: initialEntity, position, onClo
       pending.current = false
       setBusy(false)
     }
-  }, [entity.id, entity.kind, entity.dead, gone, onClose])
+  }, [entity.id, entity.kind, entity.dead, gone, onClose, onTrade, trader])
   useEffect(() => { panel.current?.focus() }, [])
   useEffect(() => {
     const key = (event: KeyboardEvent) => {
@@ -83,15 +95,15 @@ const EntityPopover: React.FC<Props> = ({ entity: initialEntity, position, onClo
         event.preventDefault()
         event.stopImmediatePropagation()
         onClose()
-      } else if (event.code === 'KeyF' || event.code === 'KeyG') {
+      } else if (event.code === 'KeyF' || event.code === 'KeyG' || (event.code === 'KeyT' && trader)) {
         event.preventDefault()
         event.stopImmediatePropagation()
-        act(event.code === 'KeyF' ? 'fight' : 'follow')
+        act(event.code === 'KeyF' ? 'fight' : event.code === 'KeyG' ? 'follow' : 'trade')
       }
     }
     window.addEventListener('keydown', key, true)
     return () => window.removeEventListener('keydown', key, true)
-  }, [act, onClose])
+  }, [act, onClose, trader])
   const gear = Object.entries(entity.equipment ?? {})
   const actionable = !gone && !busy && entity.kind !== 'item' && !entity.dead
 
@@ -149,8 +161,10 @@ const EntityPopover: React.FC<Props> = ({ entity: initialEntity, position, onClo
             <dd>{Math.round(entity.ping)} ms</dd>
           </div>
         ) : null}
-        {entity.crouching || entity.sitting ? (
-          <div className="text-neutral-400">{entity.sitting ? 'Sitting' : 'Sneaking'}</div>
+        {entity.sleeping != null || entity.crouching || entity.sitting ? (
+          <div className="text-neutral-400">
+            {entity.sleeping != null ? 'Sleeping' : entity.sitting ? 'Sitting' : 'Sneaking'}
+          </div>
         ) : null}
       </dl>
       {gear.length ? (
@@ -171,13 +185,13 @@ const EntityPopover: React.FC<Props> = ({ entity: initialEntity, position, onClo
       ) : null}
       {gone ? <p className="mb-2 text-neutral-400">Entity is no longer nearby.</p> : null}
       {entity.kind !== 'item' ? (
-        <div className="flex gap-2">
+        <div className="grid grid-cols-2 gap-2">
           <button
             type="button"
             disabled={!actionable}
             onClick={() => act('fight')}
             aria-keyshortcuts="F"
-            className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-rose-400/30
+            className="flex items-center justify-center gap-2 rounded-lg border border-rose-400/30
               bg-rose-500/10 py-2 text-rose-200 hover:bg-rose-500/20 disabled:opacity-40"
           >
             <Swords className="h-4 w-4" />
@@ -188,18 +202,31 @@ const EntityPopover: React.FC<Props> = ({ entity: initialEntity, position, onClo
             disabled={!actionable}
             onClick={() => act('follow')}
             aria-keyshortcuts="G"
-            className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-sky-400/30
+            className="flex items-center justify-center gap-2 rounded-lg border border-sky-400/30
               bg-sky-500/10 py-2 text-sky-200 hover:bg-sky-500/20 disabled:opacity-40"
           >
             <Footprints className="h-4 w-4" />
             Follow <kbd className="rounded border border-white/15 px-1 text-[10px] opacity-60">G</kbd>
           </button>
+          {trader ? (
+            <button
+              type="button"
+              disabled={!actionable}
+              onClick={() => act('trade')}
+              aria-keyshortcuts="T"
+              className="col-span-2 flex items-center justify-center gap-2 rounded-lg border border-emerald-400/30
+                bg-emerald-500/10 py-2 text-emerald-200 hover:bg-emerald-500/20 disabled:opacity-40"
+            >
+              <Store className="h-4 w-4" />
+              Trade <kbd className="rounded border border-white/15 px-1 text-[10px] opacity-60">T</kbd>
+            </button>
+          ) : null}
         </div>
       ) : (
         <p className="text-neutral-400">{prettyName(entity.item ?? entity.name)}</p>
       )}
       {feedback ? (
-        <p role="status" className="mt-2 text-rose-300">
+        <p role="status" className={`mt-2 ${busy ? 'text-neutral-400' : 'text-rose-300'}`}>
           {feedback}
         </p>
       ) : null}

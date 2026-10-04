@@ -5,8 +5,14 @@ import Surroundings3D from './Surroundings3D'
 import EntityPopover from './watcher/EntityPopover'
 import LocationManager from './LocationManager'
 import StatsSummary from './StatsSummary'
+import TradePanel from './TradePanel'
+import { prettyName } from '../utils/blockColors'
+import VitalBars, { Hotbar } from './VitalBars'
 import { useSavedLocations } from '../hooks/useSavedLocations'
-import type { BotSnapshot, ChatMessage, MotionEntity, WorldView } from '../types'
+import type { AutoEatOptions, BotSnapshot, ChatMessage, MotionEntity, TradeOffer, WorldView } from '../types'
+
+// Window slot of the first hotbar slot in the player inventory.
+const HOTBAR_START = 36
 
 type ConnectedSnapshot = Extract<BotSnapshot, { connected: true }>
 
@@ -22,6 +28,8 @@ type DashboardProps = {
   showChat: boolean
   pathfinder: import('../types').PathfinderOptions
   updatePathfinder: (options: import('../types').PathfinderOptions) => void
+  // Set only while auto eat is on.
+  autoEat: AutoEatOptions | null
 }
 
 const Dashboard: React.FC<DashboardProps> = ({
@@ -36,6 +44,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   isSendingChat,
   showChat,
   updatePathfinder,
+  autoEat,
 }) => {
   const { locations, saveLocation, deleteLocation } = useSavedLocations()
   const [worldView, setWorldView] = useState<WorldView | null>(null)
@@ -49,6 +58,11 @@ const Dashboard: React.FC<DashboardProps> = ({
     position: { x: number; y: number }
   } | null>(null)
   const closeEntityContext = useCallback(() => setEntityContext(null), [])
+  const [trader, setTrader] = useState<{ title: string; trades: TradeOffer[] } | null>(null)
+  const closeTrader = useCallback(() => {
+    setTrader(null)
+    window.electronAPI.bot.closeTrader()
+  }, [])
   const closePage = useCallback(() => setInventoryOpen(false), [])
 
   useEffect(() => {
@@ -61,7 +75,11 @@ const Dashboard: React.FC<DashboardProps> = ({
   }, [])
   useEffect(() => {
     const id = worldView?.inventory.window?.id ?? null
-    if (containerId.current !== null && id === null) setInventoryOpen(false)
+    // The server closed the window (or the trader walked off).
+    if (containerId.current !== null && id === null) {
+      setInventoryOpen(false)
+      setTrader(null)
+    }
     containerId.current = id
   }, [worldView])
   const interactBlock = async (position: { x: number; y: number; z: number }) => {
@@ -83,6 +101,12 @@ const Dashboard: React.FC<DashboardProps> = ({
     return () => clearTimeout(timer)
   }, [blockFeedback, openingBlock])
 
+  const selectHotbar = useCallback(async (index: number) => {
+    const result = await window.electronAPI.bot.inventoryAction({ type: 'hold', slot: HOTBAR_START + index })
+    if (!result.ok) setBlockFeedback(result.message ?? 'Could not switch slot.')
+    return result.ok
+  }, [])
+
   useEffect(() => {
     const handleKey = (event: KeyboardEvent) => {
       const target = event.target instanceof HTMLElement ? event.target : null
@@ -103,6 +127,11 @@ const Dashboard: React.FC<DashboardProps> = ({
         onChatOpen()
         return
       }
+      if (!inventoryOpen && !entityContext && /^Digit[1-9]$/.test(event.code)) {
+        event.preventDefault()
+        selectHotbar(Number(event.code.slice(-1)) - 1)
+        return
+      }
       if (event.key.toLowerCase() === 'e') {
         event.preventDefault()
         setEntityContext(null)
@@ -111,13 +140,13 @@ const Dashboard: React.FC<DashboardProps> = ({
     }
     window.addEventListener('keydown', handleKey)
     return () => window.removeEventListener('keydown', handleKey)
-  }, [showChat, openingBlock, inventoryOpen, entityContext, onChatInputChange, onChatOpen])
+  }, [showChat, openingBlock, inventoryOpen, entityContext, onChatInputChange, onChatOpen, selectHotbar])
 
   return (
     <div className="relative min-h-0 min-w-0 flex-1 bg-neutral-950 text-neutral-100">
       <Surroundings3D
         onBlockInteract={interactBlock}
-        movementEnabled={!openingBlock && !inventoryOpen && !showChat && !entityContext}
+        movementEnabled={!openingBlock && !inventoryOpen && !showChat && !entityContext && !trader}
         blocks={worldView?.blocks ?? null}
         chest={snapshot.mining?.chest ?? null}
         onHover={setHover}
@@ -129,10 +158,25 @@ const Dashboard: React.FC<DashboardProps> = ({
             goToLocation: target,
           })
         }
+        botHands={{
+          main: worldView?.inventory.hotbar[worldView.inventory.selectedHotbar] ?? null,
+          off: worldView?.inventory.offhand ?? null,
+        }}
+        botArmor={
+          worldView
+            ? [
+                worldView.inventory.armor.head,
+                worldView.inventory.armor.torso,
+                worldView.inventory.armor.legs,
+                worldView.inventory.armor.feet,
+              ]
+            : undefined
+        }
         className="absolute inset-0 h-full w-full"
       />
       <div className="pointer-events-none absolute inset-0">
-        <div className="pointer-events-auto absolute left-3 top-15 w-64">
+        <div className="pointer-events-auto absolute left-3 top-15 flex w-64 flex-col gap-2">
+          <VitalBars health={snapshot.health} food={snapshot.food} saturation={snapshot.saturation} autoEat={autoEat} />
           <StatsSummary snapshot={snapshot} />
         </div>
         <div className="pointer-events-auto absolute right-3 top-15 flex items-center gap-2">
@@ -163,6 +207,13 @@ const Dashboard: React.FC<DashboardProps> = ({
             }}
           />
         </div>
+        <div className="pointer-events-auto absolute bottom-12 left-1/2 -translate-x-1/2">
+          <Hotbar
+            items={worldView?.inventory.hotbar ?? []}
+            selected={worldView?.inventory.selectedHotbar ?? 0}
+            onSelect={selectHotbar}
+          />
+        </div>
         <div className="absolute inset-x-3 bottom-3 flex items-center justify-between gap-4 text-xs">
           <span className="max-w-[65%] truncate rounded-md bg-neutral-950/80 px-2.5 py-1.5 text-neutral-300">
             {hover ??
@@ -177,7 +228,7 @@ const Dashboard: React.FC<DashboardProps> = ({
           ) : null}
         </div>
       </div>
-      {blockFeedback && <div role="status" className="absolute bottom-12 left-1/2 z-30 -translate-x-1/2 rounded-lg border border-white/10 bg-neutral-900/80 px-4 py-2 text-xs backdrop-blur-xl">{blockFeedback}</div>}
+      {blockFeedback && <div role="status" className="absolute bottom-28 left-1/2 z-30 -translate-x-1/2 rounded-lg border border-white/10 bg-neutral-900/80 px-4 py-2 text-xs backdrop-blur-xl">{blockFeedback}</div>}
       {inventoryOpen && !showChat ? (
         <InventoryPage key={worldView?.inventory.window?.id ?? 0} inventory={worldView?.inventory ?? null} onClose={closePage} />
       ) : null}
@@ -187,6 +238,18 @@ const Dashboard: React.FC<DashboardProps> = ({
           entity={entityContext.entity}
           position={entityContext.position}
           onClose={closeEntityContext}
+          onTrade={(trades) => {
+            setTrader({ title: prettyName(entityContext.entity.type ?? entityContext.entity.name), trades })
+            setEntityContext(null)
+          }}
+        />
+      ) : null}
+      {trader && !showChat ? (
+        <TradePanel
+          title={trader.title}
+          trades={trader.trades}
+          onTradesChange={(trades) => setTrader((current) => (current ? { ...current, trades } : current))}
+          onClose={closeTrader}
         />
       ) : null}
       <ChatPanel
@@ -197,7 +260,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         isSendingChat={isSendingChat}
         open={showChat}
         onClose={onChatClose}
-        hidden={inventoryOpen || Boolean(entityContext)}
+        hidden={inventoryOpen || Boolean(entityContext) || Boolean(trader)}
       />
 
     </div>

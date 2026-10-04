@@ -1,5 +1,6 @@
 const { pathfinder: pathfinderPlugin, Movements, goals } = require('mineflayer-pathfinder')
 const attackSpeeds = require('./attackSpeeds.json')
+const { applyBlockEditing } = require('../blockEditing')
 
 // How long the bot keeps fighting back after a mob last hurt it.
 const DEFEND_DURATION_MS = 30000
@@ -120,7 +121,7 @@ class PvpController {
       nextConfig.allowBlockBreak = options.allowBlockBreak
       configChanged = true
       if (this.movements) {
-        this.movements.canDig = options.allowBlockBreak
+        applyBlockEditing(this.movements, options.allowBlockBreak)
       }
     }
 
@@ -182,9 +183,9 @@ class PvpController {
 
     if (!this.movements && this.bot.pathfinder) {
       this.movements = new Movements(this.bot)
-      this.movements.canDig = this.config.allowBlockBreak
+      applyBlockEditing(this.movements, this.config.allowBlockBreak)
     } else if (this.movements) {
-      this.movements.canDig = this.config.allowBlockBreak
+      applyBlockEditing(this.movements, this.config.allowBlockBreak)
     }
 
     return Boolean(this.bot.pathfinder)
@@ -378,6 +379,7 @@ class PvpController {
 
     if (!this.movements) {
       this.movements = new Movements(this.bot)
+      applyBlockEditing(this.movements, this.config.allowBlockBreak)
     }
 
     try {

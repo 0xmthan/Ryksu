@@ -1,5 +1,6 @@
 // Positions and looks of the bot and the things around it, for the 3D watcher. Sent often so it can
 // move smoothly, so everything here stays cheap.
+const { Vec3 } = require('vec3')
 const { entityEvents } = require('./entityEvents')
 const { entityVariant } = require('./entityVariants')
 const { skinUrl, capeUrl } = require('./profileTextures')
@@ -94,7 +95,55 @@ const appearance = (bot, entity, kind) => {
 
 // Cats, wolves and parrots told to sit keep it in bit 0 of their tameable flags.
 const TAMEABLE = new Set(['cat', 'wolf', 'parrot'])
+const SLEEPING_POSE = 2
 const CROUCHING_POSE = 5
+// Yaw that faces each way; a bed's facing points from its foot to its head.
+const FACING_YAW = { north: 0, west: Math.PI / 2, south: Math.PI, east: -Math.PI / 2 }
+
+// The game moves sleepers onto the bed's head block at mattress height (the bot's own position isn't
+// updated, so it can't be trusted). The bed comes from the sleeping position metadata, else the nearest
+// bed's head.
+const MATTRESS_Y = 0.6875
+
+const bedHead = (bot, entity) => {
+  const saved = entityEvents(bot, entity).typed.sleeping_pos ?? metadataReader(bot, entity)('sleeping_pos')
+  const at = (x, y, z) => bot.blockAt(new Vec3(x, y, z))
+  if (saved && Number.isFinite(saved.x)) {
+    const block = at(saved.x, saved.y, saved.z)
+    if (block?.name?.endsWith('_bed')) return block
+  }
+  const origin = entity.position.floored()
+  let nearest = null
+  for (let dx = -2; dx <= 2; dx++) {
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dz = -2; dz <= 2; dz++) {
+        const block = at(origin.x + dx, origin.y + dy, origin.z + dz)
+        if (!block?.name?.endsWith('_bed') || block.getProperties?.().part !== 'head') continue
+        const distance = block.position.offset(0.5, 0.5, 0.5).distanceTo(entity.position)
+        if (!nearest || distance < nearest.distance) nearest = { block, distance }
+      }
+    }
+  }
+  return nearest?.block ?? null
+}
+
+const sleepingPlace = (bot, entity) => {
+  try {
+    const bed = bedHead(bot, entity)
+    const facing = bed?.getProperties?.().facing
+    if (bed && facing in FACING_YAW) {
+      return {
+        x: bed.position.x + 0.5,
+        y: bed.position.y + MATTRESS_Y,
+        z: bed.position.z + 0.5,
+        sleeping: FACING_YAW[facing],
+      }
+    }
+  } catch {
+    // Chunk not loaded.
+  }
+  return { sleeping: entity.yaw ?? 0 }
+}
 
 const posture = (bot, entity) => {
   const result = {}
@@ -104,6 +153,12 @@ const posture = (bot, entity) => {
       ? bot.getControlState?.('sneak')
       : entity.crouching || pose === CROUCHING_POSE || pose === 'crouching'
   if (crouching) result.crouching = true
+  const sleeping =
+    entity === bot.entity ? bot.isSleeping : pose === SLEEPING_POSE || pose === 'sleeping'
+  if (sleeping) {
+    const place = sleepingPlace(bot, entity)
+    for (const key of Object.keys(place)) result[key] = round(place[key])
+  }
   if (TAMEABLE.has(entity.name) && Number(metadataReader(bot, entity)('flags')) & 1) result.sitting = true
   return result
 }
@@ -121,6 +176,7 @@ const pose = (bot, entity, yaw, headYaw) => {
     swing: events.swing,
     hurt: events.hurt,
     ...(events.dead ? { dead: true } : {}),
+    // Last, so a sleeper's place on the bed wins over where it stood.
     ...posture(bot, entity),
   }
 }

@@ -1,7 +1,9 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import {
   Apple,
   ChevronsUp,
+  Check,
+  Copy,
   Hammer,
   MessageSquareText,
   Minus,
@@ -11,6 +13,7 @@ import {
   X,
 } from 'lucide-react'
 import SleepButton from './SleepButton'
+import StatusPill from './StatusPill'
 import ToolbarButton from './ToolbarButton'
 import MiningPanel from './MiningPanel'
 import type { BotStatus, MiningState } from '../types'
@@ -31,11 +34,21 @@ const ArmorIcon = () => (
   </svg>
 )
 
+const pingClass = (ping: number | null) => {
+  if (ping == null) return 'bg-neutral-600'
+  if (ping < 100) return 'bg-emerald-400 shadow-[0_0_6px_#34d39999]'
+  if (ping < 250) return 'bg-amber-300 shadow-[0_0_6px_#fcd34d99]'
+  return 'bg-rose-400 shadow-[0_0_6px_#fb718599]'
+}
+
 type TitleBarProps = {
   status: BotStatus
   lastError: string | null
+  onDismissError: () => void
   isConnecting: boolean
   isConnected: boolean
+  ping: number | null
+  position: { x: number; y: number; z: number } | null
   canConnect: boolean
   onConnect: () => void
   onDisconnect: () => void
@@ -66,8 +79,11 @@ type TitleBarProps = {
 const TitleBar: React.FC<TitleBarProps> = ({
   status,
   lastError,
+  onDismissError,
   isConnecting,
   isConnected,
+  ping,
+  position,
   canConnect,
   onConnect,
   onDisconnect,
@@ -103,8 +119,19 @@ const TitleBar: React.FC<TitleBarProps> = ({
   }
 
   const stage = status?.stage ?? 'idle'
-  const stageLabel = stage.charAt(0).toUpperCase() + stage.slice(1)
-  const statusMessage = lastError ?? status?.message ?? stageLabel
+
+  const [copied, setCopied] = useState(false)
+  useEffect(() => {
+    if (!copied) return
+    const timeout = setTimeout(() => setCopied(false), 1500)
+    return () => clearTimeout(timeout)
+  }, [copied])
+  // Copied as "x y z", ready for /tp.
+  const copyPosition = () => {
+    if (!position) return
+    const text = `${Math.floor(position.x)} ${Math.floor(position.y)} ${Math.floor(position.z)}`
+    navigator.clipboard.writeText(text).then(() => setCopied(true), () => setCopied(false))
+  }
 
   const indicatorColor = lastError
     ? 'bg-rose-400 shadow-[0_0_12px_rgba(244,63,94,0.45)]'
@@ -114,13 +141,6 @@ const TitleBar: React.FC<TitleBarProps> = ({
         ? 'bg-amber-400 shadow-[0_0_12px_rgba(251,191,36,0.35)]'
         : 'bg-neutral-500 shadow-[0_0_10px_rgba(115,115,115,0.25)]'
 
-  const messageTone = lastError
-    ? 'text-rose-200'
-    : stage === 'connected'
-      ? 'text-emerald-200'
-      : stage === 'connecting' || isConnecting
-        ? 'text-amber-200'
-        : 'text-neutral-300'
 
   const primaryActionLabel = isConnected ? 'Disconnect' : isConnecting ? 'Connecting…' : 'Connect'
   const primaryActionDisabled = isConnected ? false : !canConnect || isConnecting
@@ -155,7 +175,43 @@ const TitleBar: React.FC<TitleBarProps> = ({
               by 2mdtln
             </span>
           </div>
-          <span className={`truncate text-xs font-italic uppercase ${messageTone}`}>{statusMessage}</span>
+          {isConnected ? (
+            <div className="ml-1 flex min-w-0 items-center gap-3 font-mono text-[0.7rem] tabular-nums">
+              <span className="h-4 w-px shrink-0 bg-neutral-800" />
+              <span className="flex shrink-0 items-center gap-1.5 text-neutral-400" title="Ping">
+                <span className={`h-1.5 w-1.5 rounded-full ${pingClass(ping)}`} />
+                {ping != null ? `${Math.round(ping)} ms` : '—'}
+              </span>
+              {position ? (
+                <button
+                  type="button"
+                  onClick={copyPosition}
+                  title="Click to copy"
+                  className="app-region-no-drag group flex min-w-0 items-center gap-1.5 rounded text-neutral-300
+                    transition hover:text-white focus-visible:outline focus-visible:outline-offset-2
+                    focus-visible:outline-sky-400"
+                >
+                  <span className="truncate">
+                    {Math.floor(position.x)} {Math.floor(position.y)} {Math.floor(position.z)}
+                  </span>
+                  {copied ? (
+                    <span className="flex shrink-0 items-center gap-1 font-sans text-emerald-300">
+                      <Check aria-hidden="true" className="h-3 w-3" strokeWidth={2.25} />
+                      Copied
+                    </span>
+                  ) : (
+                    <Copy
+                      aria-hidden="true"
+                      className="h-3 w-3 shrink-0 text-neutral-500 opacity-0 transition group-hover:opacity-100"
+                      strokeWidth={2}
+                    />
+                  )}
+                </button>
+              ) : (
+                <span className="truncate text-neutral-500">Waiting for spawn…</span>
+              )}
+            </div>
+          ) : null}
         </div>
       </div>
 
@@ -214,8 +270,8 @@ const TitleBar: React.FC<TitleBarProps> = ({
             </ToolbarButton>
             <MiningPanel mining={mining} />
             <ToolbarButton
-              label="Break Blocks"
-              description="Allow breaking blocks while navigating. Click to toggle."
+              label="Break / Place Blocks"
+              description="Allow breaking and placing blocks (bridging, pillaring) while navigating. Click to toggle."
               active={allowBlockBreak}
               onClick={() => onAllowBlockBreakToggle(!allowBlockBreak)}
             >
@@ -233,7 +289,9 @@ const TitleBar: React.FC<TitleBarProps> = ({
         </ToolbarButton>}
         {isConnected ? (
           <SleepButton isSleeping={isSleeping} canSleep={canSleep} bedPickupPending={bedPickupPending} />
-        ) : null}
+        ) : (
+          <StatusPill status={status} lastError={lastError} isConnecting={isConnecting} onDismissError={onDismissError} />
+        )}
         <button
           type="button"
           onClick={handlePrimaryAction}

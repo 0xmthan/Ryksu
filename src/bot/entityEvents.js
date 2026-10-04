@@ -1,7 +1,7 @@
 // Things about entities that only show up as one-off packets, kept so the watcher can pick them up on its
 // next motion update: arm swings, hurts and deaths (as counters it can compare), and the order of the
-// registries the server sends while joining (mob variants are ids into them). Variant and pose values are
-// also kept by their metadata type, which stays right even where minecraft-data's key list is off.
+// registries the server sends while joining (mob variants are ids into them). Variant, pose and bed position
+// values are also kept by their metadata type, which stays right even where minecraft-data's key list is off.
 const state = new WeakMap()
 
 const stateFor = (bot) => {
@@ -46,6 +46,9 @@ const attachEntityTracking = (bot) => {
         (entry.type === 'pose' || /(?<!sound)_variant$/.test(entry.type))
       ) {
         typed[entry.type] = entry.value
+      } else if (entry?.type === 'optional_block_pos' || entry?.type === 'optional_position') {
+        // A living entity's only optional block position is the bed it sleeps in.
+        typed.sleeping_pos = entry.value ?? null
       }
     }
   })

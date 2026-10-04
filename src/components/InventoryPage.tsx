@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react'
 import type { InventoryAction, InventoryClick, InventoryItem, WorldView } from '../types'
 import { itemIcon } from '../utils/itemIcons'
 import ItemIcon from './ItemIcon'
+import Item, { isEnchanted } from './ItemStack'
 import InventoryPlayer from './InventoryPlayer'
 import './inventory.css'
 import { inventoryWindowLayout } from '../utils/inventoryWindows'
@@ -9,14 +10,6 @@ import { inventoryWindowLayout } from '../utils/inventoryWindows'
 type Inventory = WorldView['inventory']
 const ARMOR = ['Helmet', 'Chestplate', 'Leggings', 'Boots']
 const EMPTY_ICONS: Record<string, string> = { Helmet: 'iron_helmet', Chestplate: 'iron_chestplate', Leggings: 'iron_leggings', Boots: 'iron_boots', Shield: 'shield' }
-const Item: React.FC<{ item: InventoryItem }> = ({ item }) => {
-  if (!item) return null
-  const icon = itemIcon(item.name)
-  return <>
-    {icon ? <ItemIcon icon={icon} alt={item.displayName} /> : <span className="mc-item-fallback">{item.displayName}</span>}
-    {item.count > 1 && <span className="mc-count">{item.count}</span>}
-  </>
-}
 
 const InventoryPage: React.FC<{ inventory: Inventory | null; onClose: () => void }> = ({ inventory, onClose }) => {
   const container = inventory?.window ?? null
@@ -169,7 +162,12 @@ const InventoryPage: React.FC<{ inventory: Inventory | null; onClose: () => void
       {error && <div className="mc-error" role="alert">{error}</div>}
     </div> : <p>Waiting for the bot to spawn…</p>}
     {hovered && !inventory?.cursor && <div className="mc-tooltip" style={{ left: Math.min(mouse.x + 16, window.innerWidth - 230), top: Math.min(mouse.y - 28, window.innerHeight - 65) }}>
-      {hovered.displayName}<span>{hovered.name}</span>
+      <b className={`font-normal ${isEnchanted(hovered) ? 'text-cyan-300' : ''}`}>{hovered.displayName}</b>
+      {hovered.enchantments?.map((enchantment) => (
+        <em key={enchantment.label} className={`mc-tooltip-line ${enchantment.curse ? 'text-rose-400' : ''}`}>{enchantment.label}</em>
+      ))}
+      {hovered.durability ? <em className="mc-tooltip-line">Durability {hovered.durability.max - hovered.durability.used} / {hovered.durability.max}</em> : null}
+      <span>{hovered.name}</span>
     </div>}
     {inventory?.cursor && <div className="mc-cursor" style={{ left: mouse.x - 16, top: mouse.y - 16 }}><Item item={inventory.cursor} /></div>}
   </div>
