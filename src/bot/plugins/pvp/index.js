@@ -1,4 +1,4 @@
-const { pathfinder: pathfinderPlugin, Movements, goals } = require('mineflayer-pathfinder')
+const { pathfinder: pathfinderPlugin, Movements, goals } = require('../core/pathfinder')
 const attackSpeeds = require('./attackSpeeds.json')
 const { applyBlockEditing } = require('../blockEditing')
 

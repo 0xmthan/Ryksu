@@ -1,4 +1,4 @@
-const loadArmorManagerPlugin = require('mineflayer-armor-manager')
+const loadArmorManagerPlugin = require('./core/armor')
 
 class ArmorManagerController {
   constructor() {

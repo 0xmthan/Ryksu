@@ -1,4 +1,4 @@
-const { pathfinder: pathfinderPlugin, Movements, goals } = require('mineflayer-pathfinder')
+const { pathfinder: pathfinderPlugin, Movements, goals } = require('./core/pathfinder')
 const { Vec3 } = require('vec3')
 const { applyBlockEditing } = require('./blockEditing')
 

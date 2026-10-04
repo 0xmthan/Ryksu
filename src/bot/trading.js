@@ -1,6 +1,6 @@
 // Trading with villagers and wandering traders. Mineflayer's openVillager only takes villagers, so this
 // opens the trade window itself, then leaves the trade to bot.trade (which works for both).
-const { goals } = require('mineflayer-pathfinder')
+const { goals } = require('./plugins/core/pathfinder')
 const { describeItem } = require('./worldView')
 
 const TRADERS = new Set(['villager', 'wandering_trader'])

@@ -1,6 +1,6 @@
 // Build mode in the watcher: break the clicked block, or place the held block against the clicked face.
 // The bot walks to where it can reach and see the spot first.
-const { goals } = require('mineflayer-pathfinder')
+const { goals } = require('./plugins/core/pathfinder')
 const { Vec3 } = require('vec3')
 
 const REACH = 4.5

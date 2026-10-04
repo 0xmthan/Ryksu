@@ -68,38 +68,12 @@ const sanitizeOptions = (incoming = {}, base = DEFAULT_OPTIONS) => {
   return result
 }
 
-let loadAutoEatPluginPromise = null
+const { loader } = require('./core/autoEat')
 
-const loadAutoEatPlugin = async (bot) => {
-  if (!bot) {
-    return null
-  }
-
-  if (bot.autoEat) {
-    return bot.autoEat
-  }
-
-  if (!loadAutoEatPluginPromise) {
-    loadAutoEatPluginPromise = import('mineflayer-auto-eat')
-      .then((module) => {
-        const loader = module?.loader ?? module?.default ?? module
-        if (typeof loader !== 'function') {
-          throw new Error('mineflayer-auto-eat plugin loader is not a function')
-        }
-        loader(bot)
-        return bot.autoEat ?? null
-      })
-      .catch((error) => {
-        console.error('Failed to load auto eat plugin', error)
-        return null
-      })
-      .finally(() => {
-        loadAutoEatPluginPromise = null
-      })
-  }
-
-  const autoEat = await loadAutoEatPluginPromise
-  return autoEat ?? null
+const loadAutoEatPlugin = (bot) => {
+  if (!bot) return null
+  if (!bot.autoEat) loader(bot)
+  return bot.autoEat
 }
 
 class AutoEatController {

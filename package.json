@@ -57,16 +57,17 @@
   "dependencies": {
     "electron-squirrel-startup": "^1.0.1",
     "lucide-react": "^1.50.0",
+    "minecraft-data": "^3.117.0",
     "mineflayer": "^4.39.0",
-    "mineflayer-armor-manager": "^2.0.1",
-    "mineflayer-auto-eat": "^5.0.3",
-    "mineflayer-pathfinder": "^2.4.5",
-    "mineflayer-tool": "^1.2.0",
     "prismarine-block": "^1.23.0",
     "prismarine-chat": "^1.13.0",
+    "prismarine-entity": "^2.6.0",
+    "prismarine-item": "^1.18.0",
     "prismarine-nbt": "^2.8.0",
+    "prismarine-physics": "^1.11.1",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
-    "three": "^0.186.1"
+    "three": "^0.186.1",
+    "vec3": "^0.1.10"
   }
 }

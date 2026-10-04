@@ -1,5 +1,5 @@
 const { Vec3 } = require('vec3')
-const { goals } = require('mineflayer-pathfinder')
+const { goals } = require('./plugins/core/pathfinder')
 const INTERACTIVE = new Set(require('../shared/interactiveBlocks.json'))
 
 const openInteractiveBlock = async (bot, position) => {

@@ -1,4 +1,4 @@
-const { plugin: toolPlugin } = require('mineflayer-tool')
+const { plugin: toolPlugin } = require('./core/tool')
 const nbt = require('prismarine-nbt')
 
 class AutoToolController {

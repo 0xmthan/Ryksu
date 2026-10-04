@@ -1,4 +1,4 @@
-const { goals } = require('mineflayer-pathfinder')
+const { goals } = require('./core/pathfinder')
 
 // Ore choices shown in the UI, each mapped to the block names that count as that ore.
 const ORE_BLOCKS = {
