@@ -18,8 +18,10 @@ type Element = {
   noShade?: number
   faces: Record<string, Face>
 }
-type Apply = { m: number; x?: number; y?: number }
+// `w`: the weight among alternatives (default 1).
+type Apply = { m: number; x?: number; y?: number; w?: number }
 type Condition = Record<string, string> | { OR: Condition[] } | { AND: Condition[] }
+// Each Apply[] is a set of alternatives, one picked per block position (see pickApplies).
 type BlockEntry = {
   variants?: [Record<string, string>, Apply[]][]
   multipart?: [Condition | null, Apply[]][]
@@ -119,15 +121,39 @@ const matches = (properties: Record<string, unknown>, condition: Condition | nul
   )
 }
 
-// The models (with rotations) a block state is drawn with.
-const modelsFor = (name: string, properties: Record<string, unknown>): Apply[] | null => {
+// The models (with rotations) a block state is drawn with: one set of alternatives per part.
+const modelsFor = (name: string, properties: Record<string, unknown>): Apply[][] | null => {
   const entry = data.blocks[name]
   if (!entry) return null
   if (entry.variants) {
     const variant = entry.variants.find(([condition]) => matches(properties, condition))
-    return variant ? variant[1] : (entry.variants[0]?.[1] ?? null)
+    const list = variant ? variant[1] : entry.variants[0]?.[1]
+    return list ? [list] : null
   }
-  return (entry.multipart ?? []).filter(([when]) => matches(properties, when)).flatMap(([, list]) => list)
+  return (entry.multipart ?? []).filter(([when]) => matches(properties, when)).map(([, list]) => list)
+}
+
+// Picks one alternative per part for the block at a world position, by weight, the same every time, so
+// grass, dirt, stone, … turn and mirror from block to block like the game's instead of tiling.
+const pickApplies = (parts: Apply[][], x: number, y: number, z: number): Apply[] => {
+  let seed = 0
+  // A part whose models were all missing at generation has no alternatives; it draws nothing.
+  return parts.filter((list) => list.length > 0).map((list, part) => {
+    if (list.length === 1) return list[0]
+    if (!seed) {
+      seed = Math.imul(x, 3129871) ^ Math.imul(z, 116129781) ^ y
+      seed = Math.imul(seed ^ (seed >>> 16), 0x45d9f3b)
+      seed = Math.imul(seed ^ (seed >>> 16), 0x45d9f3b)
+      seed = (seed ^ (seed >>> 16)) >>> 0 || 1
+    }
+    const total = list.reduce((sum, apply) => sum + (apply.w ?? 1), 0)
+    let roll = (((seed + Math.imul(part, 0x9e3779b9)) >>> 0) % 1000003) / 1000003 * total
+    for (const apply of list) {
+      roll -= apply.w ?? 1
+      if (roll < 0) return apply
+    }
+    return list[list.length - 1]
+  })
 }
 
 const AXES = { x: new THREE.Vector3(1, 0, 0), y: new THREE.Vector3(0, 1, 0), z: new THREE.Vector3(0, 0, 1) }
@@ -223,7 +249,7 @@ export const buildBlockMeshes = (blocks: Blocks, atlas: BlockAtlas, mode: ViewMo
     [0, 0],
     [0, 0],
   ]
-  const resolved = new Map<number, Apply[] | null>()
+  const resolved = new Map<number, Apply[][] | null>()
 
   const renderElements = (
     targetBuffers: MeshBuffers,
@@ -429,7 +455,10 @@ export const buildBlockMeshes = (blocks: Blocks, atlas: BlockAtlas, mode: ViewMo
     if (!resolved.has(paletteIndex)) {
       resolved.set(paletteIndex, modelsFor(name, blocks.properties?.[paletteIndex] ?? {}))
     }
-    const applied = resolved.get(paletteIndex)
+    const parts = resolved.get(paletteIndex)
+    const applied = parts
+      ? pickApplies(parts, blocks.origin.x + x, blocks.origin.y + y, blocks.origin.z + z)
+      : null
     const entry = data.blocks[name]
     if (capped && name !== 'water' && name !== 'lava') {
       const capColor = applied ? null : new THREE.Color(blockColor(name))

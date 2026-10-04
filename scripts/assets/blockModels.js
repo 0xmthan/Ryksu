@@ -109,13 +109,20 @@ module.exports = () => {
   ]
 
   const tintColor = (name) => (name === 'redstone_wire' ? '#c81e1e' : tintFor(name))
+  // A blockstate entry's models. Several (grass, dirt, stone, sand, …) are alternatives the game picks
+  // between per block position, by weight, so the ground doesn't look tiled; the renderer does the same.
   const applyList = (entry) =>
-    (Array.isArray(entry) ? entry.slice(0, 1) : [entry])
+    (Array.isArray(entry) ? entry : [entry])
       .map((variant) => {
         const m = modelId(modelName(variant.model))
         return m === undefined
           ? null
-          : { m, ...(variant.x ? { x: variant.x } : {}), ...(variant.y ? { y: variant.y } : {}) }
+          : {
+              m,
+              ...(variant.x ? { x: variant.x } : {}),
+              ...(variant.y ? { y: variant.y } : {}),
+              ...(variant.weight && variant.weight !== 1 ? { w: variant.weight } : {}),
+            }
       })
       .filter(Boolean)
   const parseKey = (key) => Object.fromEntries(key ? key.split(',').map((pair) => pair.split('=')) : [])
