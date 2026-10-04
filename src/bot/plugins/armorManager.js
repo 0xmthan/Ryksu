@@ -1,4 +1,4 @@
-const loadArmorManagerPlugin = require('./core/armor')
+const { initializeBot: loadArmorManagerPlugin } = require('./core/armor')
 
 class ArmorManagerController {
   constructor() {

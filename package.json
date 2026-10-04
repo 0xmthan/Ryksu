@@ -6,7 +6,7 @@
   "main": ".vite/build/main.cjs",
   "packageManager": "pnpm@12.8.1",
   "scripts": {
-    "test": "node --test tests/*.test.cjs",
+    "test": "node --require ./scripts/test-typescript.cjs --test tests/*.test.cjs",
     "typecheck": "tsc --noEmit",
     "dev": "electron-forge start",
     "package": "electron-forge package",

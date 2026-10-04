@@ -1,9 +1,10 @@
-const invUtil = require('./invUtil')
+import type { CoreBot } from '../../types'
+import * as invUtil from './invUtil'
 /**
  * Search for item in bot's inventory and equips it
  * @return {Boolean}   true if item equipped successfully, false if something went wrong
  */
-const equipItem = async (bot, itemId) => {
+export const equipItem = async (bot: CoreBot, itemId: number) => {
   const item = invUtil.findItemById(bot.inventory, itemId)
   const equipped = invUtil.equipped(bot.inventory, !bot.supportFeature('doesntHaveOffHandSlot'))
   if (!item) {
@@ -21,4 +22,3 @@ const equipItem = async (bot, itemId) => {
   }
   return false
 }
-exports.equipItem = equipItem

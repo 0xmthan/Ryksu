@@ -1,11 +1,18 @@
+import type { EventEmitter } from 'node:events'
 class Subscription {
-  constructor(eventName, callback) {
+  eventName: string
+  callback: (...args: unknown[]) => void
+
+  constructor(eventName: string, callback: (...args: unknown[]) => void) {
     this.eventName = eventName
     this.callback = callback
   }
 }
-class TemporarySubscriber {
-  constructor(bot) {
+export class TemporarySubscriber {
+  bot: EventEmitter
+  subscriptions: Subscription[]
+
+  constructor(bot: EventEmitter) {
     this.bot = bot
     this.subscriptions = []
   }
@@ -15,9 +22,8 @@ class TemporarySubscriber {
    * @param event - The event to subscribe to.
    * @param callback - The function to execute.
    */
-  subscribeTo(event, callback) {
+  subscribeTo(event: string, callback: (...args: unknown[]) => void) {
     this.subscriptions.push(new Subscription(event, callback))
-    // @ts-expect-error
     this.bot.on(event, callback)
   }
   /**
@@ -25,9 +31,7 @@ class TemporarySubscriber {
    */
   cleanup() {
     for (const sub of this.subscriptions) {
-      // @ts-expect-error
       this.bot.removeListener(sub.eventName, sub.callback)
     }
   }
 }
-exports.TemporarySubscriber = TemporarySubscriber

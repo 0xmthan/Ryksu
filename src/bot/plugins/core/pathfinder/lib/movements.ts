@@ -1,6 +1,40 @@
-const { Vec3 } = require('vec3')
-const nbt = require('prismarine-nbt')
-const Move = require('./move')
+import type { CoreBot, Placement } from '../../types'
+import type { Block } from 'prismarine-block'
+import loadBlock from 'prismarine-block'
+import passableEntityNames from './passableEntities.json'
+import interactableNames from './interactable.json'
+export interface Direction {
+  x: number
+  z: number
+}
+export type MovementBlock = Block & {
+  replaceable: boolean
+  canFall: boolean
+  safe: boolean
+  physical: boolean
+  liquid: boolean
+  climbable: boolean
+  height: number
+  openable: boolean
+}
+// An unloaded block deliberately has no position or block methods. Its flags
+// prevent planning paths into unloaded terrain.
+export interface UnloadedBlock {
+  replaceable: false
+  canFall: false
+  safe: false
+  physical: false
+  liquid: false
+  climbable: false
+  openable: false
+  height: number
+  position?: undefined
+  type?: undefined
+}
+export type BlockInfo = MovementBlock | UnloadedBlock
+import { Vec3 } from 'vec3'
+import * as nbt from 'prismarine-nbt'
+import { Move } from './move'
 
 const cardinalDirections = [
   { x: -1, z: 0 }, // West
@@ -15,8 +49,43 @@ const diagonalDirections = [
   { x: 1, z: 1 },
 ]
 
-class Movements {
-  constructor(bot) {
+export class Movements {
+  bot: CoreBot
+  canDig: boolean
+  digCost: number
+  placeCost: number
+  liquidCost: number
+  entityCost: number
+  dontCreateFlow: boolean
+  dontMineUnderFallingBlock: boolean
+  allow1by1towers: boolean
+  allowFreeMotion: boolean
+  allowParkour: boolean
+  allowSprinting: boolean
+  allowEntityDetection: boolean
+  entitiesToAvoid: Set<string | undefined>
+  passableEntities: Set<string | undefined>
+  interactableBlocks: Set<string>
+  blocksCantBreak: Set<number>
+  blocksToAvoid: Set<number>
+  liquids: Set<number>
+  gravityBlocks: Set<number>
+  climbables: Set<number>
+  emptyBlocks: Set<number>
+  replaceables: Set<number>
+  scafoldingBlocks: number[]
+  fences: Set<number>
+  carpets: Set<number>
+  openable: Set<number>
+  canOpenDoors: boolean
+  exclusionAreasStep: Array<(block: BlockInfo) => number>
+  exclusionAreasBreak: Array<(block: BlockInfo) => number>
+  exclusionAreasPlace: Array<(block: BlockInfo) => number>
+  maxDropDown: number
+  infiniteLiquidDropdownDistance: boolean
+  entityIntersections: Record<string, number>
+
+  constructor(bot: CoreBot) {
     const registry = bot.registry
     this.bot = bot
 
@@ -35,8 +104,8 @@ class Movements {
     this.allowEntityDetection = true
 
     this.entitiesToAvoid = new Set()
-    this.passableEntities = new Set(require('./passableEntities.json'))
-    this.interactableBlocks = new Set(require('./interactable.json'))
+    this.passableEntities = new Set(passableEntityNames)
+    this.interactableBlocks = new Set(interactableNames)
 
     this.blocksCantBreak = new Set()
     this.blocksCantBreak.add(registry.blocksByName.chest.id)
@@ -76,7 +145,7 @@ class Movements {
     this.scafoldingBlocks.push(registry.itemsByName.dirt.id)
     this.scafoldingBlocks.push(registry.itemsByName.cobblestone.id)
 
-    const Block = require('prismarine-block')(bot.registry)
+    const Block = loadBlock(bot.registry)
     this.fences = new Set()
     this.carpets = new Set()
     this.openable = new Set()
@@ -116,7 +185,7 @@ class Movements {
     this.entityIntersections = {}
   }
 
-  exclusionPlace(block) {
+  exclusionPlace(block: BlockInfo) {
     if (this.exclusionAreasPlace.length === 0) return 0
     let weight = 0
     for (const a of this.exclusionAreasPlace) {
@@ -125,7 +194,7 @@ class Movements {
     return weight
   }
 
-  exclusionStep(block) {
+  exclusionStep(block: BlockInfo) {
     if (this.exclusionAreasStep.length === 0) return 0
     let weight = 0
     for (const a of this.exclusionAreasStep) {
@@ -134,7 +203,7 @@ class Movements {
     return weight
   }
 
-  exclusionBreak(block) {
+  exclusionBreak(block: BlockInfo) {
     if (this.exclusionAreasBreak.length === 0) return 0
     let weight = 0
     for (const a of this.exclusionAreasBreak) {
@@ -213,7 +282,7 @@ class Movements {
    * @param {number} dz Z axis offset
    * @returns {number} Number of entities intersecting block
    */
-  getNumEntitiesAt(pos, dx, dy, dz) {
+  getNumEntitiesAt(pos: Vec3 | undefined | null, dx: number, dy: number, dz: number) {
     if (this.allowEntityDetection === false) return 0
     if (!pos) return 0
     const y = pos.y + dy
@@ -223,9 +292,11 @@ class Movements {
     return this.entityIntersections[`${x},${y},${z}`] ?? 0
   }
 
-  getBlock(pos, dx, dy, dz) {
-    const b = pos ? this.bot.blockAt(new Vec3(pos.x + dx, pos.y + dy, pos.z + dz), false) : null
-    if (!b) {
+  getBlock(pos: Vec3 | null | undefined, dx: number, dy: number, dz: number): BlockInfo {
+    const b = (
+      pos ? this.bot.blockAt(new Vec3(pos.x + dx, pos.y + dy, pos.z + dz), false) : null
+    ) as MovementBlock | null
+    if (!pos || !b) {
       return {
         replaceable: false,
         canFall: false,
@@ -259,8 +330,8 @@ class Movements {
    * @param {import('prismarine-block').Block} block
    * @returns
    */
-  safeToBreak(block) {
-    if (!this.canDig) {
+  safeToBreak(block: BlockInfo): block is MovementBlock {
+    if (!this.canDig || block.type === undefined) {
       return false
     }
 
@@ -283,7 +354,7 @@ class Movements {
       }
     }
 
-    return block.type && !this.blocksCantBreak.has(block.type) && this.exclusionBreak(block) < 100
+    return Boolean(block.type) && !this.blocksCantBreak.has(block.type) && this.exclusionBreak(block) < 100
   }
 
   /**
@@ -292,7 +363,7 @@ class Movements {
    * @param {[]} toBreak
    * @returns {number}
    */
-  safeOrBreak(block, toBreak) {
+  safeOrBreak(block: BlockInfo, toBreak: Vec3[]) {
     let cost = 0
     cost += this.exclusionStep(block) // Is excluded so can't move or break
     cost += this.getNumEntitiesAt(block.position, 0, 0, 0) * this.entityCost
@@ -311,15 +382,15 @@ class Movements {
     return cost
   }
 
-  getMoveJumpUp(node, dir, neighbors) {
+  getMoveJumpUp(node: Move, dir: Direction, neighbors: Move[]) {
     const blockA = this.getBlock(node, 0, 2, 0)
     const blockH = this.getBlock(node, dir.x, 2, dir.z)
     const blockB = this.getBlock(node, dir.x, 1, dir.z)
     const blockC = this.getBlock(node, dir.x, 0, dir.z)
 
     let cost = 2 // move cost (move+jump)
-    const toBreak = []
-    const toPlace = []
+    const toBreak: Vec3[] = []
+    const toPlace: Placement[] = []
 
     if (blockA.physical && this.getNumEntitiesAt(blockA.position, 0, 1, 0) > 0) return // Blocks A, B and H are above C, D and the player's space, we need to make sure there are no entities that will fall down onto our building space if we break them
     if (blockH.physical && this.getNumEntitiesAt(blockH.position, 0, 1, 0) > 0) return
@@ -384,9 +455,9 @@ class Movements {
 
     neighbors.push(
       new Move(
-        blockB.position.x,
-        blockB.position.y,
-        blockB.position.z,
+        blockB.position!.x,
+        blockB.position!.y,
+        blockB.position!.z,
         node.remainingBlocks - toPlace.length,
         cost,
         toBreak,
@@ -395,7 +466,7 @@ class Movements {
     )
   }
 
-  getMoveForward(node, dir, neighbors) {
+  getMoveForward(node: Move, dir: Direction, neighbors: Move[]) {
     const blockB = this.getBlock(node, dir.x, 1, dir.z)
     const blockC = this.getBlock(node, dir.x, 0, dir.z)
     const blockD = this.getBlock(node, dir.x, -1, dir.z)
@@ -403,8 +474,8 @@ class Movements {
     let cost = 1 // move cost
     cost += this.exclusionStep(blockC)
 
-    const toBreak = []
-    const toPlace = []
+    const toBreak: Vec3[] = []
+    const toPlace: Placement[] = []
 
     if (!blockD.physical && !blockC.liquid) {
       if (node.remainingBlocks === 0) return // not enough blocks to place
@@ -436,9 +507,9 @@ class Movements {
 
     neighbors.push(
       new Move(
-        blockC.position.x,
-        blockC.position.y,
-        blockC.position.z,
+        blockC.position!.x,
+        blockC.position!.y,
+        blockC.position!.z,
         node.remainingBlocks - toPlace.length,
         cost,
         toBreak,
@@ -447,9 +518,9 @@ class Movements {
     )
   }
 
-  getMoveDiagonal(node, dir, neighbors) {
+  getMoveDiagonal(node: Move, dir: Direction, neighbors: Move[]) {
     let cost = Math.SQRT2 // move cost
-    const toBreak = []
+    const toBreak: Vec3[] = []
 
     const blockC = this.getBlock(node, dir.x, 0, dir.z) // Landing block or standing on block when jumping up by 1
     const y = blockC.physical ? 1 : 0
@@ -457,7 +528,7 @@ class Movements {
     const block0 = this.getBlock(node, 0, -1, 0)
 
     let cost1 = 0
-    const toBreak1 = []
+    const toBreak1: Vec3[] = []
     const blockB1 = this.getBlock(node, 0, y + 1, dir.z)
     const blockC1 = this.getBlock(node, 0, y, dir.z)
     const blockD1 = this.getBlock(node, 0, y - 1, dir.z)
@@ -466,7 +537,7 @@ class Movements {
     if (blockD1.height - block0.height > 1.2) cost1 += this.safeOrBreak(blockD1, toBreak1)
 
     let cost2 = 0
-    const toBreak2 = []
+    const toBreak2: Vec3[] = []
     const blockB2 = this.getBlock(node, dir.x, y + 1, 0)
     const blockC2 = this.getBlock(node, dir.x, y, 0)
     const blockD2 = this.getBlock(node, dir.x, y - 1, 0)
@@ -499,9 +570,9 @@ class Movements {
       cost += 1
       neighbors.push(
         new Move(
-          blockC.position.x,
-          blockC.position.y + 1,
-          blockC.position.z,
+          blockC.position!.x,
+          blockC.position!.y + 1,
+          blockC.position!.z,
           node.remainingBlocks,
           cost,
           toBreak
@@ -509,16 +580,23 @@ class Movements {
       )
     } else if (blockD.physical || blockC.liquid) {
       neighbors.push(
-        new Move(blockC.position.x, blockC.position.y, blockC.position.z, node.remainingBlocks, cost, toBreak)
+        new Move(
+          blockC.position!.x,
+          blockC.position!.y,
+          blockC.position!.z,
+          node.remainingBlocks,
+          cost,
+          toBreak
+        )
       )
     } else if (this.getBlock(node, dir.x, -2, dir.z).physical || blockD.liquid) {
       if (!blockD.safe) return // don't self-immolate
       cost += this.getNumEntitiesAt(blockC.position, 0, -1, 0) * this.entityCost
       neighbors.push(
         new Move(
-          blockC.position.x,
-          blockC.position.y - 1,
-          blockC.position.z,
+          blockC.position!.x,
+          blockC.position!.y - 1,
+          blockC.position!.z,
           node.remainingBlocks,
           cost,
           toBreak
@@ -527,12 +605,12 @@ class Movements {
     }
   }
 
-  getLandingBlock(node, dir) {
+  getLandingBlock(node: Move, dir: Direction): BlockInfo | null {
     let blockLand = this.getBlock(node, dir.x, -2, dir.z)
-    while (blockLand.position && blockLand.position.y > this.bot.game.minY) {
+    while (blockLand.position && blockLand.position!.y > this.bot.game.minY) {
       if (blockLand.liquid && blockLand.safe) return blockLand
       if (blockLand.physical) {
-        if (node.y - blockLand.position.y <= this.maxDropDown)
+        if (node.y - blockLand.position!.y <= this.maxDropDown)
           return this.getBlock(blockLand.position, 0, 1, 0)
         return null
       }
@@ -542,18 +620,18 @@ class Movements {
     return null
   }
 
-  getMoveDropDown(node, dir, neighbors) {
+  getMoveDropDown(node: Move, dir: Direction, neighbors: Move[]) {
     const blockB = this.getBlock(node, dir.x, 1, dir.z)
     const blockC = this.getBlock(node, dir.x, 0, dir.z)
     const blockD = this.getBlock(node, dir.x, -1, dir.z)
 
     let cost = 1 // move cost
-    const toBreak = []
-    const toPlace = []
+    const toBreak: Vec3[] = []
+    const toPlace: Placement[] = []
 
     const blockLand = this.getLandingBlock(node, dir)
     if (!blockLand) return
-    if (!this.infiniteLiquidDropdownDistance && node.y - blockLand.position.y > this.maxDropDown) return // Don't drop down into water
+    if (!this.infiniteLiquidDropdownDistance && node.y - blockLand.position!.y > this.maxDropDown) return // Don't drop down into water
 
     cost += this.safeOrBreak(blockB, toBreak)
     if (cost > 100) return
@@ -568,9 +646,9 @@ class Movements {
 
     neighbors.push(
       new Move(
-        blockLand.position.x,
-        blockLand.position.y,
-        blockLand.position.z,
+        blockLand.position!.x,
+        blockLand.position!.y,
+        blockLand.position!.z,
         node.remainingBlocks - toPlace.length,
         cost,
         toBreak,
@@ -579,12 +657,12 @@ class Movements {
     )
   }
 
-  getMoveDown(node, neighbors) {
+  getMoveDown(node: Move, neighbors: Move[]) {
     const block0 = this.getBlock(node, 0, -1, 0)
 
     let cost = 1 // move cost
-    const toBreak = []
-    const toPlace = []
+    const toBreak: Vec3[] = []
+    const toPlace: Placement[] = []
 
     const blockLand = this.getLandingBlock(node, { x: 0, z: 0 })
     if (!blockLand) return
@@ -598,9 +676,9 @@ class Movements {
 
     neighbors.push(
       new Move(
-        blockLand.position.x,
-        blockLand.position.y,
-        blockLand.position.z,
+        blockLand.position!.x,
+        blockLand.position!.y,
+        blockLand.position!.z,
         node.remainingBlocks - toPlace.length,
         cost,
         toBreak,
@@ -609,7 +687,7 @@ class Movements {
     )
   }
 
-  getMoveUp(node, neighbors) {
+  getMoveUp(node: Move, neighbors: Move[]) {
     const block1 = this.getBlock(node, 0, 0, 0)
     if (block1.liquid) return
     if (this.getNumEntitiesAt(node, 0, 0, 0) > 0) return // an entity (besides the player) is blocking the building area
@@ -617,8 +695,8 @@ class Movements {
     const block2 = this.getBlock(node, 0, 2, 0)
 
     let cost = 1 // move cost
-    const toBreak = []
-    const toPlace = []
+    const toBreak: Vec3[] = []
+    const toPlace: Placement[] = []
     cost += this.safeOrBreak(block2, toBreak)
     if (cost > 100) return
 
@@ -646,7 +724,7 @@ class Movements {
   }
 
   // Jump up, down or forward over a 1 block gap
-  getMoveParkourForward(node, dir, neighbors) {
+  getMoveParkourForward(node: Move, dir: Direction, neighbors: Move[]) {
     const block0 = this.getBlock(node, 0, -1, 0)
     const block1 = this.getBlock(node, dir.x, -1, dir.z)
     if (
@@ -685,9 +763,9 @@ class Movements {
         // Forward
         neighbors.push(
           new Move(
-            blockC.position.x,
-            blockC.position.y,
-            blockC.position.z,
+            blockC.position!.x,
+            blockC.position!.y,
+            blockC.position!.z,
             node.remainingBlocks,
             cost,
             [],
@@ -705,9 +783,9 @@ class Movements {
           cost += this.getNumEntitiesAt(blockB.position, 0, 0, 0) * this.entityCost
           neighbors.push(
             new Move(
-              blockB.position.x,
-              blockB.position.y,
-              blockB.position.z,
+              blockB.position!.x,
+              blockB.position!.y,
+              blockB.position!.z,
               node.remainingBlocks,
               cost,
               [],
@@ -725,9 +803,9 @@ class Movements {
           cost += this.getNumEntitiesAt(blockD.position, 0, 0, 0) * this.entityCost
           neighbors.push(
             new Move(
-              blockD.position.x,
-              blockD.position.y,
-              blockD.position.z,
+              blockD.position!.x,
+              blockD.position!.y,
+              blockD.position!.z,
               node.remainingBlocks,
               cost,
               [],
@@ -761,8 +839,8 @@ class Movements {
   //  |
   //  dy
 
-  getNeighbors(node) {
-    const neighbors = []
+  getNeighbors(node: Move): Move[] {
+    const neighbors: Move[] = []
 
     // Simple moves in 4 cardinal points
     for (const i in cardinalDirections) {
@@ -787,5 +865,3 @@ class Movements {
     return neighbors
   }
 }
-
-module.exports = Movements

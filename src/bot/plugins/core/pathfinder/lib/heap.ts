@@ -1,7 +1,8 @@
-class BinaryHeapOpenSet {
+export class BinaryHeapOpenSet<T extends { f: number }> {
+  heap: T[]
   constructor() {
     // Initialing the array heap and adding a dummy element at index 0
-    this.heap = [null]
+    this.heap = [null!]
   }
 
   size() {
@@ -12,7 +13,7 @@ class BinaryHeapOpenSet {
     return this.heap.length === 1
   }
 
-  push(val) {
+  push(val: T) {
     // Inserting the new node at the end of the heap array
     this.heap.push(val)
 
@@ -28,7 +29,7 @@ class BinaryHeapOpenSet {
     }
   }
 
-  update(val) {
+  update(val: T) {
     let current = this.heap.indexOf(val)
     let parent = current >>> 1
 
@@ -77,5 +78,3 @@ class BinaryHeapOpenSet {
     return smallest
   }
 }
-
-module.exports = BinaryHeapOpenSet

@@ -1,10 +1,16 @@
-const { PlayerState } = require('prismarine-physics')
+import type { Block } from 'prismarine-block'
+import type { CoreBot } from '../../types'
+import type { Vec3 } from 'vec3'
+import { PlayerState } from 'prismarine-physics'
 
-class Physics {
-  constructor(bot) {
+export class Physics {
+  bot: CoreBot
+  world: { getBlock(pos: Vec3): Block | null }
+
+  constructor(bot: CoreBot) {
     this.bot = bot
     this.world = {
-      getBlock: (pos) => {
+      getBlock: (pos: Vec3) => {
         return bot.blockAt(pos, false)
       },
     }
@@ -18,7 +24,12 @@ class Physics {
    * @param {object} state Starting control state to begin the simulation with
    * @returns { import('prismarine-physics').PlayerState } A player state of the final simulation tick
    */
-  simulateUntil(goal, controller = () => {}, ticks = 1, state = null) {
+  simulateUntil(
+    goal: (state: PlayerState) => boolean,
+    controller: (state: PlayerState, tick: number) => void = () => {},
+    ticks = 1,
+    state: PlayerState | null = null
+  ) {
     if (!state) {
       const simulationControl = {
         forward: this.bot.controlState.forward,
@@ -58,7 +69,7 @@ class Physics {
     )
   }
 
-  canStraightLine(path, sprint = false) {
+  canStraightLine(path: Vec3[], sprint = false) {
     const reached = this.getReached(path)
     const state = this.simulateUntil(reached, this.getController(path[0], false, sprint), 200)
     if (reached(state)) return true
@@ -79,8 +90,8 @@ class Physics {
     return false
   }
 
-  canStraightLineBetween(n1, n2) {
-    const reached = (state) => {
+  canStraightLineBetween(n1: Vec3, n2: Vec3) {
+    const reached = (state: PlayerState) => {
       const delta = n2.minus(state.pos)
       const r2 = 0.15 * 0.15
       return (
@@ -104,27 +115,27 @@ class Physics {
     return reached(state)
   }
 
-  canSprintJump(path, jumpAfter = 0) {
+  canSprintJump(path: Vec3[], jumpAfter = 0) {
     const reached = this.getReached(path)
     const state = this.simulateUntil(reached, this.getController(path[0], true, true, jumpAfter), 20)
     return reached(state)
   }
 
-  canWalkJump(path, jumpAfter = 0) {
+  canWalkJump(path: Vec3[], jumpAfter = 0) {
     const reached = this.getReached(path)
     const state = this.simulateUntil(reached, this.getController(path[0], true, false, jumpAfter), 20)
     return reached(state)
   }
 
-  getReached(path) {
-    return (state) => {
+  getReached(path: Vec3[]) {
+    return (state: PlayerState) => {
       const delta = path[0].minus(state.pos)
       return Math.abs(delta.x) <= 0.35 && Math.abs(delta.z) <= 0.35 && Math.abs(delta.y) < 1
     }
   }
 
-  getController(nextPoint, jump, sprint, jumpAfter = 0) {
-    return (state, tick) => {
+  getController(nextPoint: Vec3, jump: boolean, sprint: boolean, jumpAfter = 0) {
+    return (state: PlayerState, tick: number) => {
       const dx = nextPoint.x - state.pos.x
       const dz = nextPoint.z - state.pos.z
       state.yaw = Math.atan2(-dx, -dz)
@@ -135,5 +146,3 @@ class Physics {
     }
   }
 }
-
-module.exports = Physics

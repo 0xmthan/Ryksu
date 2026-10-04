@@ -1,13 +1,22 @@
-const tool = require('./Tool')
-const { goals } = require('../pathfinder')
-const { setTimeout: wait } = require('node:timers/promises')
+import type { CoreBot, Callback } from '../types'
+import type { Item } from 'prismarine-item'
+import type { Vec3 } from 'vec3'
+export interface ToolRetrievalOptions {
+  chestLocations: Vec3[]
+  toolFilter(item: Item): boolean
+  toolCostFilter(item: Item): number
+  maxTools?: number
+}
+import * as tool from './Tool'
+import { goals } from '../pathfinder'
+import { setTimeout as wait } from 'node:timers/promises'
 /**
  * A standard tool filter that returns true for all tools and false
  * for everything else.
  *
  * @param item - The item to test against.
  */
-function standardToolFilter(item) {
+export function standardToolFilter(item: Item) {
   if (item.name.includes('sword')) return true
   if (item.name.includes('pickaxe')) return true
   if (item.name.includes('shovel')) return true
@@ -15,7 +24,6 @@ function standardToolFilter(item) {
   if (item.name.includes('hoe')) return true
   return false
 }
-exports.standardToolFilter = standardToolFilter
 /**
  * Moves from chest to chest in an effort to get at least one tool that meets the given requirements.
  * Throws an error in the callback if a tool cannot be retrieved.
@@ -24,7 +32,7 @@ exports.standardToolFilter = standardToolFilter
  * @param options - The options to use when collecting tools.
  * @param cb - The callback to execute when the function has completed.
  */
-async function retrieveTools(bot, options, cb) {
+export async function retrieveTools(bot: CoreBot, options: ToolRetrievalOptions, cb?: Callback) {
   const chestLocations = [...options.chestLocations]
   while (chestLocations.length > 0) {
     const chest = getClosestChest(bot, chestLocations)
@@ -49,7 +57,6 @@ async function retrieveTools(bot, options, cb) {
     }
   }
 }
-exports.retrieveTools = retrieveTools
 /**
  * Moves the bot to the chest.
  *
@@ -58,7 +65,7 @@ exports.retrieveTools = retrieveTools
  * @param cb - The callback to run when finished.
  * @returns {Promise<void>}
  */
-async function gotoChest(bot, location, cb) {
+async function gotoChest(bot: CoreBot, location: Vec3, cb?: Callback) {
   const pathfinder = bot.pathfinder
   try {
     await pathfinder.goto(new goals.GoalGetToBlock(location.x, location.y, location.z))
@@ -75,7 +82,12 @@ async function gotoChest(bot, location, cb) {
  * @param cb Optional callback
  * @returns {Promise<boolean>}
  */
-async function pullFromChest(bot, chestPos, options, cb) {
+async function pullFromChest(
+  bot: CoreBot,
+  chestPos: Vec3,
+  options: ToolRetrievalOptions,
+  cb?: (error?: unknown, gotItem?: boolean) => void
+) {
   const chestBlock = bot.blockAt(chestPos)
   if (chestBlock == null) {
     const err = tool.error('UnloadedChunk', 'Chest is located in an unloaded chunk!')
@@ -119,8 +131,8 @@ async function pullFromChest(bot, chestPos, options, cb) {
  * @returns The nearest chest location, or null if the chest location
  *          array is empty.
  */
-function getClosestChest(bot, chestLocations) {
-  let location = null
+function getClosestChest(bot: CoreBot, chestLocations: Vec3[]) {
+  let location: Vec3 | null = null
   let distance = 0
   for (const chestLocation of chestLocations) {
     const dist = bot.entity.position.distanceTo(chestLocation)

@@ -1,4 +1,6 @@
-function error(name, message) {
+import type { CoreBot, PathResult } from '../../types'
+import type { Goal } from './goals'
+function error(name: string, message: string) {
   const err = new Error(message)
   err.name = name
   return err
@@ -13,13 +15,13 @@ function error(name, message) {
  * @param {Goal} goal - The goal to execute.
  * @returns {Promise} - resolves on success, rejects on error
  */
-function goto(bot, goal) {
-  return new Promise((resolve, reject) => {
+export function goto(bot: CoreBot, goal: Goal) {
+  return new Promise<void>((resolve, reject) => {
     function goalReached() {
       cleanup()
     }
 
-    function noPathListener(results) {
+    function noPathListener(results: PathResult) {
       if (results.path.length === 0) {
         cleanup()
       } else if (results.status === 'noPath') {
@@ -29,7 +31,7 @@ function goto(bot, goal) {
       }
     }
 
-    function goalChangedListener(newGoal) {
+    function goalChangedListener(newGoal: Goal | null) {
       if (newGoal !== goal) {
         cleanup(error('GoalChanged', 'The goal was changed before it could be completed!'))
       }
@@ -44,7 +46,7 @@ function goto(bot, goal) {
       )
     }
 
-    function cleanup(err) {
+    function cleanup(err?: Error) {
       bot.removeListener('goal_reached', goalReached)
       bot.removeListener('path_update', noPathListener)
       bot.removeListener('goal_updated', goalChangedListener)
@@ -68,5 +70,3 @@ function goto(bot, goal) {
     bot.pathfinder.setGoal(goal)
   })
 }
-
-module.exports = goto

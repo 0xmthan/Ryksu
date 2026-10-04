@@ -1,7 +1,11 @@
+import type { Callback } from '../types'
 /**
  * A simple utility class for queuing up a series of async tasks to execute.
  */
-class TaskQueue {
+export class TaskQueue {
+  tasks: Array<(callback: Callback) => void>
+  stopOnError: boolean
+
   constructor() {
     this.tasks = []
     /**
@@ -15,7 +19,7 @@ class TaskQueue {
    *
    * @param task - The async task to add.
    */
-  add(task) {
+  add(task: (callback: Callback) => void) {
     this.tasks.push(task)
   }
   /**
@@ -23,7 +27,7 @@ class TaskQueue {
    *
    * @param task - The sync task to add.
    */
-  addSync(task) {
+  addSync(task: () => void) {
     this.add((cb) => {
       try {
         task()
@@ -39,7 +43,7 @@ class TaskQueue {
    * @param cb - The optional callback to be executed when all tasks in this queue have
    * finished executing.
    */
-  runAll(cb) {
+  runAll(cb?: Callback) {
     const taskList = this.tasks
     this.tasks = []
     let index = -1
@@ -64,4 +68,3 @@ class TaskQueue {
     runNext()
   }
 }
-exports.TaskQueue = TaskQueue

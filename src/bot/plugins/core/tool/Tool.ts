@@ -1,21 +1,32 @@
-const inventory = require('./Inventory')
-const nbt = require('prismarine-nbt')
-function error(name, message) {
+import type { CoreBot, Callback } from '../types'
+import type { Block } from 'prismarine-block'
+import type { Item } from 'prismarine-item'
+import type { Vec3 } from 'vec3'
+export interface EquipOptions {
+  requireHarvest?: boolean
+  getFromChest?: boolean
+  maxTools?: number
+}
+import * as inventory from './Inventory'
+import * as nbt from 'prismarine-nbt'
+export function error(name: string, message: string) {
   const e = new Error(message)
   e.name = name
   return e
 }
-exports.error = error
 /**
  * The main class object for the tool plugin.
  */
-class Tool {
+export class Tool {
+  bot: CoreBot
+  chestLocations: Vec3[]
+
   /**
    * Creates a new tool plugin instance.
    *
    * @param bot - The bot the plugin is running on.
    */
-  constructor(bot) {
+  constructor(bot: CoreBot) {
     /**
      * A list of chest locations that the bot is allowed to retrieve items from
      * when using the "getFromChest" option.
@@ -31,10 +42,10 @@ class Tool {
    *
    * @returns The number of ticks it would take to mine.
    */
-  getDigTime(block, item) {
+  getDigTime(block: Block, item: Item | null | undefined) {
     const effects = this.bot.entity.effects
     const enchants = item?.nbt != null ? nbt.simplify(item.nbt).Enchantments : []
-    return block.digTime(item?.type, false, false, false, enchants, effects)
+    return block.digTime(item?.type ?? null, false, false, false, enchants, effects)
   }
   /**
    * Gets the item currently in the bot's hand.
@@ -52,7 +63,7 @@ class Tool {
    * @returns True if the items in the list are better. False if they are worse or
    *          equal to what's already in the bot's hand.
    */
-  isBetterMiningTool(block, itemList) {
+  isBetterMiningTool(block: Block, itemList: Array<Item | undefined>) {
     const item = this.itemInHand()
     if (item == null) return true
     if (!itemList.includes(item)) return true
@@ -66,8 +77,8 @@ class Tool {
    * @param options - The options to use for equipping the correct tool.
    * @param cb - The callback.
    */
-  async equipForBlock(block, options = {}, cb) {
-    let itemList = [...this.bot.inventory.items()]
+  async equipForBlock(block: Block, options: EquipOptions = {}, cb?: Callback): Promise<void> {
+    let itemList: Array<Item | undefined> = [...this.bot.inventory.items()]
     // Add an "undefined" item if the bot has empty space in it's inventory.
     if (this.bot.inventory.emptySlotCount() >= 1) {
       itemList.unshift(undefined)
@@ -123,4 +134,3 @@ class Tool {
     if (cb != null) cb()
   }
 }
-exports.Tool = Tool

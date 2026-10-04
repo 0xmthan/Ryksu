@@ -1,17 +1,27 @@
-const { performance } = require('perf_hooks')
+import type { Move } from './move'
+import type { Movements } from './movements'
+import type { Goal } from './goals'
+import type { PathStatus, PathResult } from '../../types'
+import { performance } from 'perf_hooks'
 
-const Heap = require('./heap.js')
+import { BinaryHeapOpenSet as Heap } from './heap'
 
 class PathNode {
-  constructor() {
-    this.data = null
+  data: Move
+  g: number
+  h: number
+  f: number
+  parent: PathNode | null
+
+  constructor(data: Move) {
+    this.data = data
     this.g = 0
     this.h = 0
     this.f = 0
     this.parent = null
   }
 
-  set(data, g, h, parent = null) {
+  set(data: Move, g: number, h: number, parent: PathNode | null = null) {
     this.data = data
     this.g = g
     this.h = h
@@ -21,7 +31,7 @@ class PathNode {
   }
 }
 
-function reconstructPath(node) {
+function reconstructPath(node: PathNode) {
   const path = []
   while (node.parent) {
     path.push(node.data)
@@ -30,8 +40,27 @@ function reconstructPath(node) {
   return path.reverse()
 }
 
-class AStar {
-  constructor(start, movements, goal, timeout, tickTimeout = 40, searchRadius = -1) {
+export class AStar {
+  startTime: number
+  movements: Movements
+  goal: Goal
+  timeout: number
+  tickTimeout: number
+  closedDataSet: Set<string>
+  openHeap: Heap<PathNode>
+  openDataMap: Map<string, PathNode>
+  bestNode: PathNode
+  maxCost: number
+  visitedChunks: Set<string>
+
+  constructor(
+    start: Move,
+    movements: Movements,
+    goal: Goal,
+    timeout: number,
+    tickTimeout = 40,
+    searchRadius = -1
+  ) {
     this.startTime = performance.now()
 
     this.movements = movements
@@ -40,10 +69,10 @@ class AStar {
     this.tickTimeout = tickTimeout
 
     this.closedDataSet = new Set()
-    this.openHeap = new Heap()
+    this.openHeap = new Heap<PathNode>()
     this.openDataMap = new Map()
 
-    const startNode = new PathNode().set(start, 0, goal.heuristic(start))
+    const startNode = new PathNode(start).set(start, 0, goal.heuristic(start))
     this.openHeap.push(startNode)
     this.openDataMap.set(startNode.data.hash, startNode)
     this.bestNode = startNode
@@ -52,7 +81,7 @@ class AStar {
     this.visitedChunks = new Set()
   }
 
-  makeResult(status, node) {
+  makeResult(status: PathStatus, node: PathNode): PathResult {
     return {
       status,
       cost: node.g,
@@ -98,7 +127,7 @@ class AStar {
 
         if (neighborNode === undefined) {
           // add neighbor to the open set
-          neighborNode = new PathNode()
+          neighborNode = new PathNode(neighborData)
           // properties will be set later
           this.openDataMap.set(neighborData.hash, neighborNode)
         } else {
@@ -123,5 +152,3 @@ class AStar {
     return this.makeResult('noPath', this.bestNode)
   }
 }
-
-module.exports = AStar

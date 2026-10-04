@@ -1,6 +1,7 @@
-const armor = require('./lib/isArmor')
-const equipment = require('./lib/equipItem')
-const initializeBot = (bot) => {
+import type { CoreBot } from '../types'
+import * as armor from './lib/isArmor'
+import * as equipment from './lib/equipItem'
+export const initializeBot = (bot: CoreBot) => {
   if (!bot) {
     throw new Error('Bot object is missing, provide mineflayer bot as first argument')
   }
@@ -22,4 +23,3 @@ const initializeBot = (bot) => {
     }
   })
 }
-module.exports = initializeBot

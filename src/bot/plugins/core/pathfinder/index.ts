@@ -1,40 +1,48 @@
-const { performance } = require('perf_hooks')
+import type { CoreBot, Pathfinder, Placement, PathOptions } from '../types'
+import type { Block } from 'prismarine-block'
+import type { Item } from 'prismarine-item'
+import { Goal, GoalFollow } from './lib/goals'
+import { performance } from 'perf_hooks'
 
-const AStar = require('./lib/astar')
-const Move = require('./lib/move')
-const Movements = require('./lib/movements')
-const gotoUtil = require('./lib/goto')
-const Lock = require('./lib/lock')
+import { AStar } from './lib/astar'
+import { Move } from './lib/move'
+import { Movements } from './lib/movements'
+import { goto as gotoUtil } from './lib/goto'
+import { Lock } from './lib/lock'
 
-const Vec3 = require('vec3').Vec3
+import { Vec3 } from 'vec3'
 
-const Physics = require('./lib/physics')
-const nbt = require('prismarine-nbt')
-const interactableBlocks = require('./lib/interactable.json')
+import { Physics } from './lib/physics'
+import * as nbt from 'prismarine-nbt'
+import interactableBlocks from './lib/interactable.json'
 
-function inject(bot) {
+function hasFollowTarget(goal: Goal): goal is GoalFollow {
+  return Boolean((goal as Partial<GoalFollow>).entity)
+}
+
+function inject(bot: CoreBot) {
   const waterType = bot.registry.blocksByName.water.id
   const ladderId = bot.registry.blocksByName.ladder.id
   const vineId = bot.registry.blocksByName.vine.id
   let stateMovements = new Movements(bot)
-  let stateGoal = null
-  let astarContext = null
+  let stateGoal: Goal | null = null
+  let astarContext: AStar | null = null
   let astartTimedout = false
   let dynamicGoal = false
-  let path = []
+  let path: Move[] = []
   let pathUpdated = false
   let digging = false
   let placing = false
-  let placingBlock = null
+  let placingBlock: Placement | null | undefined = null
   let lastNodeTime = performance.now()
-  let returningPos = null
+  let returningPos: Vec3 | null = null
   let stopPathing = false
   const physics = new Physics(bot)
   const lockPlaceBlock = new Lock()
   const lockEquipItem = new Lock()
   const lockUseBlock = new Lock()
 
-  bot.pathfinder = {}
+  bot.pathfinder = {} as Pathfinder
 
   bot.pathfinder.thinkTimeout = 5000 // ms
   bot.pathfinder.tickTimeout = 40 // ms, amount of thinking per tick (max 50 ms)
@@ -47,7 +55,7 @@ function inject(bot) {
     const effects = bot.entity.effects
 
     let fastest = Number.MAX_VALUE
-    let bestTool = null
+    let bestTool: Item | null = null
     for (const tool of availableTools) {
       const enchants = tool && tool.nbt ? nbt.simplify(tool.nbt).Enchantments : []
       const digTime = block.digTime(tool ? tool.type : null, false, false, false, enchants, effects)
@@ -62,14 +70,13 @@ function inject(bot) {
 
   bot.pathfinder.getPathTo = (movements, goal, timeout) => {
     const generator = bot.pathfinder.getPathFromTo(movements, bot.entity.position, goal, { timeout })
-    const {
-      value: { result, astarContext: context },
-    } = generator.next()
+    // The generator always yields its first search result before returning.
+    const { result, astarContext: context } = generator.next().value!
     astarContext = context
     return result
   }
 
-  bot.pathfinder.getPathFromTo = function* (movements, startPos, goal, options = {}) {
+  bot.pathfinder.getPathFromTo = function* (movements, startPos, goal, options: PathOptions = {}) {
     const optimizePath = options.optimizePath ?? true
     const resetEntityIntersects = options.resetEntityIntersects ?? true
     const timeout = options.timeout ?? bot.pathfinder.thinkTimeout
@@ -118,11 +125,11 @@ function inject(bot) {
 
   function detectDiggingStopped() {
     digging = false
-    bot.removeAllListeners('diggingAborted', detectDiggingStopped)
-    bot.removeAllListeners('diggingCompleted', detectDiggingStopped)
+    bot.removeAllListeners('diggingAborted')
+    bot.removeAllListeners('diggingCompleted')
   }
 
-  function resetPath(reason, clearStates = true) {
+  function resetPath(reason: string, clearStates = true) {
     if (!stopPathing && path.length > 0) bot.emit('path_reset', reason)
     path = []
     if (digging) {
@@ -167,7 +174,7 @@ function inject(bot) {
 
   bot.on('physicsTick', monitorMovement)
 
-  function postProcessPath(path) {
+  function postProcessPath(path: Move[]): Move[] {
     for (let i = 0; i < path.length; i++) {
       const curPoint = path[i]
       if (curPoint.toBreak.length > 0 || curPoint.toPlace.length > 0) break
@@ -220,7 +227,7 @@ function inject(bot) {
     return newPath
   }
 
-  function pathFromPlayer(path) {
+  function pathFromPlayer(path: Move[]) {
     if (path.length === 0) return
     let minI = 0
     let minDistance = 1000
@@ -250,10 +257,10 @@ function inject(bot) {
     path.splice(0, minI)
   }
 
-  function isPositionNearPath(pos, path) {
-    let prevNode = null
+  function isPositionNearPath(pos: Vec3, path: Move[]) {
+    let prevNode: Move | null = null
     for (const node of path) {
-      let comparisonPoint = null
+      let comparisonPoint: Vec3 | null = null
       if (
         prevNode === null ||
         (Math.abs(prevNode.x - node.x) <= 2 &&
@@ -296,7 +303,7 @@ function inject(bot) {
     return false
   }
 
-  function closestPointOnLineSegment(point, segmentStart, segmentEnd) {
+  function closestPointOnLineSegment(point: Vec3, segmentStart: Vec3, segmentEnd: Vec3) {
     const segmentLength = segmentEnd.minus(segmentStart).norm()
 
     if (segmentLength === 0) {
@@ -315,7 +322,7 @@ function inject(bot) {
 
   // Return the average x/z position of the highest standing positions
   // in the block.
-  function getPositionOnTopOf(block) {
+  function getPositionOnTopOf(block: Block | null) {
     if (!block || block.shapes.length === 0) return null
     const p = new Vec3(0.5, 0, 0.5)
     let n = 1
@@ -362,10 +369,10 @@ function inject(bot) {
     }
   }
 
-  function moveToEdge(refBlock, edge) {
+  function moveToEdge(refBlock: Vec3, edge: Vec3) {
     // If allowed turn instantly should maybe be a bot option
     const allowInstantTurn = false
-    function getViewVector(pitch, yaw) {
+    function getViewVector(pitch: number, yaw: number) {
       const csPitch = Math.cos(pitch)
       const snPitch = Math.sin(pitch)
       const csYaw = Math.cos(yaw)
@@ -392,7 +399,7 @@ function inject(bot) {
     return true
   }
 
-  function moveToBlock(pos) {
+  function moveToBlock(pos: Vec3) {
     // minDistanceSq = Min distance sqrt to the target pos were the bot is centered enough to place blocks around him
     const minDistanceSq = 0.2 * 0.2
     const targetPos = pos.clone().offset(0.5, 0, 0.5)
@@ -438,7 +445,7 @@ function inject(bot) {
 
   function monitorMovement() {
     // Test freemotion
-    if (stateMovements && stateMovements.allowFreeMotion && stateGoal && stateGoal.entity) {
+    if (stateMovements && stateMovements.allowFreeMotion && stateGoal && hasFollowTarget(stateGoal)) {
       const target = stateGoal.entity
       if (physics.canStraightLine([target.position])) {
         bot.lookAt(target.position.offset(0, 1.6, 0))
@@ -503,8 +510,8 @@ function inject(bot) {
     if (digging || nextPoint.toBreak.length > 0) {
       if (!digging && bot.entity.onGround) {
         digging = true
-        const b = nextPoint.toBreak.shift()
-        const block = bot.blockAt(new Vec3(b.x, b.y, b.z), false)
+        const b = nextPoint.toBreak.shift()!
+        const block = bot.blockAt(new Vec3(b.x, b.y, b.z), false)!
         const tool = bot.pathfinder.bestHarvestTool(block)
         fullStop()
 
@@ -543,7 +550,7 @@ function inject(bot) {
       // Open gates or doors
       if (placingBlock?.useOne) {
         if (!lockUseBlock.tryAcquire()) return
-        bot.activateBlock(bot.blockAt(new Vec3(placingBlock.x, placingBlock.y, placingBlock.z))).then(
+        bot.activateBlock(bot.blockAt(new Vec3(placingBlock!.x, placingBlock!.y, placingBlock!.z))!).then(
           () => {
             lockUseBlock.release()
             placingBlock = nextPoint.toPlace.shift()
@@ -562,21 +569,21 @@ function inject(bot) {
       }
       if (
         bot.pathfinder.LOSWhenPlacingBlocks &&
-        placingBlock.y === bot.entity.position.floored().y - 1 &&
-        placingBlock.dy === 0
+        placingBlock!.y === bot.entity.position.floored().y - 1 &&
+        placingBlock!.dy === 0
       ) {
         if (
           !moveToEdge(
-            new Vec3(placingBlock.x, placingBlock.y, placingBlock.z),
-            new Vec3(placingBlock.dx, 0, placingBlock.dz)
+            new Vec3(placingBlock!.x, placingBlock!.y, placingBlock!.z),
+            new Vec3(placingBlock!.dx, 0, placingBlock!.dz)
           )
         )
           return
       }
       let canPlace = true
-      if (placingBlock.jump) {
+      if (placingBlock!.jump) {
         bot.setControlState('jump', true)
-        canPlace = placingBlock.y + 1 < bot.entity.position.y
+        canPlace = placingBlock!.y + 1 < bot.entity.position.y
       }
       if (canPlace) {
         if (!lockEquipItem.tryAcquire()) return
@@ -584,18 +591,18 @@ function inject(bot) {
           .equip(block, 'hand')
           .then(function () {
             lockEquipItem.release()
-            const refBlock = bot.blockAt(new Vec3(placingBlock.x, placingBlock.y, placingBlock.z), false)
+            const refBlock = bot.blockAt(new Vec3(placingBlock!.x, placingBlock!.y, placingBlock!.z), false)!
             if (!lockPlaceBlock.tryAcquire()) return
             if (interactableBlocks.includes(refBlock.name)) {
               bot.setControlState('sneak', true)
             }
             bot
-              .placeBlock(refBlock, new Vec3(placingBlock.dx, placingBlock.dy, placingBlock.dz))
+              .placeBlock(refBlock, new Vec3(placingBlock!.dx, placingBlock!.dy, placingBlock!.dz))
               .then(function () {
                 // Dont release Sneak if the block placement was not successful
                 bot.setControlState('sneak', false)
-                if (bot.pathfinder.LOSWhenPlacingBlocks && placingBlock.returnPos)
-                  returningPos = placingBlock.returnPos.clone()
+                if (bot.pathfinder.LOSWhenPlacingBlocks && placingBlock!.returnPos)
+                  returningPos = placingBlock!.returnPos.clone()
               })
               .catch((_ignoreError) => {
                 resetPath('place_error')
@@ -679,8 +686,5 @@ function inject(bot) {
   }
 }
 
-module.exports = {
-  pathfinder: inject,
-  Movements: require('./lib/movements'),
-  goals: require('./lib/goals'),
-}
+export { inject as pathfinder, Movements }
+export * as goals from './lib/goals'

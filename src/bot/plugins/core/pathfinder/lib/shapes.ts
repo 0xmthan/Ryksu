@@ -1,6 +1,10 @@
-const { Vec3 } = require('vec3')
+import { Vec3 } from 'vec3'
 
-function getShapeFaceCenters(shapes, direction, half = null) {
+export function getShapeFaceCenters(
+  shapes: number[][],
+  direction: Vec3,
+  half: 'top' | 'bottom' | null | undefined = null
+) {
   const faces = []
   for (const shape of shapes) {
     const halfsize = new Vec3(shape[3] - shape[0], shape[4] - shape[1], shape[5] - shape[2]).scale(0.5)
@@ -19,5 +23,3 @@ function getShapeFaceCenters(shapes, direction, half = null) {
   }
   return faces
 }
-
-module.exports = { getShapeFaceCenters }

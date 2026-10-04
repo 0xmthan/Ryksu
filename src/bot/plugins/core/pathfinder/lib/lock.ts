@@ -1,6 +1,9 @@
-const { EventEmitter, on } = require('events')
+import { EventEmitter, on } from 'events'
 
-class Lock {
+export class Lock {
+  _locked: boolean
+  _emitter: EventEmitter
+
   constructor() {
     this._locked = false
     this._emitter = new EventEmitter()
@@ -46,5 +49,3 @@ class Lock {
     setImmediate(() => this._emitter.emit('release'))
   }
 }
-
-module.exports = Lock
