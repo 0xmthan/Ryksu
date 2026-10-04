@@ -27,8 +27,59 @@ jobs:
         run: pnpm audit --audit-level high
 
   checks:
-    name: Tests and packaging
+    name: Tests and types
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      release-version: ${{ steps.release.outputs.version }}
+    defaults:
+      run:
+        working-directory: ryksu
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          path: ryksu
+      # Recreate the sibling file dependency in pnpm-workspace.yaml.
+      # Wrapper release 3.117.0; remove these extra checkouts when the
+      # upstream npm package supports 26.2 and the override is removed.
+      - name: Fetch Minecraft data wrapper
+        uses: actions/checkout@v6
+        with:
+          repository: PrismarineJS/node-minecraft-data
+          ref: 94b717a14e167afdbcdfe708f40f7eed8917fe08
+          path: minecraft-data-26.2
+      # Temporary data from PrismarineJS/minecraft-data PR #1333.
+      - name: Fetch Minecraft 26.2 data
+        uses: actions/checkout@v6
+        with:
+          repository: PrismarineJS/minecraft-data
+          ref: 4005723728fe00435209ebdd2234e9fb1184a184
+          path: minecraft-data-26.2/minecraft-data
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - uses: pnpm/action-setup@v6
+        with:
+          package_json_file: ryksu/package.json
+      - name: Generate Minecraft data entry point
+        run: node ../minecraft-data-26.2/bin/generate_data.js
+      - name: Install exact locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Detect release version
+        id: release
+        env:
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+        run: node scripts/ci/release-version.cjs
+      - name: Type check
+        run: pnpm typecheck
+      - name: Run tests
+        run: pnpm test
+
+  release:
+    name: Release ZIP
+    needs: checks
+    if: github.event_name == 'push' && needs.checks.outputs.release-version != ''
+    runs-on: macos-latest
     timeout-minutes: 30
     defaults:
       run:
@@ -63,9 +114,22 @@ jobs:
         run: node ../minecraft-data-26.2/bin/generate_data.js
       - name: Install exact locked dependencies
         run: pnpm install --frozen-lockfile
-      - name: Type check
-        run: pnpm typecheck
-      - name: Run tests
-        run: pnpm test
-      - name: Package Electron app
-        run: pnpm package
+      - name: Set build version from commit prefix
+        env:
+          RELEASE_VERSION: ${{ needs.checks.outputs.release-version }}
+        run: |
+          node - <<'JS'
+          const fs = require('node:fs')
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'))
+          pkg.version = process.env.RELEASE_VERSION
+          fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n')
+          JS
+      - name: Build release ZIP
+        run: pnpm make
+      - name: Upload release ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: Ryksu-v${{ needs.checks.outputs.release-version }}-macOS
+          path: ryksu/out/make/**/*.zip
+          if-no-files-found: error
+          retention-days: 30
