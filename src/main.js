@@ -1,5 +1,5 @@
 // node-rsa (used by minecraft-protocol) still calls `new Buffer()`. Node hides that warning for code in
-// node_modules, but webpack bundles it into our own file, so drop just that one. Must run before requiring it.
+// node_modules, but bundlers may inline it into our own file, so drop just that one. Must run before requiring it.
 const originalEmitWarning = process.emitWarning
 process.emitWarning = (warning, ...args) => {
   const code = typeof args[0] === 'object' ? args[0]?.code : args[1]
@@ -10,6 +10,7 @@ process.emitWarning = (warning, ...args) => {
 }
 
 const { app, BrowserWindow, ipcMain, shell } = require('electron')
+const path = require('node:path')
 const { registerMinecraftIpc } = require('./mcBridge')
 
 if (require('electron-squirrel-startup')) {
@@ -69,7 +70,7 @@ const createWindow = () => {
     titleBarStyle: 'hidden',
     backgroundColor: '#0a0a0a',
     webPreferences: {
-      preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY,
+      preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
     },
   })
@@ -77,7 +78,11 @@ const createWindow = () => {
   if (process.platform === 'darwin') {
     mainWindow.setWindowButtonVisibility(false)
   }
-  mainWindow.loadURL(MAIN_WINDOW_WEBPACK_ENTRY)
+  if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
+    mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL)
+  } else {
+    mainWindow.loadFile(path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`))
+  }
   //mainWindow.webContents.openDevTools();
 }
 

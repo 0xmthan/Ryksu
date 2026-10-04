@@ -5,6 +5,11 @@ module.exports = {
   packagerConfig: {
     asar: true,
     icon: './assets/icon',
+    // Vite's default filter only copies bundles. The main process keeps
+    // runtime dependencies external so their native modules and data survive.
+    ignore: (file) => Boolean(file) && !['/.vite', '/node_modules', '/package.json'].some(
+      (entry) => file === entry || file.startsWith(`${entry}/`),
+    ),
   },
   rebuildConfig: {},
   makers: [
@@ -19,22 +24,15 @@ module.exports = {
       config: {},
     },
     {
-      name: '@electron-forge/plugin-webpack',
+      name: '@electron-forge/plugin-vite',
       config: {
-        mainConfig: './webpack.main.config.js',
-        renderer: {
-          config: './webpack.renderer.config.js',
-          entryPoints: [
-            {
-              html: './src/index.html',
-              js: './src/renderer.tsx',
-              name: 'main_window',
-              preload: {
-                js: './src/preload.js',
-              },
-            },
-          ],
-        },
+        build: [
+          { entry: 'src/main.js', config: 'vite.main.config.mjs', target: 'main' },
+          { entry: 'src/preload.js', config: 'vite.preload.config.mjs', target: 'preload' },
+        ],
+        renderer: [
+          { name: 'main_window', config: 'vite.renderer.config.mjs' },
+        ],
       },
     },
     // Fuses are used to enable/disable various Electron functionality

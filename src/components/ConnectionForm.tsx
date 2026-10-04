@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { Check, Pencil, Server } from 'lucide-react'
 import type { AccountType, BotStatus, LastConnection } from '../types'
 
 type ConnectionFormProps = {
@@ -89,10 +90,10 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
   }
 
   return (
-    <div className="flex w-full max-w-3xl flex-col gap-6 px-8 py-8">
+    <div className="mx-auto flex w-full max-w-xl flex-col px-6 py-5">
       <form
         onSubmit={onSubmit}
-        className="flex flex-col gap-6 rounded-2xl border border-neutral-800 bg-neutral-950/70 p-6 shadow-md"
+        className="flex flex-col gap-4"
       >
         {microsoftAuth ? (
           <section className="rounded-xl border border-sky-500/30 bg-sky-500/10 p-4 text-sm text-sky-50">
@@ -137,151 +138,169 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
           </section>
         ) : null}
 
-        <section className="overflow-hidden rounded-xl border border-neutral-800 bg-neutral-900/60">
-          <div className="flex items-center justify-between border-b border-neutral-800 px-4 py-3">
-            <h3 className="text-sm font-medium text-neutral-200">Connection Details</h3>
+        <section className="overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-900/50 shadow-lg shadow-black/10">
+          <div className="flex items-center justify-between gap-4 border-b border-neutral-800/80 px-5 py-3">
+            <div className="flex items-center gap-3">
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-neutral-700/60 bg-neutral-800/60 text-neutral-400">
+                <Server size={17} aria-hidden="true" />
+              </span>
+              <div>
+                <h3 className="text-sm font-semibold text-neutral-100">Connection Details</h3>
+                <p className="mt-0.5 text-xs text-neutral-500">Your server and bot account.</p>
+              </div>
+            </div>
             <button
               type="button"
               onClick={handleToggleEditing}
-              className="text-xs font-medium text-sky-400 transition hover:text-sky-300 focus-visible:outline
-                focus-visible:outline-offset-2 focus-visible:outline-sky-400"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-700/70 bg-neutral-800/60 px-3 py-1.5 text-xs font-medium text-neutral-200 transition hover:border-neutral-600 hover:bg-neutral-800 focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-sky-400"
             >
+              {isEditing ? <Check size={13} aria-hidden="true" /> : <Pencil size={13} aria-hidden="true" />}
               {isEditing ? 'Done' : 'Edit'}
             </button>
           </div>
 
           {isEditing ? (
-            <div className="grid gap-4 px-4 py-4">
-              <fieldset className="flex flex-col gap-2">
-                <legend className="text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500">
-                  Account Type
-                </legend>
-                <div className="flex flex-wrap gap-4">
-                  <label className="flex items-center gap-2 text-sm text-neutral-200">
-                    <input
-                      type="radio"
-                      name="account-type"
-                      value="offline"
-                      checked={accountType === 'offline'}
-                      onChange={() => onAccountTypeChange('offline')}
-                      className="h-4 w-4 accent-sky-500"
-                    />
-                    Offline
-                  </label>
-                  <label className="flex items-center gap-2 text-sm text-neutral-200">
-                    <input
-                      type="radio"
-                      name="account-type"
-                      value="online"
-                      checked={accountType === 'online'}
-                      onChange={() => onAccountTypeChange('online')}
-                      className="h-4 w-4 accent-sky-500"
-                    />
-                    Online (Microsoft)
-                  </label>
+            <div className="grid gap-4 px-5 py-4">
+              <fieldset className="min-w-0">
+                <legend className="mb-2 text-xs font-medium text-neutral-400">Account type</legend>
+                <div className="grid grid-cols-2 gap-2">
+                  {([
+                    ['offline', 'Offline', 'Use a bot username'],
+                    ['online', 'Microsoft', 'Sign in with your account'],
+                  ] as const).map(([type, title, description]) => (
+                    <label
+                      key={type}
+                      className={`flex cursor-pointer items-center gap-2.5 rounded-xl border px-3 py-2.5 transition ${
+                        accountType === type
+                          ? 'border-sky-500/40 bg-sky-500/5'
+                          : 'border-neutral-800 bg-neutral-950/40 hover:border-neutral-700'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="account-type"
+                        value={type}
+                        checked={accountType === type}
+                        onChange={() => onAccountTypeChange(type)}
+                        className="h-3.5 w-3.5 shrink-0 accent-sky-500 focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-sky-400"
+                      />
+                      <span className="min-w-0">
+                        <span className="block text-sm font-medium text-neutral-200">{title}</span>
+                        <span className="mt-0.5 block text-[11px] text-neutral-500">{description}</span>
+                      </span>
+                    </label>
+                  ))}
                 </div>
               </fieldset>
 
-              <label className="flex flex-col gap-2 text-sm text-neutral-200">
-                <span className="text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500">
-                  Host
-                </span>
-                <input
-                  value={host}
-                  onChange={(event) => onHostChange(event.target.value)}
-                  placeholder="play.example.com"
-                  className="rounded-md border border-neutral-800 bg-neutral-950/80 px-3 py-2 text-sm
-                    text-neutral-100 transition focus:border-sky-500 focus:outline-none focus:ring-2
-                    focus:ring-sky-500/40"
-                  required
-                />
-              </label>
+              <div className="grid grid-cols-[minmax(0,1fr)_110px] gap-3">
+                <label className="flex min-w-0 flex-col gap-2 text-sm text-neutral-200">
+                  <span className="text-xs font-medium text-neutral-400">
+                    Host
+                  </span>
+                  <input
+                    value={host}
+                    onChange={(event) => onHostChange(event.target.value)}
+                    placeholder="play.example.com"
+                    className="w-full rounded-lg border border-neutral-700/60 bg-neutral-950/70 px-3 py-2 text-sm
+                      text-neutral-100 transition focus:border-sky-500 focus:outline-none focus:ring-2
+                      focus:ring-sky-500/15"
+                    required
+                  />
+                </label>
+
+                <label className="flex min-w-0 flex-col gap-2 text-sm text-neutral-200">
+                  <span className="text-xs font-medium text-neutral-400">
+                    Port
+                  </span>
+                  <input
+                    value={port}
+                    onChange={(event) => onPortChange(event.target.value)}
+                    placeholder="25565"
+                    inputMode="numeric"
+                    className="w-full rounded-lg border border-neutral-700/60 bg-neutral-950/70 px-3 py-2 text-sm
+                      text-neutral-100 transition focus:border-sky-500 focus:outline-none focus:ring-2
+                      focus:ring-sky-500/15"
+                  />
+                </label>
+              </div>
 
               <label className="flex flex-col gap-2 text-sm text-neutral-200">
-                <span className="text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500">
-                  Port
-                </span>
-                <input
-                  value={port}
-                  onChange={(event) => onPortChange(event.target.value)}
-                  placeholder="25565"
-                  className="rounded-md border border-neutral-800 bg-neutral-950/80 px-3 py-2 text-sm
-                    text-neutral-100 transition focus:border-sky-500 focus:outline-none focus:ring-2
-                    focus:ring-sky-500/40"
-                />
-              </label>
-
-              <label className="flex flex-col gap-2 text-sm text-neutral-200">
-                <span className="text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500">
+                <span className="text-xs font-medium text-neutral-400">
                   Username
                 </span>
                 <input
                   value={username}
                   onChange={(event) => onUsernameChange(event.target.value)}
                   placeholder={accountType === 'online' ? 'email@example.com' : 'BotDisplayName'}
-                  className="rounded-md border border-neutral-800 bg-neutral-950/80 px-3 py-2 text-sm
+                  className="w-full rounded-lg border border-neutral-700/60 bg-neutral-950/70 px-3 py-2 text-sm
                     text-neutral-100 transition focus:border-sky-500 focus:outline-none focus:ring-2
-                    focus:ring-sky-500/40"
+                    focus:ring-sky-500/15"
                   required
                 />
               </label>
 
               {accountType === 'online' ? (
                 <label className="flex flex-col gap-2 text-sm text-neutral-200">
-                  <span className="text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500">
-                    Microsoft Password (optional)
+                  <span className="text-xs font-medium text-neutral-400">
+                    Microsoft password (optional)
                   </span>
                   <input
                     type="password"
                     value={onlinePassword}
                     onChange={(event) => onOnlinePasswordChange(event.target.value)}
                     placeholder="Leave blank to use device login"
-                    className="rounded-md border border-neutral-800 bg-neutral-950/80 px-3 py-2 text-sm
+                    className="w-full rounded-lg border border-neutral-700/60 bg-neutral-950/70 px-3 py-2 text-sm
                       text-neutral-100 transition focus:border-sky-500 focus:outline-none focus:ring-2
-                      focus:ring-sky-500/40"
+                      focus:ring-sky-500/15"
                   />
                 </label>
               ) : null}
 
               {accountType === 'offline' ? (
-                <label className="flex flex-col gap-2 text-sm text-neutral-200">
-                  <span className="text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500">
-                    Server Password (optional)
-                  </span>
-                  <input
-                    type="password"
-                    value={offlinePassword}
-                    onChange={(event) => onOfflinePasswordChange(event.target.value)}
-                    placeholder="Used for automatic /register and /login commands"
-                    className="rounded-md border border-neutral-800 bg-neutral-950/80 px-3 py-2 text-sm
-                      text-neutral-100 transition focus:border-sky-500 focus:outline-none focus:ring-2
-                      focus:ring-sky-500/40"
-                  />
-                  <span className="flex items-center gap-2">
+                <div className="grid gap-3">
+                  <label className="flex flex-col gap-2 text-sm text-neutral-200">
+                    <span className="text-xs font-medium text-neutral-400">
+                      Server password (optional)
+                    </span>
                     <input
-                      type="checkbox"
-                      checked={preJoinLoginEnabled}
-                      onChange={(event) => onPreJoinLoginToggle(event.target.checked)}
-                      className="h-4 w-4 accent-sky-500"
+                      type="password"
+                      value={offlinePassword}
+                      onChange={(event) => onOfflinePasswordChange(event.target.value)}
+                      placeholder="Server login password"
+                      className="w-full rounded-lg border border-neutral-700/60 bg-neutral-950/70 px-3 py-2 text-sm
+                        text-neutral-100 transition focus:border-sky-500 focus:outline-none focus:ring-2
+                        focus:ring-sky-500/15"
                     />
-                    Log in on the server's login screen
-                  </span>
-                  <span className="text-xs text-neutral-500">
-                    For servers (like AuthMe) that show a login screen before you join.
-                  </span>
-                </label>
+                    <span className="text-xs text-neutral-500">Used for automatic /register and /login commands.</span>
+                  </label>
+                  <div className="rounded-lg border border-neutral-800/70 bg-neutral-950/30 px-3 py-2.5">
+                    <label className="flex cursor-pointer items-center gap-2.5 text-xs text-neutral-300">
+                      <input
+                        type="checkbox"
+                        checked={preJoinLoginEnabled}
+                        onChange={(event) => onPreJoinLoginToggle(event.target.checked)}
+                        className="h-4 w-4 accent-sky-500"
+                      />
+                      Log in on the server's login screen
+                    </label>
+                    <p className="mt-1 pl-6.5 text-[11px] leading-relaxed text-neutral-500">
+                      Enable for servers like AuthMe that require login before joining.
+                    </p>
+                  </div>
+                </div>
               ) : null}
 
               <label className="flex flex-col gap-2 text-sm text-neutral-200">
-                <span className="text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500">
-                  Server Version
+                <span className="text-xs font-medium text-neutral-400">
+                  Server version
                 </span>
                 <select
                   value={version}
                   onChange={(event) => onVersionChange(event.target.value)}
-                  className="rounded-md border border-neutral-800 bg-neutral-950/80 px-3 py-2 text-sm
+                  className="w-full rounded-lg border border-neutral-700/60 bg-neutral-950/70 px-3 py-2 text-sm
                     text-neutral-100 transition focus:border-sky-500 focus:outline-none focus:ring-2
-                    focus:ring-sky-500/40"
+                    focus:ring-sky-500/15"
                 >
                   <option value="auto">Auto (detect server version)</option>
                   {availableVersions.map((entry) => (
@@ -291,41 +310,41 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
                   ))}
                 </select>
                 <span className="text-xs text-neutral-500">
-                  Match this to the server version if protocol mismatch errors appear.
+                  Auto detects the version. Choose one only if the server needs it.
                 </span>
               </label>
             </div>
           ) : (
-            <dl className="grid gap-4 px-4 py-4 text-sm text-neutral-300">
+            <dl className="grid gap-5 px-5 py-5 text-sm text-neutral-300">
               <div className="flex items-center justify-between gap-4">
-                <dt className="text-xs uppercase tracking-[0.2em] text-neutral-500">Account</dt>
-                <dd className="font-medium text-neutral-100">{accountLabel}</dd>
+                <dt className="shrink-0 text-xs text-neutral-500">Account</dt>
+                <dd className="min-w-0 break-words text-right font-medium text-neutral-200">{accountLabel}</dd>
               </div>
               <div className="flex items-center justify-between gap-4">
-                <dt className="text-xs uppercase tracking-[0.2em] text-neutral-500">Host</dt>
-                <dd className="font-medium text-neutral-100">{host || 'Not set'}</dd>
+                <dt className="shrink-0 text-xs text-neutral-500">Host</dt>
+                <dd className="min-w-0 break-words text-right font-medium text-neutral-200">{host || 'Not set'}</dd>
               </div>
               <div className="flex items-center justify-between gap-4">
-                <dt className="text-xs uppercase tracking-[0.2em] text-neutral-500">Port</dt>
-                <dd className="font-medium text-neutral-100">{port || 'Default'}</dd>
+                <dt className="shrink-0 text-xs text-neutral-500">Port</dt>
+                <dd className="min-w-0 break-words text-right font-medium text-neutral-200">{port || 'Default'}</dd>
               </div>
               <div className="flex items-center justify-between gap-4">
-                <dt className="text-xs uppercase tracking-[0.2em] text-neutral-500">Username</dt>
-                <dd className="font-medium text-neutral-100">{username || 'Not set'}</dd>
+                <dt className="shrink-0 text-xs text-neutral-500">Username</dt>
+                <dd className="min-w-0 break-words text-right font-medium text-neutral-200">{username || 'Not set'}</dd>
               </div>
               <div className="flex items-center justify-between gap-4">
-                <dt className="text-xs uppercase tracking-[0.2em] text-neutral-500">Version</dt>
-                <dd className="font-medium text-neutral-100">{versionLabel}</dd>
+                <dt className="shrink-0 text-xs text-neutral-500">Version</dt>
+                <dd className="min-w-0 break-words text-right font-medium text-neutral-200">{versionLabel}</dd>
               </div>
               {accountType === 'offline' && preJoinLoginEnabled ? (
                 <div className="flex items-center justify-between gap-4">
-                  <dt className="text-xs uppercase tracking-[0.2em] text-neutral-500">Login Screen</dt>
-                  <dd className="font-medium text-neutral-100">Auto login</dd>
+                  <dt className="shrink-0 text-xs text-neutral-500">Login Screen</dt>
+                  <dd className="min-w-0 break-words text-right font-medium text-neutral-200">Auto login</dd>
                 </div>
               ) : null}
               {onlinePassword ? (
                 <div className="flex items-center justify-between gap-4">
-                  <dt className="text-xs uppercase tracking-[0.2em] text-neutral-500">Microsoft Password</dt>
+                  <dt className="shrink-0 text-xs text-neutral-500">Microsoft Password</dt>
                   <dd>
                     <button
                       type="button"
@@ -349,7 +368,7 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
               ) : null}
               {offlinePassword ? (
                 <div className="flex items-center justify-between gap-4">
-                  <dt className="text-xs uppercase tracking-[0.2em] text-neutral-500">Server Password</dt>
+                  <dt className="shrink-0 text-xs text-neutral-500">Server Password</dt>
                   <dd>
                     <button
                       type="button"
