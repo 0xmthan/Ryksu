@@ -51,19 +51,25 @@ class ManualMovementController {
     try {
       // Resolve camera-relative keys into a heading, then walk forward along it. This keeps
       // the bot facing its travel direction for A/S/D and diagonal movement too.
-      if (walking) {
+      // First person keeps facing the view and strafes, like the game.
+      const relative = input.relative === true
+      if (relative) {
+        this.bot.look(input.yaw, Number.isFinite(input.pitch) ? input.pitch : this.bot.entity.pitch, true).catch(() => {})
+      } else if (walking) {
         const heading = input.yaw + Math.atan2(left, forward)
         this.bot.look(heading, 0, true).catch(() => {})
       }
       for (const control of CONTROLS) {
         const value =
           control === 'sprint'
-            ? input.sprint && walking && !input.sneak
+            ? input.sprint && (relative ? forward > 0 : walking) && !input.sneak
             : control === 'sneak'
               ? input.sneak
               : control === 'jump'
                 ? input.jump
-                : control === 'forward' && walking
+                : relative
+                  ? input[control]
+                  : control === 'forward' && walking
         this.bot.setControlState(control, value)
       }
       return { ok: true }

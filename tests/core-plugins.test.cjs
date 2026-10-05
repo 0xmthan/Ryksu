@@ -104,6 +104,77 @@ test('auto-eat cancellation rejects, restores the item, and disables cleanly', a
   assert.equal(bot.listenerCount('physicsTick'), 0)
 })
 
+test('auto-eat catches completion during activation and releases item use', async () => {
+  const { bot } = eatingBot()
+  let using = false
+  bot.deactivateItem = () => { using = false }
+  bot.activateItem = () => {
+    using = true
+    bot._client.emit('entity_status', { entityId: 7, entityStatus: 9 })
+  }
+  const eat = new EatUtil(bot, { eatingTimeout: 50 })
+  await eat.eat()
+  assert.equal(using, false)
+  assert.equal(eat.isEating, false)
+  assert.equal(bot._client.listenerCount('entity_status'), 0)
+})
+
+test('auto-eat recovers when equipping or restoring an item never resolves', async () => {
+  for (const hangOn of [1, 2]) {
+    const { bot } = eatingBot()
+    const originalEquip = bot.equip
+    let calls = 0
+    bot.equip = (item) => ++calls === hangOn ? new Promise(() => {}) : originalEquip(item)
+    const eat = new EatUtil(bot, { eatingTimeout: 20 })
+    if (hangOn === 1) {
+      await assert.rejects(eat.eat(), /Failed to equip/)
+    } else {
+      bot.activateItem = () => bot._client.emit('entity_status', { entityId: 7, entityStatus: 9 })
+      await eat.eat()
+    }
+    assert.equal(eat.isEating, false)
+    assert.equal(eat._rejectionBinding, undefined)
+    assert.equal(bot.inventory.listenerCount('updateSlot'), 0)
+  }
+})
+
+test('auto-eat times out cleanly and disabling cancels an active bite', async () => {
+  const { bot } = eatingBot()
+  let releases = 0
+  bot.deactivateItem = () => releases++
+  const eat = new EatUtil(bot, { eatingTimeout: 20 })
+  await assert.rejects(eat.eat(), /timed out/)
+  assert.ok(releases >= 2)
+  assert.equal(eat.isEating, false)
+  assert.equal(bot._client.listenerCount('entity_status'), 0)
+  const pending = eat.eat()
+  const rejected = assert.rejects(pending, /manually canceled/)
+  await new Promise((resolve) => setImmediate(resolve))
+  eat.disableAuto()
+  await rejected
+  assert.equal(eat.isEating, false)
+})
+
+test('auto-eat releases its lock after selection errors and skips full hunger retries', async () => {
+  const { bot } = eatingBot()
+  const eat = new EatUtil(bot)
+  bot.inventory.items = () => { throw new Error('Inventory unavailable') }
+  await assert.rejects(eat.eat(), /Inventory unavailable/)
+  assert.equal(eat.isEating, false)
+  let attempts = 0
+  eat.eat = async () => { attempts++ }
+  bot.food = 20
+  bot.health = 5
+  await eat.statusCheck()
+  assert.equal(attempts, 0)
+  bot.food = 10
+  await eat.statusCheck()
+  assert.equal(attempts, 0)
+  eat._retryAt = 0
+  await eat.statusCheck()
+  assert.equal(attempts, 1)
+})
+
 test('tool chooses the fastest harvestable item without re-equipping an equivalent tool', async () => {
   const slow = { name: 'wooden_pickaxe', type: 1 }
   const fast = { name: 'diamond_pickaxe', type: 2 }

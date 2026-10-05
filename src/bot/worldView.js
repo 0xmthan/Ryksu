@@ -3,41 +3,13 @@ const prismarineBlock = require('prismarine-block')
 const loadPrismarineChat = require('prismarine-chat')
 // Blocks that are one solid 16³ cube in every state (generated from the block models).
 const FULL_CUBES = new Set(require('../generated/fullCubes.json'))
-const { analyzeView } = require('./viewModes')
-const { registryOrder } = require('./entityEvents')
-const { isPlaceable } = require('./building')
+const { computeBlocks, spreadLight, VOXEL_RADIUS, VOXEL_BELOW, VOXEL_ABOVE } = require('./worldCompute')
 
-// Blocks around the bot for the 3D view: only blocks with a face touching air (or water, glass, …)
-// are sent, each with a mask of those faces, so buried blocks and hidden faces are never drawn.
-const VOXEL_RADIUS = 52
-const VOXEL_BELOW = 18
-const VOXEL_ABOVE = 30
+// The slice is re-read around the bot once it moves this far from where it was last centered.
 const RECENTER_DISTANCE = 14
 const EMPTY_BLOCKS = new Set(['air', 'cave_air', 'void_air', 'light'])
-// Face order shared with the renderer: up, down, north (-z), south (+z), west (-x), east (+x).
-const NEIGHBORS = [
-  [0, 1, 0],
-  [0, -1, 0],
-  [0, 0, -1],
-  [0, 0, 1],
-  [-1, 0, 0],
-  [1, 0, 0],
-]
-// The renderer can hide blocks this high above the feet and up (the roof indoors, the ceiling in caves).
-// Extra mask bits tell it which: the layer just below the cut needs its top faces even where covered
-// (CUT_TOP), roof hiding only applies over the bot's room (ROOM), and cave mode keeps only the blocks
-// around the air the bot can reach (SHELL). See viewModes.js.
-const ROOF_CUTOFF = 2
-const CUT_TOP_BIT = 1 << 6
-const ROOM_BIT = 1 << 7
-const SHELL_BIT = 1 << 8
-const WATER_PLANT_BIT = 1 << 9
-// A block with a drawn solid block on top, from CAP_DEPTH layers under the bot's feet up: sent even when
-// nothing else of it shows, so its top can be drawn (darkened) while the block over it is a see-through
-// hologram (see src/components/watcher/seeThrough.ts).
-const CAP_BIT = 1 << 10
-// The slice is only rebuilt once the bot moves 6 blocks up or down, so caps go deeper than its feet.
-const CAP_DEPTH = 7
+const { registryOrder } = require('./entityEvents')
+const { isPlaceable } = require('./building')
 
 const WATER_PLANTS = new Set(['seagrass', 'tall_seagrass', 'kelp', 'kelp_plant', 'bubble_column'])
 const isSubmerged = (name, properties) =>
@@ -155,64 +127,12 @@ const getInventory = (bot) => {
 }
 
 // FNV-1a over the block data, so the renderer can skip rebuilding when nothing changed.
-const hashNumbers = (hash, values) => {
-  for (const value of values) {
-    hash ^= value & 0xffff
-    hash = Math.imul(hash, 16777619)
-  }
-  return hash
-}
-
 // Light by state for blocks that only glow when lit; the block data gives one value for every state.
 const LIT_LIGHT = { furnace: 13, blast_furnace: 13, smoker: 13, redstone_ore: 9, deepslate_redstone_ore: 9, campfire: 15, soul_campfire: 10 }
 const emittedLight = (block, properties) => {
   if (properties.lit === false || properties.lit === 'false') return 0
   if (block.name.endsWith('candle') && properties.candles !== undefined) return 3 * Number(properties.candles)
   return LIT_LIGHT[block.name] ?? block.emitLight ?? 0
-}
-
-// Block light (torches, lava, glowstone, …) spread through the view the way the game does it: one level
-// less per block, more through leaves and water, stopped by solid blocks. Computed here rather than read
-// from the server, whose light data is often missing or stale for parts of the world. Per cell: the
-// level, or OPAQUE for cells light can't enter (the renderer leaves them out when smoothing).
-const OPAQUE = 255
-const spreadLight = ({ grid, emits, filters, width, height }) => {
-  const total = grid.length
-  const cells = new Uint8Array(total)
-  const queue = []
-  for (let cell = 0; cell < total; cell++) {
-    const index = grid[cell]
-    if (index < 0) continue
-    if (filters[index] >= 15) cells[cell] = OPAQUE
-    if (emits[index] > 0) {
-      cells[cell] = emits[index]
-      queue.push(cell)
-    }
-  }
-  const layer = width * width
-  for (let head = 0; head < queue.length; head++) {
-    const cell = queue[head]
-    const level = cells[cell]
-    if (level <= 1) continue
-    const x = cell % width
-    const z = Math.floor(cell / width) % width
-    const y = Math.floor(cell / layer)
-    for (const [nx, ny, nz] of NEIGHBORS) {
-      const ax = x + nx
-      const ay = y + ny
-      const az = z + nz
-      if (ax < 0 || ay < 0 || az < 0 || ax >= width || ay >= height || az >= width) continue
-      const neighbor = cell + nx + nz * width + ny * layer
-      if (cells[neighbor] === OPAQUE) continue
-      const index = grid[neighbor]
-      const next = level - Math.max(1, index < 0 ? 0 : filters[index])
-      if (next > cells[neighbor]) {
-        cells[neighbor] = next
-        queue.push(neighbor)
-      }
-    }
-  }
-  return cells
 }
 
 // Name, properties and opacity per block state, looked up once per registry.
@@ -259,192 +179,236 @@ const skyLightAt = (bot, position) => {
   }
 }
 
-const getBlocks = (bot) => {
-  const botPos = bot.entity.position.floored()
-  const cached = bot._worldSlice
-
-  if (cached && !bot._worldDirty) {
-    const dx = botPos.x - cached.origin.x
-    const dz = botPos.z - cached.origin.z
-    const dy = Math.abs(botPos.y - cached.origin.y)
-    if (dx * dx + dz * dz < RECENTER_DISTANCE * RECENTER_DISTANCE && dy < 6) {
-      return cached.data
-    }
-  }
-
-  const origin = botPos
+// The scanned box around the bot, kept between updates so a changed block only re-reads that cell.
+const createSlice = (origin) => {
   const width = VOXEL_RADIUS * 2 + 1
   const height = VOXEL_BELOW + VOXEL_ABOVE + 1
   const total = width * width * height
-  // One palette entry per block state, so the renderer can pick the right model (facing, axis, …).
-  const palette = []
-  const properties = []
-  // Light given off and light blocked, per palette entry.
-  const emits = []
-  const filters = []
-  const paletteIndex = new Map()
-  // -1 = nothing drawn there; otherwise a palette index.
-  const grid = new Int16Array(total).fill(-1)
-  // Block type per cell; faces between two blocks of the same type (water, glass, leaves) are hidden.
-  const kinds = new Int16Array(total).fill(-1)
-  // Leaves keep the faces between each other, like the game's fancy leaves, so a canopy looks full.
-  const leafy = new Uint8Array(total)
-  // Submerged plants and waterlogged blocks need to be drawn even when fully surrounded by water.
-  const submerged = new Uint8Array(total)
-  const kindIds = new Map()
-  const occludes = new Uint8Array(total)
-  const cursor = new Vec3(0, 0, 0)
-  const indexOf = (x, y, z) => (y * width + z) * width + x
-
-  for (let z = 0; z < width; z++) {
-    const worldZ = origin.z + z - VOXEL_RADIUS
-    const chunkZ = worldZ >> 4
-    for (let x = 0; x < width; x++) {
-      const worldX = origin.x + x - VOXEL_RADIUS
-      const chunkX = worldX >> 4
-      const chunk = bot.world.getColumn(chunkX, chunkZ)
-      if (!chunk) {
-        continue
-      }
-      for (let y = 0; y < height; y++) {
-        const worldY = origin.y + y - VOXEL_BELOW
-        cursor.set(worldX, worldY, worldZ)
-        const stateId = bot.world.getBlockStateId(cursor)
-        const info = stateInfo(bot.registry, stateId)
-        if (!info) {
-          continue
-        }
-        let index = paletteIndex.get(stateId)
-        if (index === undefined) {
-          index = palette.length
-          palette.push(info.name)
-          properties.push(info.properties)
-          emits.push(info.emitLight)
-          filters.push(info.filterLight)
-          paletteIndex.set(stateId, index)
-        }
-        const isWater = isWaterBlock(info.name, info.properties)
-        const kindKey = isWater ? 'water' : info.name
-        let kind = kindIds.get(kindKey)
-        if (kind === undefined) {
-          kind = kindIds.size
-          kindIds.set(kindKey, kind)
-        }
-        const cell = indexOf(x, y, z)
-        grid[cell] = index
-        kinds[cell] = kind
-        leafy[cell] = info.name.endsWith('_leaves') ? 1 : 0
-        occludes[cell] = info.occludes ? 1 : 0
-        submerged[cell] = isSubmerged(info.name, info.properties) ? 1 : 0
-      }
-    }
-  }
-
-  const roofLayer = VOXEL_BELOW + ROOF_CUTOFF - 1
-  const view = analyzeView({
-    grid,
-    occludes,
-    palette,
+  return {
+    origin,
     width,
     height,
-    feetY: VOXEL_BELOW,
-    center: VOXEL_RADIUS,
-    cutoffY: roofLayer + 1,
-    skyLight: skyLightAt(bot, origin.offset(0, 1, 0)),
-  })
+    // One palette entry per block state, so the renderer can pick the right model (facing, axis, …).
+    palette: [],
+    properties: [],
+    // Light given off and light blocked, per palette entry.
+    emits: [],
+    filters: [],
+    paletteIndex: new Map(),
+    // -1 = nothing drawn there; otherwise a palette index.
+    grid: new Int16Array(total).fill(-1),
+    // Block type per cell; faces between two blocks of the same type (water, glass, leaves) are hidden.
+    kinds: new Int16Array(total).fill(-1),
+    kindIds: new Map(),
+    // Leaves keep the faces between each other, like the game's fancy leaves, so a canopy looks full.
+    leafy: new Uint8Array(total),
+    // Submerged plants and waterlogged blocks need to be drawn even when fully surrounded by water.
+    submerged: new Uint8Array(total),
+    occludes: new Uint8Array(total),
+  }
+}
 
-  // The faces of a block that border air (or water, glass, …).
-  const faceMask = (x, y, z) => {
-    const cell = indexOf(x, y, z)
-    let mask = 0
-    for (let face = 0; face < 6; face++) {
-      const [nx, ny, nz] = NEIGHBORS[face]
-      const ax = x + nx
-      const ay = y + ny
-      const az = z + nz
-      // The edges of the box are drawn, so the view looks like a solid cut-out of the world.
-      if (ax < 0 || ay < 0 || az < 0 || ax >= width || ay >= height || az >= width) {
-        mask |= 1 << face
-        continue
-      }
-      const neighbor = indexOf(ax, ay, az)
-      if (!occludes[neighbor] && (kinds[neighbor] !== kinds[cell] || leafy[cell])) {
-        mask |= 1 << face
+const setCell = (slice, registry, cell, stateId) => {
+  const info = stateInfo(registry, stateId)
+  if (!info) {
+    slice.grid[cell] = -1
+    slice.kinds[cell] = -1
+    slice.leafy[cell] = 0
+    slice.occludes[cell] = 0
+    slice.submerged[cell] = 0
+    return
+  }
+  let index = slice.paletteIndex.get(stateId)
+  if (index === undefined) {
+    index = slice.palette.length
+    slice.palette.push(info.name)
+    slice.properties.push(info.properties)
+    slice.emits.push(info.emitLight)
+    slice.filters.push(info.filterLight)
+    slice.paletteIndex.set(stateId, index)
+  }
+  const kindKey = isWaterBlock(info.name, info.properties) ? 'water' : info.name
+  let kind = slice.kindIds.get(kindKey)
+  if (kind === undefined) {
+    kind = slice.kindIds.size
+    slice.kindIds.set(kindKey, kind)
+  }
+  slice.grid[cell] = index
+  slice.kinds[cell] = kind
+  slice.leafy[cell] = info.name.endsWith('_leaves') ? 1 : 0
+  slice.occludes[cell] = info.occludes ? 1 : 0
+  slice.submerged[cell] = isSubmerged(info.name, info.properties) ? 1 : 0
+}
+
+// Reads every cell, straight from the chunk columns (the world's own lookup allocates per call).
+const scanSlice = (bot, origin) => {
+  const slice = createSlice(origin)
+  const { width, height } = slice
+  const local = new Vec3(0, 0, 0)
+  for (let z = 0; z < width; z++) {
+    const worldZ = origin.z + z - VOXEL_RADIUS
+    for (let x = 0; x < width; x++) {
+      const worldX = origin.x + x - VOXEL_RADIUS
+      const chunk = bot.world.getColumn(worldX >> 4, worldZ >> 4)
+      if (!chunk) continue
+      for (let y = 0; y < height; y++) {
+        local.set(worldX & 15, origin.y + y - VOXEL_BELOW, worldZ & 15)
+        setCell(slice, bot.registry, (y * width + z) * width + x, chunk.getBlockStateId(local))
       }
     }
-    return mask
   }
+  return slice
+}
 
-  const positions = []
-  const blocks = []
-  const faces = []
-  for (let y = 0; y < height; y++) {
-    for (let z = 0; z < width; z++) {
-      for (let x = 0; x < width; x++) {
-        const cell = indexOf(x, y, z)
-        const index = grid[cell]
-        if (index < 0) {
-          continue
-        }
-        let mask = faceMask(x, y, z)
-        if (!(mask & 1) && y >= VOXEL_BELOW - CAP_DEPTH && y + 1 < height) {
-          const above = indexOf(x, y + 1, z)
-          if (occludes[above] && faceMask(x, y + 1, z)) mask |= CAP_BIT
-        }
-        if (y === roofLayer && !(mask & 1)) {
-          mask |= CUT_TOP_BIT
-        }
-        if (submerged[cell]) {
-          mask |= WATER_PLANT_BIT
-        }
-        if (mask) {
-          if (view.inRoom(x, z)) mask |= ROOM_BIT
-          if (view.shell[cell]) mask |= SHELL_BIT
-          positions.push(x - VOXEL_RADIUS, y - VOXEL_BELOW, z - VOXEL_RADIUS)
-          blocks.push(index)
-          faces.push(mask)
+// Re-reads only the cells that changed (block updates), when nothing else did.
+const patchSlice = (bot, slice, changes) => {
+  const { origin, width, height } = slice
+  const local = new Vec3(0, 0, 0)
+  for (const key of changes) {
+    const [worldX, worldY, worldZ] = key.split(',').map(Number)
+    const x = worldX - origin.x + VOXEL_RADIUS
+    const y = worldY - origin.y + VOXEL_BELOW
+    const z = worldZ - origin.z + VOXEL_RADIUS
+    if (x < 0 || y < 0 || z < 0 || x >= width || y >= height || z >= width) continue
+    const chunk = bot.world.getColumn(worldX >> 4, worldZ >> 4)
+    local.set(worldX & 15, worldY, worldZ & 15)
+    setCell(slice, bot.registry, (y * width + z) * width + x, chunk ? chunk.getBlockStateId(local) : 0)
+  }
+}
+
+// Re-reads whole chunk columns ("cx,cz") that loaded or unloaded, where they overlap the slice.
+const patchChunks = (bot, slice, chunks) => {
+  const { origin, width, height } = slice
+  const local = new Vec3(0, 0, 0)
+  for (const key of chunks) {
+    const [chunkX, chunkZ] = key.split(',').map(Number)
+    const chunk = bot.world.getColumn(chunkX, chunkZ)
+    const x0 = Math.max(0, chunkX * 16 - origin.x + VOXEL_RADIUS)
+    const x1 = Math.min(width - 1, chunkX * 16 + 15 - origin.x + VOXEL_RADIUS)
+    const z0 = Math.max(0, chunkZ * 16 - origin.z + VOXEL_RADIUS)
+    const z1 = Math.min(width - 1, chunkZ * 16 + 15 - origin.z + VOXEL_RADIUS)
+    for (let z = z0; z <= z1; z++) {
+      const worldZ = origin.z + z - VOXEL_RADIUS
+      for (let x = x0; x <= x1; x++) {
+        const worldX = origin.x + x - VOXEL_RADIUS
+        for (let y = 0; y < height; y++) {
+          local.set(worldX & 15, origin.y + y - VOXEL_BELOW, worldZ & 15)
+          setCell(slice, bot.registry, (y * width + z) * width + x, chunk ? chunk.getBlockStateId(local) : 0)
         }
       }
     }
   }
+}
 
-  let hash = hashNumbers(2166136261, [origin.x, origin.y, origin.z])
-  hash = hashNumbers(hash, positions)
-  hash = hashNumbers(hash, blocks)
-  hash = hashNumbers(hash, faces)
-
-  const data = {
-    key: `${(hash >>> 0).toString(36)}:${JSON.stringify(properties)}:${palette.join(',')}`,
-    origin: { x: origin.x, y: origin.y, z: origin.z },
-    radius: VOXEL_RADIUS,
-    roofCutoff: ROOF_CUTOFF,
-    environment: view.environment,
-    palette,
-    properties,
-    positions,
-    blocks,
-    faces,
-    // Derived from the blocks, so the key above already changes with it.
-    light: { width, height, below: VOXEL_BELOW, cells: spreadLight({ grid, emits, filters, width, height }) },
+// The bot moved far enough to re-center: cells both boxes share are copied over, and only the new strip
+// is read from the world. The palette carries over, so copied palette indices stay right.
+const shiftSlice = (bot, old, origin) => {
+  const slice = createSlice(origin)
+  for (const key of ['palette', 'properties', 'emits', 'filters', 'paletteIndex', 'kindIds']) slice[key] = old[key]
+  const { width, height } = slice
+  const dx = origin.x - old.origin.x
+  const dy = origin.y - old.origin.y
+  const dz = origin.z - old.origin.z
+  const local = new Vec3(0, 0, 0)
+  for (let z = 0; z < width; z++) {
+    const worldZ = origin.z + z - VOXEL_RADIUS
+    const oldZ = z + dz
+    for (let x = 0; x < width; x++) {
+      const worldX = origin.x + x - VOXEL_RADIUS
+      const oldX = x + dx
+      const columnKept = oldX >= 0 && oldX < width && oldZ >= 0 && oldZ < width
+      const chunk = bot.world.getColumn(worldX >> 4, worldZ >> 4)
+      for (let y = 0; y < height; y++) {
+        const cell = (y * width + z) * width + x
+        const oldY = y + dy
+        if (columnKept && oldY >= 0 && oldY < height) {
+          const from = (oldY * width + oldZ) * width + oldX
+          slice.grid[cell] = old.grid[from]
+          slice.kinds[cell] = old.kinds[from]
+          slice.leafy[cell] = old.leafy[from]
+          slice.submerged[cell] = old.submerged[from]
+          slice.occludes[cell] = old.occludes[from]
+        } else if (chunk) {
+          local.set(worldX & 15, origin.y + y - VOXEL_BELOW, worldZ & 15)
+          setCell(slice, bot.registry, cell, chunk.getBlockStateId(local))
+        }
+      }
+    }
   }
+  return slice
+}
 
+// Brings the kept slice up to date, reading as little of the world as it can; null when nothing changed.
+// Dirty state the bot manager keeps: `_worldChanges` holds "x,y,z" of updated blocks, `_worldChunks`
+// "cx,cz" of chunk columns that loaded or unloaded, and `_worldFullDirty` asks for a fresh read
+// (respawn, another dimension).
+const readSlice = (bot) => {
+  const botPos = bot.entity.position.floored()
+  const cached = bot._worldSlice
+  const near =
+    cached &&
+    (botPos.x - cached.origin.x) ** 2 + (botPos.z - cached.origin.z) ** 2 < RECENTER_DISTANCE * RECENTER_DISTANCE &&
+    Math.abs(botPos.y - cached.origin.y) < 6
+  if (near && !bot._worldDirty) return null
+
+  let slice
+  if (!cached?.slice || bot._worldFullDirty) {
+    slice = scanSlice(bot, botPos)
+  } else {
+    slice = near ? cached.slice : shiftSlice(bot, cached.slice, botPos)
+    patchChunks(bot, slice, bot._worldChunks ?? [])
+    patchSlice(bot, slice, bot._worldChanges ?? [])
+  }
+  bot._worldChanges?.clear?.()
+  bot._worldChunks?.clear?.()
+  bot._worldFullDirty = false
   bot._worldDirty = false
-  bot._worldSlice = {
-    origin: { x: origin.x, y: origin.y, z: origin.z },
-    data,
-  }
+  bot._worldSlice = { origin: { x: slice.origin.x, y: slice.origin.y, z: slice.origin.z }, slice, data: cached?.data ?? null }
+  return slice
+}
 
+// What the compute half (src/bot/worldCompute.js) needs, copied so a worker can take it while the slice
+// keeps changing.
+const computeInput = (bot, slice) => ({
+  origin: { x: slice.origin.x, y: slice.origin.y, z: slice.origin.z },
+  width: slice.width,
+  height: slice.height,
+  palette: [...slice.palette],
+  properties: [...slice.properties],
+  emits: [...slice.emits],
+  filters: [...slice.filters],
+  grid: slice.grid.slice(),
+  kinds: slice.kinds.slice(),
+  leafy: slice.leafy.slice(),
+  submerged: slice.submerged.slice(),
+  occludes: slice.occludes.slice(),
+  skyLight: skyLightAt(bot, slice.origin.offset(0, 1, 0)),
+})
+
+// Keeps the payload the watcher last got, for getWorldView.
+const setBlocksData = (bot, data) => {
+  if (bot._worldSlice) bot._worldSlice.data = data
+}
+
+// The blocks payload, computed right here (on this thread). The bot manager uses a worker instead.
+const getBlocks = (bot) => {
+  const slice = readSlice(bot)
+  if (!slice) return bot._worldSlice?.data ?? null
+
+  const data = computeBlocks(computeInput(bot, slice))
+  setBlocksData(bot, data)
   return data
 }
 
-const getWorldView = (bot) => {
+// `cachedBlocks`: don't compute here, use the last payload (the bot manager's worker keeps it current).
+const getWorldView = (bot, { cachedBlocks = false } = {}) => {
   if (!bot?.entity || !bot.world) {
     return null
   }
   return {
     inventory: getInventory(bot),
-    blocks: getBlocks(bot),
+    blocks: cachedBlocks ? (bot._worldSlice?.data ?? null) : getBlocks(bot),
   }
 }
 
-module.exports = { getWorldView, describeItem, spreadLight }
+module.exports = { getWorldView, getInventory, describeItem, spreadLight, readSlice, computeInput, setBlocksData }

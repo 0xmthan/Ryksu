@@ -184,7 +184,7 @@ class AutoEatController {
 
       try {
         if (this.bot.food >= 20) {
-          autoEat.disableAuto()
+          autoEat.disableAuto(false)
         } else if (!autoEat.enabled) {
           autoEat.enableAuto()
         }

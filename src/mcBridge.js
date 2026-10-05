@@ -50,6 +50,10 @@ const registerMinecraftIpc = (ipcMain) => {
     emitToRenderer('bot:motion', motion)
   })
 
+  botManager.on('selfMotion', (motion) => {
+    emitToRenderer('bot:selfMotion', motion)
+  })
+
   botManager.on('pathfinderOptions', (options) => {
     emitToRenderer('bot:pathfinderOptions', options)
   })
@@ -60,6 +64,10 @@ const registerMinecraftIpc = (ipcMain) => {
   })
 
   // Blocks the bot is still to break or place in build mode.
+  botManager.on('breaking', (state) => {
+    emitToRenderer('bot:breaking', state)
+  })
+
   botManager.on('buildCells', (cells) => {
     emitToRenderer('bot:buildCells', cells)
   })
@@ -218,6 +226,14 @@ const registerMinecraftIpc = (ipcMain) => {
   ipcMain.handle('bot:followEntity', (_event, entityId) =>
     Number.isInteger(entityId) ? botManager.followEntity(entityId) : { ok: false, message: 'Invalid entity.' }
   )
+  ipcMain.on('bot:firstPersonLook', (_event, yaw, pitch) => botManager.firstPerson.look(yaw, pitch))
+  ipcMain.handle('bot:firstPersonHit', (_event, entityId) => botManager.firstPerson.hit(entityId))
+  ipcMain.handle('bot:firstPersonDig', (_event, position) => botManager.firstPerson.dig(position))
+  ipcMain.on('bot:firstPersonStopDig', () => botManager.firstPerson.stopDig())
+  ipcMain.handle('bot:firstPersonPlace', (_event, position, face, replace) =>
+    botManager.firstPerson.place(position, face, replace === true)
+  )
+
   ipcMain.handle('bot:setMovementControls', (_event, controls) =>
     botManager.manualMovement.setControls(controls)
   )

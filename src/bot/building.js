@@ -66,10 +66,14 @@ const inTheWay = (bot, target) => {
   )
 }
 
+// Something to break there: not air or liquid (plants and flowers have no collision box, but count).
+const LIQUIDS = new Set(['water', 'lava', 'bubble_column'])
+const isEmptySpace = (block) => !block || block.name.endsWith('air') || LIQUIDS.has(block.name)
+
 const breakBlock = async (bot, position, { equipTool = false } = {}) => {
   const target = toVec(position)
   let block = bot.blockAt(target)
-  if (!block || block.boundingBox === 'empty' || block.name.endsWith('air')) throw new Error('Nothing to break there.')
+  if (isEmptySpace(block)) throw new Error('Nothing to break there.')
   if (block.diggable === false || block.hardness === null || block.hardness < 0) {
     throw new Error(`${name(block)} can't be broken.`)
   }
@@ -77,7 +81,7 @@ const breakBlock = async (bot, position, { equipTool = false } = {}) => {
     await walk(bot, new goals.GoalLookAtBlock(target, bot.world, { reach: REACH - 0.5 }))
   }
   block = bot.blockAt(target)
-  if (!block || block.boundingBox === 'empty') throw new Error('The block is already gone.')
+  if (isEmptySpace(block)) throw new Error('The block is already gone.')
   if (eyeDistance(bot, target) > REACH) throw new Error(`${name(block)} is out of reach.`)
 
   // With auto tool on, use the best tool, then go back to the slot that was held.
@@ -322,4 +326,4 @@ const buildCells = async (
   return skipped ? `${what} · skipped ${skipped}.` : `${what}.`
 }
 
-module.exports = { breakBlock, placeBlock, buildCells, isPlaceable }
+module.exports = { breakBlock, placeBlock, buildCells, isPlaceable, isEmptySpace, findSupport }

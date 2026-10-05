@@ -3,6 +3,7 @@
 // sun (or moon) casts shadows around the bot. Caves skip the sky and get a dim light that follows the bot.
 import * as THREE from 'three'
 import type { ViewMode } from '../../utils/viewMode'
+import { SHADOW_MAP_SIZE, type ShadowQuality } from '../../utils/graphicsSettings'
 
 const DAY_SKY = new THREE.Color('#7ba4ff')
 const DUSK_SKY = new THREE.Color('#e9946a')
@@ -52,8 +53,10 @@ const makeDisc = (color: string, size: number) => {
   return sprite
 }
 
-export const createSky = (scene: THREE.Scene, renderer: THREE.WebGLRenderer) => {
+export const createSky = (scene: THREE.Scene, renderer: THREE.WebGLRenderer, quality: ShadowQuality = 'high') => {
+  // Always on: turning shadows off just stops the light casting them, so it can change while the view is open.
   renderer.shadowMap.enabled = true
+  let shadows = quality
   renderer.shadowMap.type = THREE.PCFSoftShadowMap
 
   const background = DAY_SKY.clone()
@@ -61,8 +64,16 @@ export const createSky = (scene: THREE.Scene, renderer: THREE.WebGLRenderer) => 
 
   const ambient = new THREE.AmbientLight(0xffffff, 1)
   const light = new THREE.DirectionalLight(0xffffff, 1)
-  light.castShadow = true
-  light.shadow.mapSize.set(2048, 2048)
+  const sizeShadowMap = () => {
+    const mapSize = shadows === 'off' ? 512 : SHADOW_MAP_SIZE[shadows]
+    if (light.shadow.mapSize.x === mapSize) return
+    light.shadow.mapSize.set(mapSize, mapSize)
+    // Remade at the new size on the next frame.
+    light.shadow.map?.dispose()
+    light.shadow.map = null
+  }
+  light.castShadow = shadows !== 'off'
+  sizeShadowMap()
   Object.assign(light.shadow.camera, {
     left: -SHADOW_RANGE,
     right: SHADOW_RANGE,
@@ -120,7 +131,7 @@ export const createSky = (scene: THREE.Scene, renderer: THREE.WebGLRenderer) => 
     if (sunUp) light.color.lerp(DUSK_SUN_COLOR, dusk)
     const open = 1 - caveAmount
     light.intensity = (sunUp ? 0.25 + day * 0.65 : 0.22) * open
-    light.castShadow = open > 0.5
+    light.castShadow = shadows !== 'off' && open > 0.5
     ambient.intensity = THREE.MathUtils.lerp(0.4 + day * 0.4, 0.75, caveAmount)
     lantern.position.copy(focus).add(new THREE.Vector3(0, 2, 0))
     lantern.intensity = caveAmount * 1.4
@@ -135,5 +146,15 @@ export const createSky = (scene: THREE.Scene, renderer: THREE.WebGLRenderer) => 
     moon.visible = open > 0.5 && height < 0.2
   }
 
-  return { update }
+  const setShadows = (next: ShadowQuality) => {
+    shadows = next
+    sizeShadowMap()
+  }
+
+  // For glints on water: the direction toward the sun or moon (whichever lights the scene) and its color,
+  // scaled by how strongly it shines (none in caves).
+  const lightDirection = (target: THREE.Vector3) => target.subVectors(light.position, light.target.position).normalize()
+  const lightColor = (target: THREE.Color) => target.copy(light.color).multiplyScalar(light.intensity)
+
+  return { update, setShadows, lightDirection, lightColor }
 }

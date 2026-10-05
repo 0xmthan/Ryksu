@@ -88,21 +88,35 @@ const armorBones = (model: MobModel, parts: [string, number[], number][], extra 
 const addArmorPiece = (model: MobModel, slot: keyof typeof PIECES, item: WornItem) => {
   const piece = PIECES[slot]
   const material = armorMaterial(item.name, piece.suffix)
-  const textures = entityData.armor[piece.layer]
+  const baby = Boolean(model.entry && model.entry === entityData.entities[model.type]?.baby)
+  const textures = entityData.armor[baby ? 'humanoid_baby' : piece.layer]
   const texture = material ? textures[material] : undefined
   if (texture === undefined) return false
   const size = textureSize(texture)
   const leather = material === 'leather'
+  const babyUvs: Record<string, number[]> = slot === 'chest'
+    ? { body: [0, 17], rightarm: [30, 25], leftarm: [30, 17] }
+    : slot === 'legs' ? { body: [0, 33], rightleg: [18, 17], leftleg: [18, 24] }
+    : slot === 'feet' ? { rightleg: [0, 25], leftleg: [0, 29] } : { head: [0, 0] }
+  const bones = (extra = 0) => {
+    const result = armorBones(model, baby
+      ? piece.parts.map(([name]) => [name, babyUvs[name], slot === 'feet' ? 0.5 : 0.3])
+      : piece.parts, extra)
+    if (baby && slot === 'feet') {
+      for (const bone of result) for (const cube of bone.cubes ?? []) cube.size = [cube.size[0], 1, cube.size[2]]
+    }
+    return result
+  }
   addLayer(
     model,
-    armorBones(model, piece.parts),
+    bones(),
     mobMaterial(loadTexture(texture), leather ? (item.color ?? LEATHER) : null),
     size
   )
   // Leather's undyed trim sits just over the dyed layer.
   const overlay = leather ? textures.leather_overlay : undefined
   if (overlay !== undefined) {
-    addLayer(model, armorBones(model, piece.parts, 0.01), mobMaterial(loadTexture(overlay)), size)
+    addLayer(model, bones(0.01), mobMaterial(loadTexture(overlay)), size)
   }
   return true
 }
@@ -123,6 +137,10 @@ const handOffset = (model: MobModel, arm: string) => {
 }
 
 // Tools and sticks are held by the handle with the head pointing forward; other items stand upright.
+// Their size (pixels), how far along the shaft the fist is from the middle, and the upward tilt.
+const HANDHELD_SIZE = 12
+const HANDHELD_GRIP = HANDHELD_SIZE * 0.42
+const HANDHELD_TILT = Math.PI / 9
 const HANDHELD =
   /_(sword|pickaxe|axe|shovel|hoe|spear)$|^(stick|blaze_rod|breeze_rod|bone|fishing_rod|carrot_on_a_stick|warped_fungus_on_a_stick|mace|trident)$/
 
@@ -150,11 +168,18 @@ const holdItem = (model: MobModel, arm: string, name: string) => {
     item.object.position.set(0, -2, -3)
     item.object.rotation.y = Math.PI / 4
   } else if (HANDHELD.test(name)) {
-    // Turned so the texture's right points forward (-z) and tilted so the head points slightly up, with
-    // the bottom-left of the texture (the handle) in the hand.
-    holder.rotation.set(-Math.PI / 6, Math.PI / 2, 0)
-    item.object.scale.setScalar(12)
-    item.object.position.set(0.4 * 12, 0.4 * 12, 0)
+    // Tool textures run corner to corner, handle bottom-left to head top-right. The diagonal is turned to
+    // point forward (-z), tilted up a little, with the flat side facing out, and gripped a bit up from the
+    // handle's end, so the head leads like the game's.
+    holder.rotation.set(HANDHELD_TILT, Math.PI / 2, 0)
+    const grip = new THREE.Group()
+    grip.position.set(HANDHELD_GRIP, 0, 0)
+    grip.rotation.z = -Math.PI / 4
+    item.object.scale.setScalar(HANDHELD_SIZE)
+    grip.add(item.object)
+    holder.add(grip)
+    group.add(holder)
+    return
   } else {
     item.object.scale.setScalar(8)
     item.object.position.set(0, -2, -3)

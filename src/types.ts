@@ -186,6 +186,8 @@ export type WorldView = {
     // Block light (0-15) for every cell of the view box, 255 where light can't enter. Cells are laid out
     // x fastest, then z, then y; `below` is the origin's layer.
     light: { width: number; height: number; below: number; cells: Uint8Array }
+    // Point lights (torches, lanterns, …) as x, y, z (like positions) and level, four numbers each.
+    emitters?: number[]
     roofCutoff: number
     // Where the bot is, for picking the view mode automatically.
     environment: 'outside' | 'indoors' | 'cave'
@@ -205,6 +207,12 @@ export type PlayerList = {
 export type BuildAction =
   | { type: 'break'; cells: { x: number; y: number; z: number }[] }
   | { type: 'place'; cells: { x: number; y: number; z: number }[]; face?: { x: number; y: number; z: number } }
+
+// Blocks being broken right now (stage 0-9, the game's crack textures), and one the bot just finished.
+export type BreakingState = {
+  cracks: { x: number; y: number; z: number; stage: number }[]
+  broken: { x: number; y: number; z: number; name: string } | null
+}
 
 // Blocks the bot still has to break and place (the line it's on and any queued after it).
 export type BuildCells = { break: { x: number; y: number; z: number }[]; place: { x: number; y: number; z: number }[] }
@@ -244,6 +252,9 @@ export type MovementControls = {
   left: boolean
   right: boolean
   yaw: number
+  // First person: keep facing yaw/pitch and strafe with left/right, instead of turning to walk.
+  pitch?: number
+  relative?: boolean
 }
 
 export type EquipmentSlot = 'mainhand' | 'offhand' | 'head' | 'chest' | 'legs' | 'feet'
@@ -290,6 +301,8 @@ export type MotionEntity = EntityPose & {
   markings?: string
   // Sheep wool color; null when sheared.
   wool?: string | null
+  // Dye retained on a sheep's body after its wool is sheared.
+  shearedColor?: string
   // Registry ids of the villager's biome type and profession.
   villager?: { type: number; profession: number }
   // Mojang skin URL for players.

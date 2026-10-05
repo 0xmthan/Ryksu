@@ -32,6 +32,8 @@ type DashboardProps = {
   updatePathfinder: (options: import('../types').PathfinderOptions) => void
   // Set only while auto eat is on.
   autoEat: AutoEatOptions | null
+  // A page is open over the game (settings): the view gives the mouse and keys back.
+  paused?: boolean
 }
 
 const Dashboard: React.FC<DashboardProps> = ({
@@ -47,6 +49,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   showChat,
   updatePathfinder,
   autoEat,
+  paused = false,
 }) => {
   const { locations, saveLocation, deleteLocation } = useSavedLocations()
   const [worldView, setWorldView] = useState<WorldView | null>(null)
@@ -258,7 +261,7 @@ const Dashboard: React.FC<DashboardProps> = ({
     <div className="relative min-h-0 min-w-0 flex-1 bg-neutral-950 text-neutral-100">
       <Surroundings3D
         onBlockInteract={interactBlock}
-        movementEnabled={!openingBlock && !inventoryOpen && !showChat && !entityContext && !trader}
+        movementEnabled={!paused && !openingBlock && !inventoryOpen && !showChat && !entityContext && !trader}
         blocks={worldView?.blocks ?? null}
         chests={snapshot.mining?.chests ?? []}
         onBlockPick={pickingChests ? pickChest : null}
@@ -270,6 +273,8 @@ const Dashboard: React.FC<DashboardProps> = ({
           return held?.placeable ? held.name : null
         })()}
         onBuild={build}
+        onCloseChat={showChat ? onChatClose : undefined}
+        onHotbarScroll={(step) => selectHotbar(((worldView?.inventory.selectedHotbar ?? 0) + step + 9) % 9)}
         queuedBuild={queuedBuild}
         onWalkTo={(target) => {
           if (target.door) setBlockFeedback('Going to the door…')

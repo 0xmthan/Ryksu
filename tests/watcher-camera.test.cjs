@@ -31,39 +31,32 @@ test('camera follows smoothly while keeping its orbit offset', () => {
   rig.dispose()
 })
 
-test('follow view eases in and preserves the horizontal camera angle', () => {
+test('the camera stays locked on the bot, so a pan never sticks', () => {
   const { camera, controls, rig } = setup()
-  const initialDistance = camera.position.distanceTo(controls.target)
-  const initialAngle = Math.atan2(camera.position.x, camera.position.z)
-  rig.setMode('follow')
-  rig.update(new THREE.Vector3(), 1 / 60)
-  const nextDistance = camera.position.distanceTo(controls.target)
-  assert.ok(nextDistance > 13 && nextDistance < initialDistance)
+  camera.position.x += 10
+  controls.target.x += 10
   for (let i = 0; i < 120; i++) rig.update(new THREE.Vector3(), 1 / 60)
-  assert.ok(Math.abs(camera.position.distanceTo(controls.target) - 13) < 0.02)
+  assert.ok(Math.abs(controls.target.x) < 0.00001)
+  rig.dispose()
+})
+
+test('recenter eases to the default view and keeps the horizontal angle', () => {
+  const { camera, controls, rig } = setup()
+  const initialAngle = Math.atan2(camera.position.x, camera.position.z)
+  rig.recenter()
+  for (let i = 0; i < 180; i++) rig.update(new THREE.Vector3(), 1 / 60)
+  assert.ok(Math.abs(camera.position.distanceTo(controls.target) - exportsObject.DEFAULT_DISTANCE) < 0.02)
   assert.ok(Math.abs(Math.atan2(camera.position.x, camera.position.z) - initialAngle) < 0.00001)
   rig.dispose()
 })
 
-test('manual camera gestures interrupt automatic zoom', () => {
+test('manual camera gestures interrupt an eased reset', () => {
   const { camera, controls, rig } = setup()
-  rig.setMode('follow')
+  rig.recenter()
   controls.dispatchEvent({ type: 'start' })
   const distance = camera.position.distanceTo(controls.target)
   rig.update(new THREE.Vector3(), 1 / 60)
-  assert.equal(camera.position.distanceTo(controls.target), distance)
-  rig.dispose()
-})
-
-test('recenter smoothly removes a deliberate pan', () => {
-  const { camera, controls, rig } = setup()
-  camera.position.x += 10
-  controls.target.x += 10
-  rig.recenter()
-  rig.update(new THREE.Vector3(), 1 / 60)
-  assert.ok(controls.target.x > 0 && controls.target.x < 10)
-  for (let i = 0; i < 120; i++) rig.update(new THREE.Vector3(), 1 / 60)
-  assert.ok(Math.abs(controls.target.x) < 0.02)
+  assert.ok(Math.abs(camera.position.distanceTo(controls.target) - distance) < 0.00001)
   rig.dispose()
 })
 

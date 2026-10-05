@@ -22,6 +22,58 @@ const TEXTURE_OVERRIDES = {
 const SKIP = /baby|overlay|outer|eyes|saddle|armor|collar|markings|decor|profession|level|type\//
 // Mobs drawn with another of their geometries; the sheep's default one is its wool coat.
 const GEOMETRY = { sheep: 'sheared' }
+const BABY_MODELS = require('../vendor/baby-mob-models.json')
+const MODERN_MODELS = require('../vendor/modern-mob-models.json')
+const BABY_ALIASES = {
+  mule: 'donkey', skeleton_horse: 'horse', zombie_horse: 'horse', ocelot: 'cat',
+  mooshroom: 'cow', zoglin: 'hoglin', zombified_piglin: 'piglin', husk: 'zombie',
+  drowned: 'zombie', wandering_trader: 'villager',
+  glow_squid: 'squid',
+}
+
+const addBabies = (out, textures) => {
+  const files = listTextures().filter((file) => file.endsWith('_baby'))
+  const special = {
+    cat: 'cat/cat_black', cow: 'cow/cow_temperate', chicken: 'chicken/chicken_temperate',
+    pig: 'pig/pig_temperate', horse: 'horse/horse_brown', donkey: 'horse/donkey',
+    mule: 'horse/mule', skeleton_horse: 'horse/horse_skeleton', zombie_horse: 'horse/horse_zombie',
+    ocelot: 'cat/ocelot', mooshroom: 'cow/mooshroom_red', polar_bear: 'bear/polarbear',
+    turtle: 'turtle/turtle', zombified_piglin: 'piglin/zombified_piglin',
+    zoglin: 'hoglin/zoglin', husk: 'zombie/husk', drowned: 'zombie/drowned',
+    rabbit: 'rabbit/rabbit_brown', axolotl: 'axolotl/axolotl_lucy', llama: 'llama/llama_creamy',
+    glow_squid: 'squid/glow_squid',
+  }
+  const add = (ref) => textures.add(path.join(entityDir, `${ref}_baby.png`))
+  for (const [type, adult] of Object.entries(out)) {
+    const geometry = BABY_MODELS[BABY_ALIASES[type] ?? type]
+    if (!geometry) continue
+    const texture = add(special[type] ?? `${type}/${type}`)
+    // Villager babies have complete biome outfits instead of profession overlays.
+    const villager = type === 'villager' || type === 'zombie_villager'
+    const base = villager ? textures.add(path.join(entityDir, type, 'baby', 'plains.png')) : texture
+    if (base === null) continue
+    const baby = { texture: base, bones: geometry.bones, variants: {} }
+    const names = type === 'cow' ? ['temperate', 'warm', 'cold'] : Object.keys(VARIANTS[type] ?? {})
+    for (const name of names) {
+      const suffix = type === 'wolf' && name === 'pale' || type === 'panda' && name === 'normal'
+        || type === 'fox' && name === 'red' ? type : `${type}_${name}`
+      const candidates = [`${type}/${suffix}`, `${type}/${name}_${type}`,
+        type === 'mooshroom' ? `cow/mooshroom_${name}` : '']
+      const ref = candidates.find((candidate) => files.includes(`${candidate}_baby`))
+      if (ref) baby.variants[name] = add(ref)
+    }
+    if (villager) baby.villagerTypes = VILLAGER_TYPES.map((name) =>
+      textures.add(path.join(entityDir, type, 'baby', `${name}.png`)))
+    if (type === 'horse') baby.markings = textures.addAll(HORSE_MARKINGS,
+      (ref) => path.join(entityDir, 'horse', `${path.basename(ref)}_baby.png`))
+    if (type === 'sheep') {
+      // Java 26.1 registers the same BabySheepModel layer for body and wool.
+      // Inflating it like the adult fleece gives lambs the old bulky silhouette.
+      baby.coat = { texture: add('sheep/sheep_wool'), bones: geometry.bones }
+    }
+    adult.baby = baby
+  }
+}
 
 const listTextures = () => {
   const all = []
@@ -110,7 +162,7 @@ const shiftUv = (bones, du, dv) =>
 // Armor textures by material (iron, gold, leather, leather_overlay, …), from the 64×32 humanoid layers.
 const armorTextures = (textures) => {
   const layers = {}
-  for (const layer of ['humanoid', 'humanoid_leggings']) {
+  for (const layer of ['humanoid', 'humanoid_leggings', 'humanoid_baby']) {
     const dir = path.join(entityDir, 'equipment', layer)
     const files = fs.existsSync(dir) ? fs.readdirSync(dir).filter((file) => file.endsWith('.png')) : []
     layers[layer] = Object.fromEntries(
@@ -160,6 +212,16 @@ module.exports = () => {
   }
   const horseMarkings = textures.addAll(HORSE_MARKINGS, fromAssets)
   const armor = armorTextures(textures)
+  for (const [type, geometry] of Object.entries(MODERN_MODELS)) {
+    const file = findTexture(`textures/entity/${type}/${type}`) ??
+      geometry.external_textures?.map((ref) => findTexture(`textures/${ref.replace(/\.png$/, '')}`)).find(Boolean)
+    if (file) out[type] = { texture: textures.add(file), bones: geometry.bones }
+  }
+  if (out.squid) {
+    const glow = textures.add(path.join(entityDir, 'squid', 'glow_squid.png'))
+    if (glow !== null) out.glow_squid = { ...out.squid, texture: glow }
+  }
+  addBabies(out, textures)
 
   // SHOW_SOURCES=1 lists which texture file each mob ended up with.
   if (process.env.SHOW_SOURCES) console.log(sources)

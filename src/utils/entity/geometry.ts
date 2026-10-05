@@ -106,11 +106,29 @@ export const boneGeometry = (
   const normals: number[] = []
   const uvs: number[] = []
   const indices: number[] = []
+  // Per cube, its corner and three edges in the mesh's space (origin, x edge, y edge, z edge: 12 numbers),
+  // for the ray-cast torch shadows (components/watcher/torchRays.ts).
+  const cubeFrames: number[] = []
   const point = new THREE.Vector3()
   for (const cube of cubes) {
     const inflate = cube.inflate ?? 0
     const cubeRotation = cube.rotation ? toEuler(cube.rotation) : null
     const cubePivot = new THREE.Vector3(...(cube.pivot ?? [0, 0, 0]))
+    // A corner of the cube (0 or 1 along each axis), placed like the vertices below.
+    const place = (cx: number, cy: number, cz: number) => {
+      const corner = new THREE.Vector3(
+        cube.origin[0] + cx * cube.size[0] + (cx ? inflate : -inflate),
+        cube.origin[1] + cy * cube.size[1] + (cy ? inflate : -inflate),
+        cube.origin[2] + cz * cube.size[2] + (cz ? inflate : -inflate)
+      )
+      if (cubeRotation) corner.sub(cubePivot).applyEuler(cubeRotation).add(cubePivot)
+      corner.sub(pivot)
+      if (boneRotation) corner.applyEuler(boneRotation)
+      return corner
+    }
+    const origin = place(0, 0, 0)
+    cubeFrames.push(...origin.toArray())
+    for (const edge of [place(1, 0, 0), place(0, 1, 0), place(0, 0, 1)]) cubeFrames.push(...edge.sub(origin).toArray())
     for (const { dir, corners, u0, v0, u1, v1 } of FACES) {
       const base = positions.length / 3
       // Keep nearest-neighbor samples inside this face's atlas rectangle.
@@ -148,5 +166,6 @@ export const boneGeometry = (
   geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3))
   geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2))
   geometry.setIndex(indices)
+  geometry.userData.cubeFrames = cubeFrames
   return geometry
 }

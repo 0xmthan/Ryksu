@@ -46,6 +46,8 @@ export class EatUtil extends EventEmitter<EatEvents> {
   _eating = false
   _enabled = false
   _rejectionBinding?: (error: Error) => void
+  _retryAt = 0
+  _eatingOffhand = false
   get foods() {
     return this.bot.registry.foods
   }
@@ -75,11 +77,23 @@ export class EatUtil extends EventEmitter<EatEvents> {
     return items
   }
   async equip(item: Item, hand: 'hand' | 'off-hand') {
+    let timer: ReturnType<typeof setTimeout> | undefined
+    let cancel: ((error: Error) => void) | undefined
     try {
-      await this.bot.equip(item, hand)
+      await Promise.race([
+        this.bot.equip(item, hand),
+        new Promise<never>((_, reject) => {
+          cancel = reject
+          this._rejectionBinding = reject
+          timer = setTimeout(() => reject(new Error('Equipping food timed out!')), this.opts.eatingTimeout)
+        }),
+      ])
       return true
     } catch {
       return false
+    } finally {
+      clearTimeout(timer)
+      if (this._rejectionBinding === cancel) delete this._rejectionBinding
     }
   }
   setOpts(opts: Partial<AutoEatOptions>) {
@@ -164,7 +178,11 @@ export class EatUtil extends EventEmitter<EatEvents> {
         }
       }
       const itemListener = (slot: number, oldItem: Item | null, newItem: Item | null) => {
-        if (oldItem?.slot === relevantItem.slot && newItem?.type !== relevantItem.type) {
+        if (
+          slot === this.bot.getEquipmentDestSlot(this._eatingOffhand ? 'off-hand' : 'hand') &&
+          oldItem?.type === relevantItem.type &&
+          newItem?.type !== relevantItem.type
+        ) {
           fail(new Error(`Item switched early to: ${newItem?.name}!`))
         }
       }
@@ -184,48 +202,65 @@ export class EatUtil extends EventEmitter<EatEvents> {
     // if we are already eating, throw error.
     if (this._eating) throw new Error('Already eating!')
     this._eating = true
-    // Sanitize options; if not valid, throw error.
-    if (!this.sanitizeOpts(opts)) {
-      this._eating = false
-      throw new Error("No food specified and couldn't find a choice in inventory!")
-    }
-    // get current item in hand + wanted hand
-    const currentItem =
-      this.bot.inventory.slots[this.bot.getEquipmentDestSlot(opts.offhand ? 'off-hand' : 'hand')]
-    const switchedItems = currentItem != opts.food
-    const wantedHand = opts.offhand ? 'off-hand' : 'hand'
-    // if not already holding item, equip item
-    if (switchedItems) {
-      const equipped = await this.equip(opts.food, wantedHand)
-      // if fail to equip, throw error.
-      if (!equipped) {
-        this._eating = false
-        throw new Error(`Failed to equip: ${opts.food.name}!\nItem: ${opts.food}`)
-      }
-    }
-    // ! begin eating item
-    // sanitize by deactivating beforehand
-    this.bot.deactivateItem()
-    // trigger use state based on hand
-    this.bot.activateItem(opts.offhand)
-    this.emit('eatStart', opts)
-    // Wait for eating to finish, handle errors gracefully if there are, and perform cleanup.
+    let started = false
+    let currentItem: Item | null | undefined
+    let switchedItems = false
+    let wantedHand: 'hand' | 'off-hand' = 'hand'
     try {
-      await this.buildEatingListener(opts.food, this.opts.eatingTimeout)
+      // Sanitize options; if not valid, throw error.
+      if (!this.sanitizeOpts(opts)) {
+        throw new Error("No food specified and couldn't find a choice in inventory!")
+      }
+      // get current item in hand + wanted hand
+      currentItem =
+        this.bot.inventory.slots[this.bot.getEquipmentDestSlot(opts.offhand ? 'off-hand' : 'hand')]
+      switchedItems = currentItem != opts.food
+      wantedHand = opts.offhand ? 'off-hand' : 'hand'
+      this._eatingOffhand = opts.offhand
+      // if not already holding item, equip item
+      if (switchedItems) {
+        const equipped = await this.equip(opts.food, wantedHand)
+        // if fail to equip, throw error.
+        if (!equipped) {
+          throw new Error(`Failed to equip: ${opts.food.name}!\nItem: ${opts.food}`)
+        }
+      }
+      // ! begin eating item
+      // sanitize by deactivating beforehand
+      this.bot.deactivateItem()
+      const completion = this.buildEatingListener(opts.food, this.opts.eatingTimeout)
+      // Observe rejection even if activation itself throws before we can await it.
+      void completion.catch(() => {})
+      // trigger use state based on hand
+      this.bot.activateItem(opts.offhand)
+      started = true
+      this.emit('eatStart', opts)
+      // Wait for eating to finish, handle errors gracefully if there are, and perform cleanup.
+      await completion
     } catch (error) {
+      this._rejectionBinding?.(error instanceof Error ? error : new Error(String(error)))
+      this._retryAt = Date.now() + 1000
       this.emit('eatFail', error)
       if (this.opts.strictErrors)
         throw error // expose error to outer environment
       else console.error(error)
     } finally {
+      try {
+        this.bot.deactivateItem()
+      } catch {}
       if (opts.equipOldItem && switchedItems && currentItem) await this.equip(currentItem, wantedHand)
       delete this._rejectionBinding
       this._eating = false
-      this.emit('eatFinish', opts)
+      if (started) this.emit('eatFinish', opts as SanitizedEatOptions)
     }
   }
   statusCheck = async () => {
-    if ((this.bot.food < this.opts.minHunger || this.bot.health < this.opts.minHealth) && !this._eating) {
+    if (
+      this.bot.food < 20 &&
+      Date.now() >= this._retryAt &&
+      (this.bot.food < this.opts.minHunger || this.bot.health < this.opts.minHealth) &&
+      !this._eating
+    ) {
       try {
         await this.eat()
       } catch {}
@@ -236,7 +271,8 @@ export class EatUtil extends EventEmitter<EatEvents> {
     this._enabled = true
     this.bot.on('physicsTick', this.statusCheck)
   }
-  disableAuto() {
+  disableAuto(cancel = true) {
+    if (cancel) this.cancelEat()
     if (!this._enabled) return
     this._enabled = false
     this.bot.off('physicsTick', this.statusCheck)

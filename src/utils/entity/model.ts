@@ -1,12 +1,13 @@
 // Builds 3D mob models for the watcher from Bedrock-style geometry (bones made of textured cubes). Each
 // bone is a group so limbs can move; extra layers (wool, armor) are added onto the same bones.
 import * as THREE from 'three'
-import { entityData, type Bone } from './data'
+import { entityData, type Bone, type EntityEntry } from './data'
 import { boneGeometry, toEuler } from './geometry'
 import { loadTexture } from './textures'
 
 export type MobModel = {
   type: string
+  entry: EntityEntry
   // The whole model in blocks, facing -z (yaw 0); baby scale and the death tilt go here.
   root: THREE.Group
   // Inside root: the model in pixels, which whole-body poses (sitting) turn and shift.
@@ -93,8 +94,9 @@ const slimArms = (bones: Bone[]): Bone[] =>
   })
 
 // `texture` picks another texture for the body (a variant); it must share the base texture's layout.
-export const buildMobModel = (type: string, options: { slim?: boolean; texture?: number } = {}): MobModel => {
-  const entry = entityData.entities[type]
+export const buildMobModel = (type: string, options: { slim?: boolean; texture?: number; baby?: boolean } = {}): MobModel => {
+  const adult = entityData.entities[type]
+  const entry = options.baby && adult.baby ? adult.baby : adult
   const bones = options.slim ? slimArms(entry.bones) : entry.bones
   const textureIndex = options.texture ?? entry.texture
   const skin = mobMaterial(loadTexture(textureIndex))
@@ -107,6 +109,7 @@ export const buildMobModel = (type: string, options: { slim?: boolean; texture?:
 
   const model: MobModel = {
     type,
+    entry,
     root,
     frame: scaled,
     skin,
@@ -141,7 +144,14 @@ export const buildMobModel = (type: string, options: { slim?: boolean; texture?:
 
 // The sheep's wool coat, dyed; nothing for a sheared sheep or a mob without a coat.
 export const addCoat = (model: MobModel, color: string) => {
-  const coat = entityData.entities[model.type]?.coat
+  const coat = model.entry.coat
   if (!coat) return
-  addLayer(model, coat.bones, mobMaterial(loadTexture(coat.texture), color), textureSize(coat.texture))
+  const material = mobMaterial(loadTexture(coat.texture), color)
+  if (model.type === 'sheep' && model.entry === entityData.entities.sheep.baby) {
+    // Baby fleece shares the body's exact surface; keep the overlay stable at equal depth.
+    material.polygonOffset = true
+    material.polygonOffsetFactor = -1
+    material.polygonOffsetUnits = -1
+  }
+  addLayer(model, coat.bones, material, textureSize(coat.texture))
 }

@@ -52,7 +52,14 @@ function mainHandlers(updateResult, openError = false) {
   const opened = []
   let copied = ''
   const electron = {
-    app: { getVersion: () => '2.1.0', whenReady: () => ({ then() {} }), on() {} },
+    app: {
+      getVersion: () => '2.1.0',
+      // No display.json there, so the frame cap stays on.
+      getPath: () => require('node:os').tmpdir() + '/ryksu-test-missing',
+      commandLine: { appendSwitch() {} },
+      whenReady: () => ({ then() {} }),
+      on() {},
+    },
     BrowserWindow: {},
     ipcMain: { handle: (name, handler) => handlers.set(name, handler), on() {} },
     clipboard: {

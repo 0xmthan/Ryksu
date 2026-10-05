@@ -40,6 +40,44 @@ export const loadImage = (src: string) => {
   return image
 }
 
+// The sheared texture includes skin, eyes and hooves as well as pale wool stubble.
+// Dye only the pale neutral pixels outside the head's UV region.
+export const dyeSheepPixels = (pixels: Uint8ClampedArray, width: number, color: string) => {
+  const rgb = [1, 3, 5].map((offset) => parseInt(color.slice(offset, offset + 2), 16))
+  for (let i = 0; i < pixels.length; i += 4) {
+    const x = (i / 4) % width
+    const y = Math.floor(i / 4 / width)
+    if (x < 28 && y < 16) continue
+    const channels = [pixels[i], pixels[i + 1], pixels[i + 2]]
+    if (Math.min(...channels) < 180 || Math.max(...channels) - Math.min(...channels) > 12) continue
+    for (let channel = 0; channel < 3; channel++) {
+      pixels[i + channel] = Math.round(pixels[i + channel] * rgb[channel] / 255)
+    }
+  }
+}
+
+const sheepCache = new Map<string, Promise<THREE.Texture>>()
+export const shearedSheepTexture = (color: string, index = entityData.entities.sheep.texture) => {
+  const key = `${index}:${color}`
+  let texture = sheepCache.get(key)
+  if (!texture) {
+    texture = (async () => {
+      const image = await loadImage(entityData.textures[index].src)
+      const canvas = document.createElement('canvas')
+      canvas.width = image.naturalWidth
+      canvas.height = image.naturalHeight
+      const context = canvas.getContext('2d')!
+      context.drawImage(image, 0, 0)
+      const pixels = context.getImageData(0, 0, canvas.width, canvas.height)
+      dyeSheepPixels(pixels.data, canvas.width, color)
+      context.putImageData(pixels, 0, 0)
+      return pixelated(new THREE.CanvasTexture(canvas))
+    })()
+    sheepCache.set(key, texture)
+  }
+  return texture
+}
+
 // Several mob textures drawn over each other into one, the way the game stacks layers (villager outfits,
 // horse markings). Missing layers are skipped.
 const layeredCache = new Map<string, Promise<THREE.Texture>>()

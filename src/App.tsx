@@ -4,6 +4,7 @@ import Dashboard from './components/Dashboard'
 import SavedChats from './components/SavedChats'
 import TitleBar from './components/TitleBar'
 import AboutPage from './components/AboutPage'
+import SettingsPage from './components/SettingsPage'
 import AutoEatSettingsModal from './components/AutoEatSettingsModal'
 import PvpSettingsModal from './components/PvpSettingsModal'
 import useChatHistory from './hooks/useChatHistory'
@@ -39,7 +40,8 @@ const App: React.FC = () => {
   const [version, setVersion] = useState<string>('auto')
   const [isChatPanelOpen, setIsChatPanelOpen] = useState(false)
   const [isViewingSavedChats, setIsViewingSavedChats] = useState(false)
-  const [isViewingAbout, setIsViewingAbout] = useState(false)
+  // The About or Settings page. Settings opens over the game while connected; otherwise they replace the rest.
+  const [sidePage, setSidePage] = useState<'about' | 'settings' | null>(null)
   const [isSendingChat, setIsSendingChat] = useState(false)
   const [chatInput, setChatInput] = useState('')
   const [activeConnectionKey, setActiveConnectionKey] = useState<string | null>(null)
@@ -97,8 +99,10 @@ const App: React.FC = () => {
     setPreJoinLoginEnabled,
   })
 
+  const closeSettings = useCallback(() => setSidePage(null), [])
+
   const handleTitleBarToggle = useCallback(() => {
-    setIsViewingAbout(false)
+    setSidePage(null)
     if (isConnected) {
       setIsChatPanelOpen((previous) => !previous)
       setIsViewingSavedChats(false)
@@ -459,7 +463,7 @@ const App: React.FC = () => {
       setIsChatPanelOpen(false)
     } else {
       setIsViewingSavedChats(false)
-      setIsViewingAbout(false)
+      setSidePage(null)
     }
   }, [isConnected])
 
@@ -480,8 +484,10 @@ const App: React.FC = () => {
           onDisconnect={handleDisconnect}
           onToggleChat={handleTitleBarToggle}
           isChatActive={isConnected ? isChatPanelOpen : isViewingSavedChats}
-          isAboutActive={isViewingAbout}
-          onToggleAbout={() => setIsViewingAbout((previous) => !previous)}
+          isAboutActive={sidePage === 'about'}
+          onToggleAbout={() => setSidePage((previous) => (previous === 'about' ? null : 'about'))}
+          isSettingsActive={sidePage === 'settings'}
+          onToggleSettings={() => setSidePage((previous) => (previous === 'settings' ? null : 'settings'))}
           armorManagerEnabled={armorManagerEnabled}
           onArmorManagerToggle={toggleArmorManager}
           autoShieldEnabled={autoShieldEnabled}
@@ -504,9 +510,11 @@ const App: React.FC = () => {
           onJumpAttackToggle={handleJumpAttackToggle}
         />
       </div>
-      <main className={`flex min-h-0 flex-1 overflow-y-auto ${isConnected && !isViewingAbout ? '' : 'pt-12'}`}>
-        {isViewingAbout ? (
+      <main className={`flex min-h-0 flex-1 overflow-y-auto ${isConnected && sidePage !== 'about' ? '' : 'pt-12'}`}>
+        {sidePage === 'about' ? (
           <AboutPage />
+        ) : sidePage === 'settings' && !isConnected ? (
+          <SettingsPage />
         ) : isConnected && connectedState ? (
           <Dashboard
             snapshot={connectedState}
@@ -521,6 +529,7 @@ const App: React.FC = () => {
             pathfinder={pathfinder}
             updatePathfinder={updatePathfinder}
             autoEat={autoEatEnabled ? autoEatOptions : null}
+            paused={sidePage === 'settings'}
           />
         ) : isViewingSavedChats ? (
           <SavedChats transcripts={savedTranscripts} onDelete={handleDeleteTranscript} />
@@ -550,6 +559,7 @@ const App: React.FC = () => {
           />
         )}
       </main>
+      {isConnected && sidePage === 'settings' ? <SettingsPage onClose={closeSettings} /> : null}
       {isAutoEatModalOpen ? (
         <AutoEatSettingsModal
           options={autoEatOptions}

@@ -9,6 +9,7 @@ import {
   MessageSquareText,
   Minus,
   Pickaxe,
+  Settings,
   ShieldHalf,
   Swords,
   X,
@@ -18,6 +19,8 @@ import StatusPill from './StatusPill'
 import ToolbarButton from './ToolbarButton'
 import MiningPanel from './MiningPanel'
 import type { BotStatus, MiningState } from '../types'
+import { useFps } from '../utils/frameRate'
+import { loadGraphicsSettings, onGraphicsSettingsChange } from '../utils/graphicsSettings'
 
 const ArmorIcon = () => (
   <svg
@@ -34,6 +37,8 @@ const ArmorIcon = () => (
     <path d="M8 3v5l4 3 4-3V3M12 11v9M8 16h8" />
   </svg>
 )
+
+const fpsClass = (fps: number) => (fps >= 50 ? 'text-emerald-200' : fps >= 25 ? 'text-amber-200' : 'text-rose-300')
 
 const pingClass = (ping: number | null) => {
   if (ping == null) return 'bg-neutral-600'
@@ -58,6 +63,8 @@ type TitleBarProps = {
   isChatActive: boolean
   onToggleAbout: () => void
   isAboutActive: boolean
+  onToggleSettings: () => void
+  isSettingsActive: boolean
   armorManagerEnabled: boolean
   onArmorManagerToggle: (value: boolean) => void
   autoShieldEnabled: boolean
@@ -96,6 +103,8 @@ const TitleBar: React.FC<TitleBarProps> = ({
   isChatActive,
   onToggleAbout,
   isAboutActive,
+  onToggleSettings,
+  isSettingsActive,
   armorManagerEnabled,
   onArmorManagerToggle,
   autoShieldEnabled,
@@ -126,6 +135,9 @@ const TitleBar: React.FC<TitleBarProps> = ({
   }
 
   const stage = status?.stage ?? 'idle'
+  const fps = useFps()
+  const [showFps, setShowFps] = useState(() => loadGraphicsSettings().showFps)
+  useEffect(() => onGraphicsSettingsChange((settings) => setShowFps(settings.showFps)), [])
 
   const [copied, setCopied] = useState(false)
   useEffect(() => {
@@ -191,6 +203,11 @@ const TitleBar: React.FC<TitleBarProps> = ({
                 <span className={`h-1.5 w-1.5 rounded-full ${pingClass(ping)}`} />
                 {ping != null ? `${Math.round(ping)} ms` : '—'}
               </span>
+              {showFps && fps != null ? (
+                <span className="shrink-0 text-neutral-500" title="Frames per second in the 3D view">
+                  <span className={`font-semibold ${fpsClass(fps)}`}>{fps}</span> fps
+                </span>
+              ) : null}
               {xp ? (
                 <span
                   className="shrink-0 text-neutral-500"
@@ -303,6 +320,14 @@ const TitleBar: React.FC<TitleBarProps> = ({
             </ToolbarButton>
           </>
         ) : null}
+        <ToolbarButton
+          label="Settings"
+          description="Graphics options for the 3D view."
+          active={isSettingsActive}
+          onClick={onToggleSettings}
+        >
+          <Settings aria-hidden="true" className="h-[18px] w-[18px]" strokeWidth={1.75} />
+        </ToolbarButton>
         {!isConnected && (
           <ToolbarButton
             label="About Ryksu"

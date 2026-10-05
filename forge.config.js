@@ -29,6 +29,7 @@ module.exports = {
         build: [
           { entry: 'src/main.js', config: 'vite.main.config.mjs', target: 'main' },
           { entry: 'src/preload.js', config: 'vite.preload.config.mjs', target: 'preload' },
+          { entry: 'src/worldWorker.js', config: 'vite.worker.config.mjs', target: 'main' },
         ],
         renderer: [
           { name: 'main_window', config: 'vite.renderer.config.mjs' },

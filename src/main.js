@@ -11,6 +11,7 @@ process.emitWarning = (warning, ...args) => {
 
 const { app, BrowserWindow, ipcMain, shell, clipboard } = require('electron')
 const path = require('node:path')
+const fs = require('node:fs')
 const { registerMinecraftIpc } = require('./mcBridge')
 const { checkForUpdates, RELEASES_URL } = require('./appUpdates')
 
@@ -29,6 +30,31 @@ console.log = (...args) => {
 
   originalConsoleLog(...args)
 }
+
+// An unlimited frame rate needs Chromium's frame cap (vsync) off, which only works from launch. The choice is
+// kept here, since the page's storage can't be read before the window opens.
+const displaySettingsPath = path.join(app.getPath('userData'), 'display.json')
+const unlimitedFpsAtLaunch = (() => {
+  try {
+    return JSON.parse(fs.readFileSync(displaySettingsPath, 'utf8')).unlimitedFps === true
+  } catch {
+    return false
+  }
+})()
+if (unlimitedFpsAtLaunch) {
+  app.commandLine.appendSwitch('disable-frame-rate-limit')
+  app.commandLine.appendSwitch('disable-gpu-vsync')
+}
+
+ipcMain.handle('app:getUnlimitedFps', () => unlimitedFpsAtLaunch)
+ipcMain.handle('app:setUnlimitedFps', (_event, enabled) => {
+  try {
+    fs.writeFileSync(displaySettingsPath, JSON.stringify({ unlimitedFps: enabled === true }))
+    return { ok: true }
+  } catch {
+    return { ok: false }
+  }
+})
 
 registerMinecraftIpc(ipcMain)
 
@@ -87,6 +113,12 @@ ipcMain.on('window-controls', (event, action) => {
       break
   }
 })
+
+// Grabs the mouse for the watcher's first person view as if the user had clicked: the page can't after Esc
+// (closing chat), which doesn't count as a user gesture.
+ipcMain.handle('window:grabPointer', (event) =>
+  event.sender.executeJavaScript('window.__ryksuGrabPointer?.()', true).catch(() => {})
+)
 
 ipcMain.handle('system:openExternal', async (_event, url) => {
   if (typeof url !== 'string' || !/^https?:\/\//i.test(url)) {

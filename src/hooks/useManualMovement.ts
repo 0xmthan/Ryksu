@@ -12,15 +12,24 @@ const KEYS = {
   ShiftRight: 'sneak',
 } as const
 
-export default function useManualMovement(enabled: boolean, getYaw: () => number, onStart: () => void) {
-  const yawRef = useRef(getYaw)
-  yawRef.current = getYaw
+// Double-tapping W within this long sprints until W is let go, like the game.
+const SPRINT_TAP_MS = 300
+
+// `relative` (first person): the bot keeps facing `yaw`/`pitch` and A/D strafe, like the game. Otherwise
+// the keys are turned into a heading around the camera and the bot faces where it walks.
+export type MovementLook = { yaw: number; pitch?: number; relative?: boolean }
+
+export default function useManualMovement(enabled: boolean, getLook: () => MovementLook, onStart: () => void) {
+  const lookRef = useRef(getLook)
+  lookRef.current = getLook
   const startRef = useRef(onStart)
   startRef.current = onStart
 
   useEffect(() => {
     if (!enabled) return
     const pressed = new Set<string>()
+    let lastForwardRelease = 0
+    let tapSprint = false
     const blocked = () =>
       document.hidden ||
       Boolean(document.querySelector('[role="dialog"]')) ||
@@ -34,12 +43,14 @@ export default function useManualMovement(enabled: boolean, getYaw: () => number
         jump: false,
         sprint: false,
         sneak: false,
-        yaw: yawRef.current(),
+        ...lookRef.current(),
       }
       for (const key of pressed) input[KEYS[key as keyof typeof KEYS]] = true
+      if (tapSprint) input.sprint = true
       void window.electronAPI.bot.setMovementControls(input).catch(() => {})
     }
     const release = () => {
+      tapSprint = false
       if (!pressed.size) return
       pressed.clear()
       send()
@@ -53,11 +64,16 @@ export default function useManualMovement(enabled: boolean, getYaw: () => number
       event.preventDefault()
       if (pressed.has(event.code)) return
       if (!pressed.size) startRef.current()
+      if (event.code === 'KeyW' && performance.now() - lastForwardRelease < SPRINT_TAP_MS) tapSprint = true
       pressed.add(event.code)
       send()
     }
     const up = (event: KeyboardEvent) => {
       if (!pressed.delete(event.code)) return
+      if (event.code === 'KeyW') {
+        lastForwardRelease = performance.now()
+        tapSprint = false
+      }
       event.preventDefault()
       send()
     }

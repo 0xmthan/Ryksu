@@ -15,11 +15,18 @@ const { BehaviorManager } = require('./bot/plugins/behaviorManager')
 const { AutoSleep } = require('./bot/plugins/autoSleep')
 const { BedController } = require('./bot/plugins/bed')
 const { GestureController } = require('./bot/plugins/gestures')
+const { FirstPersonActions } = require('./bot/plugins/firstPersonActions')
+const { BreakProgress } = require('./bot/breakProgress')
 const { CreeperWatch } = require('./bot/plugins/creeperWatch')
 const { MiningController } = require('./bot/plugins/mining')
 const { ManualMovementController } = require('./bot/plugins/manualMovement')
-const { getWorldView } = require('./bot/worldView')
+const path = require('node:path')
+const fs = require('node:fs')
+const { Worker } = require('node:worker_threads')
+const { getWorldView, readSlice, computeInput, setBlocksData } = require('./bot/worldView')
+const { computeBlocks } = require('./bot/worldCompute')
 const { getMotion } = require('./bot/entityView')
+const { readOxygen } = require('./bot/oxygen')
 const { attachEntityTracking } = require('./bot/entityEvents')
 const { runInventoryAction } = require('./bot/inventoryActions')
 const { openInteractiveBlock } = require('./bot/blockInteraction')
@@ -29,6 +36,9 @@ const { buildCells } = require('./bot/building')
 const { skinUrl } = require('./bot/profileTextures')
 
 const WORLD_INTERVAL_MS = 500
+// How soon the 3D view is sent after a block changes (grouping a few together), and after chunks load.
+const BLOCK_UPDATE_DELAY_MS = 16
+const CHUNK_UPDATE_DELAY_MS = 150
 const MOTION_INTERVAL_MS = 100
 const MICROSOFT_LINK_URL = 'https://www.microsoft.com/link'
 const PLUGIN_PACKET_WARNING = 'The server or one of its plugins sent a packet Ryksu could not parse.'
@@ -129,6 +139,8 @@ class BotManager extends EventEmitter {
       isTrusted: (name) => this.isTrusted(name),
       onGesture: (entity) => this._toggleFollowFromGesture(entity),
     })
+    this.firstPerson = new FirstPersonActions({ isAutoToolEnabled: () => this.autoTool.isEnabled() })
+    this.breakProgress = new BreakProgress({ onChange: (state) => this.emit('breaking', state) })
     this.doorOperation = null
   }
 
@@ -249,6 +261,8 @@ class BotManager extends EventEmitter {
             this.bed.detach()
             this.autoSleep.detach()
             this.gestures.detach()
+            this.firstPerson.detach()
+            this.breakProgress.detach()
             this.creeperWatch.detach()
             this.mining.detach()
           }
@@ -314,17 +328,56 @@ class BotManager extends EventEmitter {
       this.bed.attach(this.bot)
       this.autoSleep.attach(this.bot)
       this.gestures.attach(this.bot)
+      this.firstPerson.attach(this.bot)
+      this.breakProgress.attach(this.bot)
       this.creeperWatch.attach(this.bot)
       this.mining.attach(this.bot)
       this.manualMovement.attach(this.bot)
       this.behavior.applyCurrentState()
 
-      const markWorldDirty = () => {
-        if (this.bot) this.bot._worldDirty = true
+      // A changed block is re-read on its own and sent right away (not on the next tick), so breaking and
+      // placing show up as soon as the server confirms them. Chunks coming or going re-read just their
+      // columns, batched since they arrive in bursts; a respawn (maybe in another dimension) reads it all
+      // again. See readSlice in src/bot/worldView.js.
+      const bot = this.bot
+      bot._worldChanges = new Set()
+      bot._worldChunks = new Set()
+      bot.on('blockUpdate', (_old, block) => {
+        if (!block?.position) return
+        const { x, y, z } = block.position
+        bot._worldChanges.add(`${x},${y},${z}`)
+        bot._worldDirty = true
+        this._scheduleWorldEmit(BLOCK_UPDATE_DELAY_MS)
+      })
+      const markChunkDirty = (point) => {
+        if (point) bot._worldChunks.add(`${Math.floor(point.x / 16)},${Math.floor(point.z / 16)}`)
+        else bot._worldFullDirty = true
+        bot._worldDirty = true
+        this._scheduleWorldEmit(CHUNK_UPDATE_DELAY_MS)
       }
-      this.bot.on('blockUpdate', markWorldDirty)
-      this.bot.on('chunkColumnLoad', markWorldDirty)
-      this.bot.on('chunkColumnUnload', markWorldDirty)
+      bot.on('chunkColumnLoad', markChunkDirty)
+      bot.on('chunkColumnUnload', markChunkDirty)
+      // The bot's own position every physics tick, so the watcher (first person above all) shows where it
+      // really is, not where the slower motion stream last saw it.
+      bot.on('physicsTick', () => {
+        const { position, velocity, onGround } = bot.entity ?? {}
+        if (!position) return
+        this.emit('selfMotion', {
+          x: position.x,
+          y: position.y,
+          z: position.z,
+          vx: velocity?.x ?? 0,
+          vy: velocity?.y ?? 0,
+          vz: velocity?.z ?? 0,
+          onGround: Boolean(onGround),
+          sprinting: Boolean(bot.getControlState('sprint') && bot.getControlState('forward') && !bot.getControlState('sneak')),
+        })
+      })
+      bot.on('respawn', () => {
+        bot._worldFullDirty = true
+        bot._worldDirty = true
+        this._scheduleWorldEmit(CHUNK_UPDATE_DELAY_MS)
+      })
 
       const handleLogin = () => {
         this.emit('status', { stage: 'connected', message: 'Bot connected successfully.' })
@@ -389,6 +442,8 @@ class BotManager extends EventEmitter {
           this.bed.detach()
           this.autoSleep.detach()
           this.gestures.detach()
+          this.firstPerson.detach()
+          this.breakProgress.detach()
           this.creeperWatch.detach()
           this.mining.detach()
         }
@@ -435,6 +490,8 @@ class BotManager extends EventEmitter {
     this.bed.detach()
     this.autoSleep.detach()
     this.gestures.detach()
+    this.firstPerson.detach()
+    this.breakProgress.detach()
     this.creeperWatch.detach()
     this.mining.detach()
     this.bot.removeAllListeners()
@@ -476,7 +533,7 @@ class BotManager extends EventEmitter {
 
     const pingRaw = this.bot.player?.ping
     const ping = Number.isFinite(pingRaw) ? pingRaw : null
-    const oxygen = Number.isFinite(this.bot.oxygenLevel) ? this.bot.oxygenLevel : 20
+    const oxygen = readOxygen(this.bot)
 
     return {
       connected: true,
@@ -531,6 +588,8 @@ class BotManager extends EventEmitter {
     }
     clearInterval(this.worldInterval)
     this.worldInterval = null
+    clearTimeout(this.worldEmitTimer)
+    this.worldEmitTimer = null
     clearInterval(this.motionInterval)
     this.motionInterval = null
   }
@@ -566,9 +625,85 @@ class BotManager extends EventEmitter {
   }
 
   // Inventory and blocks are heavier than positions, so they go out less often.
-  _emitWorld() {
+  // Sends the world view after `delay` ms, unless one is already on its way sooner.
+  _scheduleWorldEmit(delay) {
+    if (this.worldEmitTimer && this.worldEmitAt <= Date.now() + delay) return
+    clearTimeout(this.worldEmitTimer)
+    this.worldEmitAt = Date.now() + delay
+    this.worldEmitTimer = setTimeout(() => {
+      this.worldEmitTimer = null
+      this._emitWorld()
+    }, delay)
+  }
+
+  // The worker that builds the 3D view's payload (src/worldWorker.js), started once. Without it (tests,
+  // or if it fails to start) the payload is built right here instead.
+  _worldWorker() {
+    if (this.worldWorker || this.worldWorkerFailed) return this.worldWorker ?? null
+    const file = path.join(__dirname, 'worldWorker.cjs')
     try {
-      const view = getWorldView(this.bot)
+      if (!fs.existsSync(file)) throw new Error('not built')
+      const worker = new Worker(file)
+      worker.on('message', (message) => this._onWorldComputed(message))
+      worker.on('error', (error) => {
+        console.error('[BotManager] World worker failed; building the view on the main thread', error)
+        this.worldWorkerFailed = true
+        this.worldWorker = null
+        this.worldBusy = null
+      })
+      worker.unref()
+      this.worldWorker = worker
+    } catch {
+      this.worldWorkerFailed = true
+    }
+    return this.worldWorker ?? null
+  }
+
+  // One job at a time; while one runs, only the newest waiting input is kept.
+  _queueWorldCompute(bot, input) {
+    if (this.worldBusy) {
+      this.worldPending = { bot, input }
+      return
+    }
+    const id = (this.worldJobId = (this.worldJobId ?? 0) + 1)
+    this.worldBusy = { id, bot }
+    const buffers = [input.grid, input.kinds, input.leafy, input.submerged, input.occludes].map((array) => array.buffer)
+    this.worldWorker.postMessage({ id, input }, buffers)
+  }
+
+  _onWorldComputed({ id, data }) {
+    const job = this.worldBusy
+    this.worldBusy = null
+    if (job?.id === id && job.bot === this.bot) {
+      setBlocksData(this.bot, data)
+      this._sendWorldView()
+    }
+    const pending = this.worldPending
+    this.worldPending = null
+    if (pending?.bot === this.bot && this.worldWorker) this._queueWorldCompute(pending.bot, pending.input)
+  }
+
+  // Reads what changed in the world (cheap, here) and has the payload built (in the worker).
+  _emitWorld() {
+    const bot = this.bot
+    if (!bot?.entity || !bot.world) return
+    try {
+      const slice = readSlice(bot)
+      if (slice) {
+        const input = computeInput(bot, slice)
+        if (this._worldWorker()) this._queueWorldCompute(bot, input)
+        else setBlocksData(bot, computeBlocks(input))
+      }
+      this._sendWorldView()
+    } catch (error) {
+      console.error('[BotManager] Failed to build world view', error)
+    }
+  }
+
+  // Sends the inventory and the latest built blocks when either changed.
+  _sendWorldView() {
+    try {
+      const view = getWorldView(this.bot, { cachedBlocks: true })
       if (view) {
         const blocksKey = view.blocks?.key
         const inv = view.inventory
@@ -587,7 +722,7 @@ class BotManager extends EventEmitter {
   }
 
   getWorldView() {
-    return getWorldView(this.bot)
+    return getWorldView(this.bot, { cachedBlocks: Boolean(this._worldWorker()) })
   }
 
   async interactBlock(position) {

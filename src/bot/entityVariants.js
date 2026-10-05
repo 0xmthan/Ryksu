@@ -116,7 +116,8 @@ const entityVariant = (bot, type, read, typed = {}) => {
       const wool = asId(read('wool'))
       if (typeof wool !== 'number') return {}
       // Low four bits are the dye; bit 4 means sheared.
-      return { wool: wool & 0x10 ? null : DYE_COLORS[wool & 0x0f] }
+      const color = DYE_COLORS[wool & 0x0f]
+      return { wool: wool & 0x10 ? null : color, shearedColor: wool & 0x10 ? color : undefined }
     }
     default:
       return {}

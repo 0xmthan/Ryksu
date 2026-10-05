@@ -10,6 +10,7 @@ import type {
   BuildAction,
   BuildCells,
   PlayerList,
+  BreakingState,
   ServerPing,
   Motion,
   MovementControls,
@@ -35,9 +36,15 @@ declare global {
         platform: string
         arch: string
       }>
+      // Whether this launch has Chromium's frame cap off (see app:getUnlimitedFps in main.js), and the
+      // choice for the next launch.
+      getUnlimitedFps: () => Promise<boolean>
+      setUnlimitedFps: (enabled: boolean) => Promise<{ ok: boolean }>
       minimize: () => void
       close: () => void
       openExternal: (url: string) => Promise<{ ok: boolean; message?: string }>
+      // Pointer lock for first person, granted as a user gesture (see window:grabPointer in main.js).
+      grabPointer: () => Promise<void>
       // The server's status from the multiplayer-list ping, without joining.
       pingServer: (target: { host: string; port: string }) => Promise<ServerPing>
       bot: {
@@ -81,6 +88,8 @@ declare global {
         onNotice: (callback: (text: string) => void) => () => void
         // Blocks still to break or place in build mode.
         onBuildCells: (callback: (cells: BuildCells) => void) => () => void
+        // Blocks cracking (destroy stage 0-9) and a block the bot just broke (see src/bot/breakProgress.js).
+        onBreaking: (callback: (state: BreakingState) => void) => () => void
         onChatHistory: (callback: (entries: ChatMessage[]) => void) => () => void
         getChatHistory: () => Promise<ChatMessage[]>
         sendChat: (message: string) => Promise<{ ok: boolean; message?: string }>
@@ -117,6 +126,19 @@ declare global {
         followEntity: (entityId: number) => Promise<{ ok: boolean; message?: string }>
         // Who may command the bot with gestures; saved by the renderer (see utils/trustedPlayers.ts).
         setTrustedPlayers: (names: string[]) => Promise<{ ok: boolean }>
+        // The watcher's first person view (see src/bot/plugins/firstPersonActions.js).
+        firstPerson: {
+          look: (yaw: number, pitch: number) => void
+          hit: (entityId: number | null) => Promise<{ ok: boolean }>
+          dig: (position: { x: number; y: number; z: number }) => Promise<{ ok: boolean; message?: string }>
+          stopDig: () => void
+          place: (
+            position: { x: number; y: number; z: number },
+            face: { x: number; y: number; z: number },
+            // The clicked block is grass or the like, which the placed block takes the place of.
+            replace?: boolean
+          ) => Promise<{ ok: boolean; message?: string }>
+        }
         setMovementControls: (controls: MovementControls) => Promise<{ ok: boolean; message?: string }>
         // Walk up to a door and open it.
         openDoor: (
@@ -136,6 +158,10 @@ declare global {
         trade: (index: number, count: number) => Promise<{ ok: boolean; message?: string; trades?: TradeOffer[] }>
         closeTrader: () => Promise<{ ok: boolean }>
         onMotion: (callback: (motion: Motion) => void) => () => void
+        // The bot's own position and velocity (blocks per tick), every physics tick.
+        onSelfMotion: (
+          callback: (motion: { x: number; y: number; z: number; vx: number; vy: number; vz: number; onGround: boolean; sprinting?: boolean }) => void
+        ) => () => void
         setArmorManagerEnabled: (enabled: boolean) => Promise<{ ok: boolean; enabled: boolean }>
         setAutoEatEnabled: (enabled: boolean) => Promise<{ ok: boolean; enabled: boolean }>
         setAutoToolEnabled: (enabled: boolean) => Promise<{ ok: boolean; enabled: boolean }>

@@ -5,13 +5,18 @@ import { OutlinePass } from 'three/examples/jsm/postprocessing/OutlinePass.js'
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js'
 
 export const createPlayerHover = (renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.PerspectiveCamera) => {
-  const composer = new EffectComposer(renderer)
+  // With a stencil buffer, for the outlines of models seen through blocks (silhouette.ts).
+  const size = renderer.getSize(new THREE.Vector2()).multiplyScalar(renderer.getPixelRatio())
+  const composer = new EffectComposer(
+    renderer,
+    new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType, stencilBuffer: true })
+  )
   // Preserve the canvas antialiasing while the hover outline is active.
-  composer.renderTarget1.samples = Math.min(4, renderer.capabilities.maxSamples)
-  composer.renderTarget2.samples = Math.min(4, renderer.capabilities.maxSamples)
+  const samples = renderer.getContextAttributes()?.antialias ? Math.min(4, renderer.capabilities.maxSamples) : 0
+  composer.renderTarget1.samples = samples
+  composer.renderTarget2.samples = samples
   const renderPass = new RenderPass(scene, camera)
-  const size = renderer.getSize(new THREE.Vector2())
-  const outline = new OutlinePass(size, scene, camera)
+  const outline = new OutlinePass(renderer.getSize(new THREE.Vector2()), scene, camera)
   outline.visibleEdgeColor.set('#7dd3fc')
   outline.hiddenEdgeColor.set('#000000')
   outline.edgeGlow = 1
@@ -32,6 +37,7 @@ export const createPlayerHover = (renderer: THREE.WebGLRenderer, scene: THREE.Sc
       else renderer.render(scene, camera)
     },
     resize(width: number, height: number) { composer.setSize(width, height) },
+    setPixelRatio(ratio: number) { composer.setPixelRatio(ratio) },
     dispose() { outline.dispose(); output.dispose(); renderPass.dispose(); composer.dispose() },
   }
 }
