@@ -126,6 +126,8 @@ declare global {
         followEntity: (entityId: number) => Promise<{ ok: boolean; message?: string }>
         // Who may command the bot with gestures; saved by the renderer (see utils/trustedPlayers.ts).
         setTrustedPlayers: (names: string[]) => Promise<{ ok: boolean }>
+        // Blocks out from the bot the 3D view covers (16-120).
+        setRenderDistance: (blocks: number) => Promise<{ ok: boolean }>
         // The watcher's first person view (see src/bot/plugins/firstPersonActions.js).
         firstPerson: {
           look: (yaw: number, pitch: number) => void

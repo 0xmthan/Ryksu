@@ -6,6 +6,8 @@ const { analyzeView } = require('./viewModes')
 
 // Blocks around the bot for the 3D view: only blocks with a face touching air (or water, glass, …)
 // are sent, each with a mask of those faces, so buried blocks and hidden faces are never drawn.
+// The default render distance; the app can set another (see readSlice in worldView.js). At most 127: the
+// renderer packs block positions into keys that hold ±127 (blockMesher.ts).
 const VOXEL_RADIUS = 52
 const VOXEL_BELOW = 18
 const VOXEL_ABOVE = 30
@@ -89,6 +91,7 @@ const spreadLight = ({ grid, emits, filters, width, height }) => {
 // `input`: the slice's grid and per-cell arrays, its palette, origin and the sky light at the bot's head.
 const computeBlocks = (input) => {
   const { origin, width, height, palette, properties, emits, filters, grid, kinds, leafy, submerged, occludes, skyLight } = input
+  const radius = input.radius ?? VOXEL_RADIUS
   const indexOf = (x, y, z) => (y * width + z) * width + x
 
   const roofLayer = VOXEL_BELOW + ROOF_CUTOFF - 1
@@ -99,7 +102,7 @@ const computeBlocks = (input) => {
     width,
     height,
     feetY: VOXEL_BELOW,
-    center: VOXEL_RADIUS,
+    center: radius,
     cutoffY: roofLayer + 1,
     skyLight,
   })
@@ -141,7 +144,7 @@ const computeBlocks = (input) => {
         if (index < 0) {
           continue
         }
-        if (pointLight[index]) emitters.push(x - VOXEL_RADIUS, y - VOXEL_BELOW, z - VOXEL_RADIUS, emits[index])
+        if (pointLight[index]) emitters.push(x - radius, y - VOXEL_BELOW, z - radius, emits[index])
         let mask = faceMask(x, y, z)
         if (!(mask & 1) && y >= VOXEL_BELOW - CAP_DEPTH && y + 1 < height) {
           const above = indexOf(x, y + 1, z)
@@ -156,7 +159,7 @@ const computeBlocks = (input) => {
         if (mask) {
           if (view.inRoom(x, z)) mask |= ROOM_BIT
           if (view.shell[cell]) mask |= SHELL_BIT
-          positions.push(x - VOXEL_RADIUS, y - VOXEL_BELOW, z - VOXEL_RADIUS)
+          positions.push(x - radius, y - VOXEL_BELOW, z - radius)
           blocks.push(index)
           faces.push(mask)
         }
@@ -172,7 +175,7 @@ const computeBlocks = (input) => {
   const data = {
     key: `${(hash >>> 0).toString(36)}:${JSON.stringify(properties)}:${palette.join(',')}`,
     origin: { x: origin.x, y: origin.y, z: origin.z },
-    radius: VOXEL_RADIUS,
+    radius,
     roofCutoff: ROOF_CUTOFF,
     environment: view.environment,
     // Copies: the kept slice's palette grows with later updates.

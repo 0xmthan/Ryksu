@@ -321,6 +321,8 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
     applyBlockLight(state.materials.water)
     applyWater(state.materials.water)
     setWaterQuality(graphics.water)
+    // The bot side builds the area around it; it keeps the distance for later connections too.
+    void window.electronAPI.bot.setRenderDistance(graphics.renderDistance)
     for (const material of Object.values(state.materials)) applyEdgeFog(material)
     let fogEnabled = graphics.fog
     let torchRays = graphics.torchRays
@@ -590,6 +592,7 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
       sky.setShadows(next.shadows)
       fogEnabled = next.fog
       setWaterQuality(next.water)
+      void window.electronAPI.bot.setRenderDistance(next.renderDistance)
       torchRays = next.torchRays
       updateTorchRayLights(torchRays, bot ? bot.object.position : controls.target)
       state.chunks?.setOptions({ ambientOcclusion: next.ambientOcclusion })

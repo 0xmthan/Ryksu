@@ -54,6 +54,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     attackEntity: (entityId) => ipcRenderer.invoke('bot:attackEntity', entityId),
     followEntity: (entityId) => ipcRenderer.invoke('bot:followEntity', entityId),
     setTrustedPlayers: (names) => ipcRenderer.invoke('bot:setTrustedPlayers', names),
+    setRenderDistance: (blocks) => ipcRenderer.invoke('bot:setRenderDistance', blocks),
     firstPerson: {
       look: (yaw, pitch) => ipcRenderer.send('bot:firstPersonLook', yaw, pitch),
       hit: (entityId) => ipcRenderer.invoke('bot:firstPersonHit', entityId),

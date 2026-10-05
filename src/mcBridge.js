@@ -219,6 +219,7 @@ const registerMinecraftIpc = (ipcMain) => {
   ipcMain.handle('bot:attackEntity', (_event, entityId) =>
     Number.isInteger(entityId) ? botManager.attackEntity(entityId) : { ok: false, message: 'Invalid entity.' }
   )
+  ipcMain.handle('bot:setRenderDistance', (_event, blocks) => ({ ok: botManager.setRenderDistance(blocks) }))
   ipcMain.handle('bot:setTrustedPlayers', (_event, names) => {
     botManager.setTrustedPlayers(names)
     return { ok: true }

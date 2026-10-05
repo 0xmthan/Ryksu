@@ -4,6 +4,7 @@ import {
   DEFAULT_GRAPHICS,
   FPS_LIMITS,
   QUALITY_PRESETS,
+  RENDER_DISTANCES,
   RESOLUTION_SCALES,
   SHADOW_QUALITIES,
   UNLIMITED_FPS,
@@ -173,6 +174,19 @@ export default function SettingsPage({ onClose }: { onClose?: () => void }) {
               }))}
               value={preset}
               onChange={(next) => update(QUALITY_PRESETS[next])}
+            />
+          </Row>
+          <Row
+            title="Render distance"
+            hint={`How far around the bot the world shows: ${graphics.renderDistance} blocks, about ${Math.round(
+              graphics.renderDistance / 16
+            )} chunks. Farther takes longer to load and draw. Not changed by Quality.`}
+          >
+            <Segmented
+              label="Render distance"
+              options={RENDER_DISTANCES.map((value) => ({ value, label: `${value}` }))}
+              value={graphics.renderDistance}
+              onChange={(renderDistance) => update({ renderDistance })}
             />
           </Row>
           <Row title="Resolution" hint="Lower renders fewer pixels, for a smoother view on slower machines.">

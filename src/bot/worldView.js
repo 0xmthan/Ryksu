@@ -180,12 +180,14 @@ const skyLightAt = (bot, position) => {
 }
 
 // The scanned box around the bot, kept between updates so a changed block only re-reads that cell.
-const createSlice = (origin) => {
-  const width = VOXEL_RADIUS * 2 + 1
+// `radius`: blocks out from the bot on each side (the render distance, set from the app's settings).
+const createSlice = (origin, radius) => {
+  const width = radius * 2 + 1
   const height = VOXEL_BELOW + VOXEL_ABOVE + 1
   const total = width * width * height
   return {
     origin,
+    radius,
     width,
     height,
     // One palette entry per block state, so the renderer can pick the right model (facing, axis, …).
@@ -241,14 +243,14 @@ const setCell = (slice, registry, cell, stateId) => {
 }
 
 // Reads every cell, straight from the chunk columns (the world's own lookup allocates per call).
-const scanSlice = (bot, origin) => {
-  const slice = createSlice(origin)
+const scanSlice = (bot, origin, radius) => {
+  const slice = createSlice(origin, radius)
   const { width, height } = slice
   const local = new Vec3(0, 0, 0)
   for (let z = 0; z < width; z++) {
-    const worldZ = origin.z + z - VOXEL_RADIUS
+    const worldZ = origin.z + z - radius
     for (let x = 0; x < width; x++) {
-      const worldX = origin.x + x - VOXEL_RADIUS
+      const worldX = origin.x + x - radius
       const chunk = bot.world.getColumn(worldX >> 4, worldZ >> 4)
       if (!chunk) continue
       for (let y = 0; y < height; y++) {
@@ -262,13 +264,13 @@ const scanSlice = (bot, origin) => {
 
 // Re-reads only the cells that changed (block updates), when nothing else did.
 const patchSlice = (bot, slice, changes) => {
-  const { origin, width, height } = slice
+  const { origin, radius, width, height } = slice
   const local = new Vec3(0, 0, 0)
   for (const key of changes) {
     const [worldX, worldY, worldZ] = key.split(',').map(Number)
-    const x = worldX - origin.x + VOXEL_RADIUS
+    const x = worldX - origin.x + radius
     const y = worldY - origin.y + VOXEL_BELOW
-    const z = worldZ - origin.z + VOXEL_RADIUS
+    const z = worldZ - origin.z + radius
     if (x < 0 || y < 0 || z < 0 || x >= width || y >= height || z >= width) continue
     const chunk = bot.world.getColumn(worldX >> 4, worldZ >> 4)
     local.set(worldX & 15, worldY, worldZ & 15)
@@ -278,19 +280,19 @@ const patchSlice = (bot, slice, changes) => {
 
 // Re-reads whole chunk columns ("cx,cz") that loaded or unloaded, where they overlap the slice.
 const patchChunks = (bot, slice, chunks) => {
-  const { origin, width, height } = slice
+  const { origin, radius, width, height } = slice
   const local = new Vec3(0, 0, 0)
   for (const key of chunks) {
     const [chunkX, chunkZ] = key.split(',').map(Number)
     const chunk = bot.world.getColumn(chunkX, chunkZ)
-    const x0 = Math.max(0, chunkX * 16 - origin.x + VOXEL_RADIUS)
-    const x1 = Math.min(width - 1, chunkX * 16 + 15 - origin.x + VOXEL_RADIUS)
-    const z0 = Math.max(0, chunkZ * 16 - origin.z + VOXEL_RADIUS)
-    const z1 = Math.min(width - 1, chunkZ * 16 + 15 - origin.z + VOXEL_RADIUS)
+    const x0 = Math.max(0, chunkX * 16 - origin.x + radius)
+    const x1 = Math.min(width - 1, chunkX * 16 + 15 - origin.x + radius)
+    const z0 = Math.max(0, chunkZ * 16 - origin.z + radius)
+    const z1 = Math.min(width - 1, chunkZ * 16 + 15 - origin.z + radius)
     for (let z = z0; z <= z1; z++) {
-      const worldZ = origin.z + z - VOXEL_RADIUS
+      const worldZ = origin.z + z - radius
       for (let x = x0; x <= x1; x++) {
-        const worldX = origin.x + x - VOXEL_RADIUS
+        const worldX = origin.x + x - radius
         for (let y = 0; y < height; y++) {
           local.set(worldX & 15, origin.y + y - VOXEL_BELOW, worldZ & 15)
           setCell(slice, bot.registry, (y * width + z) * width + x, chunk ? chunk.getBlockStateId(local) : 0)
@@ -303,7 +305,8 @@ const patchChunks = (bot, slice, chunks) => {
 // The bot moved far enough to re-center: cells both boxes share are copied over, and only the new strip
 // is read from the world. The palette carries over, so copied palette indices stay right.
 const shiftSlice = (bot, old, origin) => {
-  const slice = createSlice(origin)
+  const slice = createSlice(origin, old.radius)
+  const { radius } = slice
   for (const key of ['palette', 'properties', 'emits', 'filters', 'paletteIndex', 'kindIds']) slice[key] = old[key]
   const { width, height } = slice
   const dx = origin.x - old.origin.x
@@ -311,10 +314,10 @@ const shiftSlice = (bot, old, origin) => {
   const dz = origin.z - old.origin.z
   const local = new Vec3(0, 0, 0)
   for (let z = 0; z < width; z++) {
-    const worldZ = origin.z + z - VOXEL_RADIUS
+    const worldZ = origin.z + z - radius
     const oldZ = z + dz
     for (let x = 0; x < width; x++) {
-      const worldX = origin.x + x - VOXEL_RADIUS
+      const worldX = origin.x + x - radius
       const oldX = x + dx
       const columnKept = oldX >= 0 && oldX < width && oldZ >= 0 && oldZ < width
       const chunk = bot.world.getColumn(worldX >> 4, worldZ >> 4)
@@ -351,9 +354,11 @@ const readSlice = (bot) => {
     Math.abs(botPos.y - cached.origin.y) < 6
   if (near && !bot._worldDirty) return null
 
+  // A changed render distance reads the whole (resized) box again.
+  const radius = bot._worldRadius ?? VOXEL_RADIUS
   let slice
-  if (!cached?.slice || bot._worldFullDirty) {
-    slice = scanSlice(bot, botPos)
+  if (!cached?.slice || bot._worldFullDirty || cached.slice.radius !== radius) {
+    slice = scanSlice(bot, botPos, radius)
   } else {
     slice = near ? cached.slice : shiftSlice(bot, cached.slice, botPos)
     patchChunks(bot, slice, bot._worldChunks ?? [])
@@ -371,6 +376,7 @@ const readSlice = (bot) => {
 // keeps changing.
 const computeInput = (bot, slice) => ({
   origin: { x: slice.origin.x, y: slice.origin.y, z: slice.origin.z },
+  radius: slice.radius,
   width: slice.width,
   height: slice.height,
   palette: [...slice.palette],

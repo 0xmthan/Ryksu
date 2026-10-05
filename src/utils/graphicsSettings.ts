@@ -15,6 +15,8 @@ export type GraphicsSettings = {
   fog: boolean
   // How water is shaded (components/watcher/water.ts).
   water: WaterQuality
+  // Blocks out from the bot the 3D view shows. Left alone by the presets.
+  renderDistance: number
   // Experimental: torch light cast as rays through the blocks, so blocks throw shadows (watcher/torchRays.ts).
   // Off by default and left alone by the presets.
   torchRays: boolean
@@ -26,6 +28,7 @@ export type GraphicsSettings = {
 }
 
 export const RESOLUTION_SCALES = [0.5, 0.75, 1] as const
+export const RENDER_DISTANCES = [32, 52, 80, 112] as const
 export const SHADOW_QUALITIES: ShadowQuality[] = ['off', 'low', 'high', 'ultra']
 export const WATER_QUALITIES: WaterQuality[] = ['simple', 'fancy', 'realistic']
 export const UNLIMITED_FPS = -1
@@ -55,6 +58,7 @@ export const presetOf = (settings: GraphicsSettings): QualityPreset | null =>
 
 export const DEFAULT_GRAPHICS: GraphicsSettings = {
   ...QUALITY_PRESETS.high,
+  renderDistance: 52,
   torchRays: false,
   maxFps: 0,
   showFps: true,
@@ -88,6 +92,7 @@ export const loadGraphicsSettings = (): GraphicsSettings => {
         typeof stored.ambientOcclusion === 'boolean' ? stored.ambientOcclusion : DEFAULT_GRAPHICS.ambientOcclusion,
       fog: typeof stored.fog === 'boolean' ? stored.fog : DEFAULT_GRAPHICS.fog,
       water: pick(stored.water, WATER_QUALITIES, DEFAULT_GRAPHICS.water),
+      renderDistance: pick(stored.renderDistance, RENDER_DISTANCES, DEFAULT_GRAPHICS.renderDistance),
       torchRays: typeof stored.torchRays === 'boolean' ? stored.torchRays : DEFAULT_GRAPHICS.torchRays,
       maxFps: pick(stored.maxFps, FPS_LIMITS, DEFAULT_GRAPHICS.maxFps),
       showFps: typeof stored.showFps === 'boolean' ? stored.showFps : DEFAULT_GRAPHICS.showFps,

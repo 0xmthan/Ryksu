@@ -342,6 +342,7 @@ class BotManager extends EventEmitter {
       const bot = this.bot
       bot._worldChanges = new Set()
       bot._worldChunks = new Set()
+      if (this.renderDistance) bot._worldRadius = this.renderDistance
       bot.on('blockUpdate', (_old, block) => {
         if (!block?.position) return
         const { x, y, z } = block.position
@@ -976,6 +977,21 @@ class BotManager extends EventEmitter {
 
   isTrusted(name) {
     return typeof name === 'string' && this.trustedPlayers.has(name.toLowerCase())
+  }
+
+  // The 3D view's render distance (blocks out from the bot), from the app's graphics settings. Kept for the
+  // next connection too. A change reads the whole resized area again.
+  setRenderDistance(blocks) {
+    const radius = Math.round(Number(blocks))
+    if (!Number.isFinite(radius) || radius < 16 || radius > 120) return false
+    this.renderDistance = radius
+    const bot = this.bot
+    if (bot && bot._worldRadius !== radius) {
+      bot._worldRadius = radius
+      bot._worldDirty = true
+      this._scheduleWorldEmit(0)
+    }
+    return true
   }
 
   setTrustedPlayers(names) {
