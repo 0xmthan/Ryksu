@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { Swords, UserRound, Footprints, Store, X } from 'lucide-react'
+import { Swords, UserRound, Footprints, ShieldCheck, Store, X } from 'lucide-react'
 import type { MotionEntity, TradeOffer } from '../../types'
 import { prettyName } from '../../utils/blockColors'
+import { setPlayerTrusted } from '../../utils/trustedPlayers'
 
 type Props = {
   entity: MotionEntity
@@ -21,6 +22,18 @@ const EntityPopover: React.FC<Props> = ({ entity: initialEntity, position, onClo
   const [gone, setGone] = useState(false)
   const [busy, setBusy] = useState(false)
   const [feedback, setFeedback] = useState<string | null>(null)
+  // Shown right away on toggle; the entity updates from the bot catch up a moment later.
+  const [trusted, setTrusted] = useState(Boolean(initialEntity.trusted))
+  const toggleTrust = async () => {
+    const next = !trusted
+    setTrusted(next)
+    try {
+      await setPlayerTrusted(entity.name, next)
+    } catch {
+      setTrusted(!next)
+      setFeedback('Could not update trust. Try again.')
+    }
+  }
   // Owners the bot couldn't name are looked up through Mojang, which only knows online-mode UUIDs
   // (version 4; offline-mode ones are version 3).
   const [ownerName, setOwnerName] = useState<string | null>(null)
@@ -257,6 +270,22 @@ const EntityPopover: React.FC<Props> = ({ entity: initialEntity, position, onClo
             <Footprints className="h-4 w-4" />
             Follow <kbd className="rounded border border-white/15 px-1 text-[10px] opacity-60">G</kbd>
           </button>
+          {entity.kind === 'player' ? (
+            <button
+              type="button"
+              onClick={toggleTrust}
+              aria-pressed={trusted}
+              title={trusted ? 'Stop taking gestures from this player' : 'Let this player sneak-jump 3 times to be followed'}
+              className={`col-span-2 flex items-center justify-center gap-2 rounded-lg border py-2 ${
+                trusted
+                  ? 'border-emerald-400/50 bg-emerald-500/20 text-emerald-100 hover:bg-emerald-500/30'
+                  : 'border-emerald-400/30 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/20'
+              }`}
+            >
+              <ShieldCheck className="h-4 w-4" />
+              {trusted ? 'Trusted' : 'Trust'}
+            </button>
+          ) : null}
           {trader ? (
             <button
               type="button"

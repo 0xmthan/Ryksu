@@ -135,6 +135,12 @@ const foodStatus = (food: number) => {
   return { label: food < 18 ? 'Peckish' : 'Well fed', className: 'text-neutral-500' }
 }
 
+const oxygenStatus = (oxygen: number, underwater: boolean) => {
+  if (oxygen <= 0) return { label: 'Drowning', className: 'text-rose-300' }
+  if (oxygen <= 6) return { label: 'Low on air', className: 'text-rose-300' }
+  return { label: underwater ? 'Holding breath' : 'Catching breath', className: 'text-sky-200/80' }
+}
+
 export const Hotbar: React.FC<{
   items: InventoryItem[]
   selected: number
@@ -196,7 +202,9 @@ const VitalBars: React.FC<{
   // What the bot is eating right now, if anything.
   eating?: string
   effects?: StatusEffect[]
-}> = ({ health, food, saturation, autoEat, eating, effects = [] }) => {
+  oxygen: number
+  underwater: boolean
+}> = ({ health, food, saturation, autoEat, eating, effects = [], oxygen, underwater }) => {
   const critical = health > 0 && health <= 6
   return (
     <section
@@ -237,6 +245,16 @@ const VitalBars: React.FC<{
           ) : null
         }
       />
+      {/* Like the game's bubbles: only while underwater or still refilling. */}
+      {underwater || oxygen < 20 ? (
+        <Bar
+          label="O2"
+          value={oxygen}
+          status={oxygenStatus(oxygen, underwater)}
+          fillClass={oxygen <= 6 ? `vitals-fill-low ${oxygen <= 3 ? 'vitals-blink' : ''}` : 'vitals-fill-oxygen'}
+          lossClass="vitals-air"
+        />
+      ) : null}
       <EffectSlots effects={effects} />
     </section>
   )

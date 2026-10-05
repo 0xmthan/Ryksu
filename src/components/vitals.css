@@ -8,6 +8,7 @@
 }
 @keyframes vitals-flash-red { from { box-shadow: 0 0 6px 1px #ef4444b0; } to { box-shadow: 0 0 0 0 #ef444400; } }
 @keyframes vitals-flash-green { from { box-shadow: 0 0 6px 1px #34d399a0; } to { box-shadow: 0 0 0 0 #34d39900; } }
+@keyframes vitals-flash-blue { from { box-shadow: 0 0 6px 1px #38bdf8a0; } to { box-shadow: 0 0 0 0 #38bdf800; } }
 @keyframes vitals-flash-amber { from { box-shadow: 0 0 6px 1px #f59e0ba0; } to { box-shadow: 0 0 0 0 #f59e0b00; } }
 @keyframes vitals-float { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-12px); } }
 @keyframes vitals-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
@@ -16,6 +17,7 @@
 .vitals-hit { animation: vitals-flash-red 0.8s ease-out, vitals-shake 0.35s ease-in-out; }
 .vitals-heal { animation: vitals-flash-green 0.9s ease-out; }
 .vitals-hunger { animation: vitals-flash-amber 0.9s ease-out; }
+.vitals-air { animation: vitals-flash-blue 0.9s ease-out; }
 .vitals-float { animation: vitals-float 1.1s ease-out forwards; }
 .vitals-blink { animation: vitals-blink 0.9s ease-in-out infinite; }
 .vitals-danger { animation: vitals-danger 1.6s ease-in-out infinite; }
@@ -37,5 +39,9 @@
 .vitals-fill-low {
   background: linear-gradient(180deg, #ffffff33, #ffffff00 60%), linear-gradient(90deg, #9f1239, #e11d48 55%, #fb7185);
   box-shadow: 0 0 8px #f43f5e66;
+}
+.vitals-fill-oxygen {
+  background: linear-gradient(180deg, #ffffff40, #ffffff00 60%), linear-gradient(90deg, #0369a1, #38bdf8 55%, #bae6fd);
+  box-shadow: 0 0 8px #38bdf840;
 }
 .vitals-fill-saturation { background: linear-gradient(90deg, #ffffff1a, #ffffff59); }

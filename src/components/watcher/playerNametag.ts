@@ -4,16 +4,35 @@ import type { MotionEntity } from '../../types'
 export const playerHealthText = (health?: number) =>
   typeof health === 'number' && Number.isFinite(health) ? String(Math.round(Math.max(0, health) * 10) / 10) : '?'
 
+// A shield with a check, in front of trusted players' names: 1 outline, 2 fill, 3 check.
+const SHIELD = [
+  '111111111',
+  '122222221',
+  '122222221',
+  '122222231',
+  '123222321',
+  '122323221',
+  '012232210',
+  '001222100',
+  '000111000',
+]
+const SHIELD_COLORS: Record<string, string> = { '1': '#064e3b', '2': '#34d399', '3': '#ecfdf5' }
+const SHIELD_WIDTH = 24
+
 const HEART = ['011101110', '122212221', '122222221', '122222221', '012222210', '001222100', '000121000', '000010000']
 
 export const createPlayerNametag = (entity: MotionEntity) => {
   const canvas = document.createElement('canvas')
   const context = canvas.getContext('2d')!
-  const texture = new THREE.CanvasTexture(canvas)
-  texture.colorSpace = THREE.SRGBColorSpace
-  texture.generateMipmaps = false
-  texture.minFilter = THREE.LinearFilter
-  texture.magFilter = THREE.LinearFilter
+  const makeTexture = () => {
+    const made = new THREE.CanvasTexture(canvas)
+    made.colorSpace = THREE.SRGBColorSpace
+    made.generateMipmaps = false
+    made.minFilter = THREE.LinearFilter
+    made.magFilter = THREE.LinearFilter
+    return made
+  }
+  let texture = makeTexture()
   const material = new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: true, depthWrite: false })
   const sprite = new THREE.Sprite(material)
   // Labels do not intercept clicks on the player or the blocks behind them.
@@ -26,11 +45,20 @@ export const createPlayerNametag = (entity: MotionEntity) => {
     sprite.position.y = next.sleeping != null ? 1.1 : next.crouching ? 2.05 : 2.35
     sprite.visible = !next.dead
     const health = playerHealthText(next.health)
-    const key = `${next.name}:${health}:${hovered}`
+    const trusted = Boolean(next.trusted)
+    const key = `${next.name}:${health}:${hovered}:${trusted}`
     if (key === signature) return
     signature = key
     context.font = '600 16px monospace'
-    const width = Math.ceil(context.measureText(next.name).width + context.measureText(health).width + 50)
+    const badge = trusted ? SHIELD_WIDTH : 0
+    const width = Math.ceil(badge + context.measureText(next.name).width + context.measureText(health).width + 50)
+    // A texture keeps the size it was first uploaded at, so a wider label (longer health, the trusted
+    // badge) needs a new one.
+    if (canvas.width !== width * 2 && texture.version > 0) {
+      texture.dispose()
+      texture = makeTexture()
+      material.map = texture
+    }
     canvas.width = width * 2
     canvas.height = 64
     context.scale(2, 2)
@@ -43,9 +71,19 @@ export const createPlayerNametag = (entity: MotionEntity) => {
     }
     context.font = '600 16px monospace'
     context.textBaseline = 'middle'
-    context.fillStyle = '#fff'
-    context.fillText(next.name, 8, 16)
-    const heartX = 18 + context.measureText(next.name).width
+    if (trusted) {
+      for (let y = 0; y < SHIELD.length; y++) {
+        for (let x = 0; x < SHIELD[y].length; x++) {
+          const pixel = SHIELD[y][x]
+          if (pixel === '0') continue
+          context.fillStyle = SHIELD_COLORS[pixel]
+          context.fillRect(8 + x * 2, 7 + y * 2, 2, 2)
+        }
+      }
+    }
+    context.fillStyle = trusted ? '#a7f3d0' : '#fff'
+    context.fillText(next.name, 8 + badge, 16)
+    const heartX = 18 + badge + context.measureText(next.name).width
     for (let y = 0; y < HEART.length; y++) {
       for (let x = 0; x < HEART[y].length; x++) {
         const pixel = HEART[y][x]

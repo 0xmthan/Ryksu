@@ -37,6 +37,9 @@ export type BotSnapshot =
       health: number
       food: number
       saturation: number
+      // Air, 0-20 like health; shown while `underwater` or still refilling.
+      oxygen: number
+      underwater: boolean
       position: { x: number; y: number; z: number } | null
       xp: {
         level: number
@@ -274,6 +277,8 @@ export type MotionEntity = EntityPose & {
   owner?: { uuid: string; name?: string; source?: 'online' | 'seen' | 'matched' }
   health?: number
   ping?: number
+  // A player the bot takes gestures from.
+  trusted?: boolean
   id: number
   kind: EntityKind
   type: string | null

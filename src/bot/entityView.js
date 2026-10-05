@@ -220,6 +220,7 @@ const describeEntity = (bot, entity) => {
     kind,
     ...(Number.isFinite(health) ? { health } : {}),
     ...(Number.isFinite(ping) ? { ping } : {}),
+    ...(kind === 'player' && bot._trustedPlayers?.has(entity.username?.toLowerCase()) ? { trusted: true } : {}),
     // Mob type (zombie, cow, …) for picking its model, and what a dropped item is.
     type: entity.name ?? null,
     item,

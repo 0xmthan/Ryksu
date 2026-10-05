@@ -1,5 +1,6 @@
 const { Vec3 } = require('vec3')
 const prismarineBlock = require('prismarine-block')
+const loadPrismarineChat = require('prismarine-chat')
 // Blocks that are one solid 16³ cube in every state (generated from the block models).
 const FULL_CUBES = new Set(require('../generated/fullCubes.json'))
 const { analyzeView } = require('./viewModes')
@@ -43,6 +44,22 @@ const isSubmerged = (name, properties) =>
   WATER_PLANTS.has(name) || properties?.waterlogged === true || properties?.waterlogged === 'true'
 const isWaterBlock = (name, properties) =>
   name === 'water' || isSubmerged(name, properties)
+
+// Window titles are chat components: JSON text on older servers, NBT on 1.20.3+. Sent as plain text.
+const chatLoaders = new WeakMap()
+const windowTitle = (bot, title) => {
+  if (title == null) return ''
+  try {
+    let ChatMessage = chatLoaders.get(bot.registry)
+    if (!ChatMessage) {
+      ChatMessage = loadPrismarineChat(bot.registry)
+      chatLoaders.set(bot.registry, ChatMessage)
+    }
+    return ChatMessage.fromNotch(title).toString()
+  } catch {
+    return typeof title === 'string' ? title : ''
+  }
+}
 
 const ARMOR_SLOTS = { 5: 'head', 6: 'torso', 7: 'legs', 8: 'feet' }
 const OFFHAND_SLOT = 45
@@ -123,7 +140,7 @@ const getInventory = (bot) => {
     window: bot.currentWindow ? {
       id: bot.currentWindow.id,
       type: bot.currentWindow.type,
-      title: String(bot.currentWindow.title ?? ''),
+      title: windowTitle(bot, bot.currentWindow.title),
       slots: bot.currentWindow.slots.map(toItem),
       inventoryStart: bot.currentWindow.inventoryStart,
       resultSlot: bot.currentWindow.craftingResultSlot,

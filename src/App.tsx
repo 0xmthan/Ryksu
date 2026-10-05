@@ -19,6 +19,7 @@ import type {
   PathfinderOptions,
 } from './types'
 import { makeChatStorageKey, normalizeProtocolError } from './utils/chat'
+import { loadTrustedPlayers } from './utils/trustedPlayers'
 
 const App: React.FC = () => {
   const [accountType, setAccountType] = useState<AccountType>('offline')
@@ -164,6 +165,7 @@ const App: React.FC = () => {
         autoToolEnabled: details.autoToolEnabled,
         autoShieldEnabled: details.autoShieldEnabled,
         pathfinder: details.pathfinder,
+        trustedPlayers: loadTrustedPlayers(),
         pvp: {
           mobEnabled: details.pvpEnabled,
           playerEnabled: details.pvpEnabled && details.pvpPlayerEnabled,

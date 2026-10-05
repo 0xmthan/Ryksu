@@ -1,5 +1,5 @@
-// Lets the follow target control the bot with in-game movement:
-// hold sneak and jump GESTURE_JUMPS times within GESTURE_WINDOW_MS to toggle following.
+// Lets trusted players control the bot with in-game movement:
+// hold sneak and jump GESTURE_JUMPS times within GESTURE_WINDOW_MS to make the bot follow you, again to stop.
 const GESTURE_JUMPS = 3
 const GESTURE_WINDOW_MS = 3000
 const GESTURE_COOLDOWN_MS = 2000
@@ -7,21 +7,19 @@ const GESTURE_COOLDOWN_MS = 2000
 const RELATIVE_MOVE_PACKETS = ['rel_entity_move', 'entity_move_look']
 
 class GestureController {
-  constructor({ getTargetName, onToggleFollow }) {
-    this.getTargetName = getTargetName
-    this.onToggleFollow = onToggleFollow
+  constructor({ isTrusted, onGesture }) {
+    this.isTrusted = isTrusted
+    this.onGesture = onGesture
     this.bot = null
-    this.wasOnGround = null
-    this.lastY = null
-    this.jumpTimes = []
-    this.cooldownUntil = 0
+    // Jump tracking per player entity id.
+    this.tracked = new Map()
     this._handleRelativeMove = this._handleRelativeMove.bind(this)
     this._handleSyncPosition = this._handleSyncPosition.bind(this)
   }
 
   attach(bot) {
     this.bot = bot
-    this._reset()
+    this.tracked.clear()
     for (const name of RELATIVE_MOVE_PACKETS) {
       bot._client.on(name, this._handleRelativeMove)
     }
@@ -36,62 +34,49 @@ class GestureController {
       this.bot._client.removeListener('sync_entity_position', this._handleSyncPosition)
     }
     this.bot = null
-    this._reset()
+    this.tracked.clear()
   }
 
   _handleRelativeMove(packet) {
-    this._handleMovement(packet.entityId, packet.onGround, packet.dY > 0)
+    this._handleMovement(packet.entityId, packet.onGround, () => packet.dY > 0)
   }
 
   _handleSyncPosition(packet) {
-    const rising = this.lastY !== null && packet.y > this.lastY
-    this._handleMovement(packet.entityId, packet.onGround, rising)
-    if (this._targetEntity()?.id === packet.entityId) {
-      this.lastY = packet.y
-    }
+    this._handleMovement(packet.entityId, packet.onGround, (state) => state.lastY !== null && packet.y > state.lastY, packet.y)
   }
 
-  _handleMovement(entityId, onGround, rising) {
-    const target = this._targetEntity()
-    if (!target || target.id !== entityId) {
+  _handleMovement(entityId, onGround, isRising, y = null) {
+    const entity = this.bot?.entities?.[entityId]
+    if (entity?.type !== 'player' || entity === this.bot.entity || !this.isTrusted(entity.username)) {
       return
     }
 
-    const tookOff = this.wasOnGround === true && onGround === false && rising
-    this.wasOnGround = onGround
-    if (!tookOff || !target.crouching) {
+    let state = this.tracked.get(entityId)
+    if (!state) {
+      state = { wasOnGround: null, lastY: null, jumpTimes: [], cooldownUntil: 0 }
+      this.tracked.set(entityId, state)
+    }
+    const tookOff = state.wasOnGround === true && onGround === false && isRising(state)
+    state.wasOnGround = onGround
+    if (y !== null) state.lastY = y
+    if (!tookOff || !entity.crouching) {
       return
     }
 
     const now = Date.now()
-    if (now < this.cooldownUntil) {
+    if (now < state.cooldownUntil) {
       return
     }
 
-    this.jumpTimes = this.jumpTimes.filter((time) => now - time <= GESTURE_WINDOW_MS)
-    this.jumpTimes.push(now)
-    if (this.jumpTimes.length >= GESTURE_JUMPS) {
-      this.jumpTimes = []
-      this.cooldownUntil = now + GESTURE_COOLDOWN_MS
-      this.onToggleFollow()
+    state.jumpTimes = state.jumpTimes.filter((time) => now - time <= GESTURE_WINDOW_MS)
+    state.jumpTimes.push(now)
+    if (state.jumpTimes.length >= GESTURE_JUMPS) {
+      state.jumpTimes = []
+      state.cooldownUntil = now + GESTURE_COOLDOWN_MS
+      this.onGesture(entity)
       // Visible acknowledgement for the player who made the gesture.
       this.bot?.swingArm?.()
     }
-  }
-
-  _targetEntity() {
-    const name = this.getTargetName()?.trim()
-    if (!name || !this.bot) {
-      return null
-    }
-    return this.bot.players?.[name]?.entity ?? null
-  }
-
-  _reset() {
-    this.wasOnGround = null
-    this.lastY = null
-    this.jumpTimes = []
-    this.cooldownUntil = 0
   }
 }
 

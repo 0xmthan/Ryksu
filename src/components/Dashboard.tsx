@@ -61,6 +61,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   } | null>(null)
   const closeEntityContext = useCallback(() => setEntityContext(null), [])
   const miningActive = Boolean(snapshot.mining?.active)
+  const following = pathfinder.followEnabled && pathfinder.followTarget ? pathfinder.followTarget : null
 
   // Chest picking for Auto Mine: started from the mining panel, clicks on chests add or remove them.
   const [pickingChests, setPickingChests] = useState(false)
@@ -165,6 +166,13 @@ const Dashboard: React.FC<DashboardProps> = ({
     finally { setOpeningBlock(false) }
   }
   useEffect(() => window.electronAPI.bot.onNotice(setBlockFeedback), [])
+  // A follow (a gesture, the Follow button, …) stays in the bubble until it stops, then says so briefly.
+  const lastFollowing = useRef(following)
+  useEffect(() => {
+    const previous = lastFollowing.current
+    lastFollowing.current = following
+    if (previous && !following) setBlockFeedback(`Stopped following ${previous}`)
+  }, [following])
   useEffect(() => {
     if (!blockFeedback || openingBlock) return
     const timer = setTimeout(() => setBlockFeedback(null), 5000)
@@ -215,6 +223,11 @@ const Dashboard: React.FC<DashboardProps> = ({
           .catch(() => setBlockFeedback('Could not stop mining.'))
         return
       }
+      if (event.code === 'Escape' && following) {
+        event.preventDefault()
+        updatePathfinder({ followEnabled: false, followTarget: following })
+        return
+      }
       if (event.code === 'Tab') {
         event.preventDefault()
         if (!inventoryOpen) setTabOpen(true)
@@ -239,7 +252,7 @@ const Dashboard: React.FC<DashboardProps> = ({
     }
     window.addEventListener('keydown', handleKey)
     return () => window.removeEventListener('keydown', handleKey)
-  }, [showChat, openingBlock, inventoryOpen, entityContext, onChatInputChange, onChatOpen, selectHotbar, buildMode, miningActive, pickingChests])
+  }, [showChat, openingBlock, inventoryOpen, entityContext, onChatInputChange, onChatOpen, selectHotbar, buildMode, miningActive, pickingChests, following, updatePathfinder])
 
   return (
     <div className="relative min-h-0 min-w-0 flex-1 bg-neutral-950 text-neutral-100">
@@ -305,6 +318,8 @@ const Dashboard: React.FC<DashboardProps> = ({
             health={snapshot.health}
             food={snapshot.food}
             saturation={snapshot.saturation}
+            oxygen={snapshot.oxygen}
+            underwater={snapshot.underwater}
             autoEat={autoEat}
             eating={snapshot.eating}
             effects={snapshot.effects}
@@ -381,7 +396,22 @@ const Dashboard: React.FC<DashboardProps> = ({
           ) : null}
         </div>
       </div>
-      {blockFeedback && <div role="status" className="absolute bottom-28 left-1/2 z-30 -translate-x-1/2 rounded-lg border border-white/10 bg-neutral-900/80 px-4 py-2 text-xs backdrop-blur-xl">{blockFeedback}</div>}
+      {blockFeedback || following ? (
+        <div
+          role="status"
+          className="absolute bottom-28 left-1/2 z-30 flex -translate-x-1/2 items-center gap-2 rounded-lg border
+            border-white/10 bg-neutral-900/80 px-4 py-2 text-xs backdrop-blur-xl"
+        >
+          {blockFeedback ?? (
+            <>
+              <span>Following {following}</span>
+              <span className="text-neutral-500">
+                <kbd className="rounded border border-white/15 px-1 font-sans text-[10px] text-neutral-300">Esc</kbd> stop
+              </span>
+            </>
+          )}
+        </div>
+      ) : null}
       {inventoryOpen && !showChat ? (
         <InventoryPage key={worldView?.inventory.window?.id ?? 0} inventory={worldView?.inventory ?? null} onClose={closePage} />
       ) : null}

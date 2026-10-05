@@ -56,6 +56,7 @@ declare global {
           autoShieldEnabled?: boolean
           autoEatOptions?: Partial<AutoEatOptions>
           pathfinder?: Partial<PathfinderOptions>
+          trustedPlayers?: string[]
           pvp?: Partial<PvpOptions>
         }) => Promise<{ ok: boolean; message?: string }>
         disconnect: () => Promise<{ ok: boolean }>
@@ -114,6 +115,8 @@ declare global {
         // Chase and attack an entity by id until it dies or gets away.
         attackEntity: (entityId: number) => Promise<{ ok: boolean; message?: string }>
         followEntity: (entityId: number) => Promise<{ ok: boolean; message?: string }>
+        // Who may command the bot with gestures; saved by the renderer (see utils/trustedPlayers.ts).
+        setTrustedPlayers: (names: string[]) => Promise<{ ok: boolean }>
         setMovementControls: (controls: MovementControls) => Promise<{ ok: boolean; message?: string }>
         // Walk up to a door and open it.
         openDoor: (

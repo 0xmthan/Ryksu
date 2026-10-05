@@ -123,9 +123,11 @@ class BotManager extends EventEmitter {
       },
       onUpdate: () => this._emitState(),
     })
+    // Players allowed to command the bot with gestures, by lowercase name. Saved by the renderer.
+    this.trustedPlayers = new Set()
     this.gestures = new GestureController({
-      getTargetName: () => this.behavior.getPathfinderOptions().followTarget,
-      onToggleFollow: () => this._toggleFollowFromGesture(),
+      isTrusted: (name) => this.isTrusted(name),
+      onGesture: (entity) => this._toggleFollowFromGesture(entity),
     })
     this.doorOperation = null
   }
@@ -153,7 +155,9 @@ class BotManager extends EventEmitter {
       autoShieldEnabled = false,
       pathfinder = { followEnabled: false, followTarget: '' },
       pvp = { mobEnabled: false, playerEnabled: false, playerTarget: '' },
+      trustedPlayers = [],
     } = options
+    this.setTrustedPlayers(trustedPlayers)
 
     const shouldAutoDetectVersion = !version || version === 'auto'
     const selectedVersion = shouldAutoDetectVersion ? null : version
@@ -277,6 +281,8 @@ class BotManager extends EventEmitter {
 
       try {
         this.bot = mineflayer.createBot(botOptions)
+        // Read by the entity view to badge trusted players' nametags.
+        this.bot._trustedPlayers = this.trustedPlayers
       } catch (err) {
         rejectOnce(err)
         return
@@ -439,6 +445,19 @@ class BotManager extends EventEmitter {
     this.chat.clear()
   }
 
+  // Whether the bot's eyes are in water, when the game shows the air bubbles.
+  _headUnderwater() {
+    try {
+      const eyes = this.bot.entity?.position?.offset(0, this.bot.entity.eyeHeight ?? 1.62, 0)
+      const block = eyes ? this.bot.blockAt(eyes) : null
+      if (!block) return false
+      const waterlogged = block.getProperties?.().waterlogged
+      return block.name === 'water' || block.name === 'bubble_column' || waterlogged === true || waterlogged === 'true'
+    } catch {
+      return false
+    }
+  }
+
   getSnapshot() {
     if (!this.bot) {
       return null
@@ -457,6 +476,7 @@ class BotManager extends EventEmitter {
 
     const pingRaw = this.bot.player?.ping
     const ping = Number.isFinite(pingRaw) ? pingRaw : null
+    const oxygen = Number.isFinite(this.bot.oxygenLevel) ? this.bot.oxygenLevel : 20
 
     return {
       connected: true,
@@ -467,6 +487,8 @@ class BotManager extends EventEmitter {
       health,
       food,
       saturation,
+      oxygen,
+      underwater: this._headUnderwater(),
       position: position
         ? {
             x: Number(position.x.toFixed(2)),
@@ -817,11 +839,26 @@ class BotManager extends EventEmitter {
     return result
   }
 
-  _toggleFollowFromGesture() {
-    const followEnabled = !this.behavior.getPathfinderOptions().followEnabled
-    const options = this.behavior.setPathfinderOptions({ followEnabled })
-    this.emit('pathfinderOptions', options)
-    this.chat.pushSystemMessage(`Follow turned ${followEnabled ? 'on' : 'off'} by gesture.`)
+  isTrusted(name) {
+    return typeof name === 'string' && this.trustedPlayers.has(name.toLowerCase())
+  }
+
+  setTrustedPlayers(names) {
+    this.trustedPlayers.clear()
+    for (const name of Array.isArray(names) ? names : []) {
+      if (typeof name === 'string' && name.trim()) this.trustedPlayers.add(name.trim().toLowerCase())
+    }
+  }
+
+  // A trusted player's gesture: follow them, or stop if the bot already is.
+  _toggleFollowFromGesture(entity) {
+    const { followEnabled, followTarget } = this.behavior.getPathfinderOptions()
+    if (followEnabled && followTarget.toLowerCase() === entity.username.toLowerCase()) {
+      this.emit('pathfinderOptions', this.behavior.setPathfinderOptions({ followEnabled: false }))
+      return
+    }
+    // The watcher's status pill shows who the bot is following.
+    this.followEntity(entity.id)
   }
 
   dismissBedPickup() {

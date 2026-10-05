@@ -211,6 +211,10 @@ const registerMinecraftIpc = (ipcMain) => {
   ipcMain.handle('bot:attackEntity', (_event, entityId) =>
     Number.isInteger(entityId) ? botManager.attackEntity(entityId) : { ok: false, message: 'Invalid entity.' }
   )
+  ipcMain.handle('bot:setTrustedPlayers', (_event, names) => {
+    botManager.setTrustedPlayers(names)
+    return { ok: true }
+  })
   ipcMain.handle('bot:followEntity', (_event, entityId) =>
     Number.isInteger(entityId) ? botManager.followEntity(entityId) : { ok: false, message: 'Invalid entity.' }
   )
