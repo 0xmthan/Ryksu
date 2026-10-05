@@ -8,6 +8,7 @@ import TradePanel from './TradePanel'
 import TabPanel from './TabPanel'
 import { prettyName } from '../utils/blockColors'
 import { Hammer } from 'lucide-react'
+import { PICK_MINING_CHESTS_EVENT } from './MiningPanel'
 import VitalBars, { Hotbar } from './VitalBars'
 import { useSavedLocations } from '../hooks/useSavedLocations'
 import type { AutoEatOptions, BotSnapshot, BuildAction, BuildCells, ChatMessage, MotionEntity, TradeOffer, WorldView } from '../types'
@@ -60,6 +61,30 @@ const Dashboard: React.FC<DashboardProps> = ({
   } | null>(null)
   const closeEntityContext = useCallback(() => setEntityContext(null), [])
   const miningActive = Boolean(snapshot.mining?.active)
+
+  // Chest picking for Auto Mine: started from the mining panel, clicks on chests add or remove them.
+  const [pickingChests, setPickingChests] = useState(false)
+  useEffect(() => {
+    const start = () => {
+      setBuildMode(false)
+      setInventoryOpen(false)
+      setPickingChests(true)
+    }
+    window.addEventListener(PICK_MINING_CHESTS_EVENT, start)
+    return () => window.removeEventListener(PICK_MINING_CHESTS_EVENT, start)
+  }, [])
+  const pickChest = useCallback(async (block: { x: number; y: number; z: number; name: string }) => {
+    try {
+      const result = await window.electronAPI.bot.toggleMiningChest(block)
+      setBlockFeedback(
+        result.ok
+          ? `${result.added ? 'Added' : 'Removed'} the chest at ${block.x} ${block.y} ${block.z}.`
+          : (result.message ?? 'Could not pick that chest.')
+      )
+    } catch {
+      setBlockFeedback('Could not pick that chest.')
+    }
+  }, [])
 
   // Build mode (B): clicks on blocks break and place instead of walking and opening.
   const [buildMode, setBuildMode] = useState(false)
@@ -167,7 +192,12 @@ const Dashboard: React.FC<DashboardProps> = ({
         document.querySelector('[aria-modal="true"]')
       )
         return
-      if (event.code === 'KeyB' && !inventoryOpen && !entityContext) {
+      if (pickingChests && (event.code === 'Escape' || event.code === 'Enter')) {
+        event.preventDefault()
+        setPickingChests(false)
+        return
+      }
+      if (event.code === 'KeyB' && !inventoryOpen && !entityContext && !pickingChests) {
         event.preventDefault()
         setBuildMode((on) => !on)
         return
@@ -209,7 +239,7 @@ const Dashboard: React.FC<DashboardProps> = ({
     }
     window.addEventListener('keydown', handleKey)
     return () => window.removeEventListener('keydown', handleKey)
-  }, [showChat, openingBlock, inventoryOpen, entityContext, onChatInputChange, onChatOpen, selectHotbar, buildMode, miningActive])
+  }, [showChat, openingBlock, inventoryOpen, entityContext, onChatInputChange, onChatOpen, selectHotbar, buildMode, miningActive, pickingChests])
 
   return (
     <div className="relative min-h-0 min-w-0 flex-1 bg-neutral-950 text-neutral-100">
@@ -217,7 +247,8 @@ const Dashboard: React.FC<DashboardProps> = ({
         onBlockInteract={interactBlock}
         movementEnabled={!openingBlock && !inventoryOpen && !showChat && !entityContext && !trader}
         blocks={worldView?.blocks ?? null}
-        chest={snapshot.mining?.chest ?? null}
+        chests={snapshot.mining?.chests ?? []}
+        onBlockPick={pickingChests ? pickChest : null}
         onHover={setHover}
         onEntityContext={(entity, position) => setEntityContext({ entity, position })}
         buildMode={buildMode}
@@ -252,6 +283,23 @@ const Dashboard: React.FC<DashboardProps> = ({
         className="absolute inset-0 h-full w-full"
       />
       <div className="pointer-events-none absolute inset-0">
+        {pickingChests ? (
+          <div
+            className="pointer-events-auto absolute left-1/2 top-15 z-20 flex -translate-x-1/2 items-center gap-3
+              rounded-lg border border-amber-400/40 bg-neutral-950/85 px-3 py-2 text-xs text-amber-100 backdrop-blur-xl"
+          >
+            <span>
+              Click chests or barrels to store Auto Mine loot in ({snapshot.mining?.chests.length ?? 0} picked)
+            </span>
+            <button
+              type="button"
+              onClick={() => setPickingChests(false)}
+              className="rounded-md border border-amber-400/50 px-2 py-0.5 font-semibold hover:bg-amber-400/10"
+            >
+              Done
+            </button>
+          </div>
+        ) : null}
         <div className="pointer-events-auto absolute left-3 top-15 w-64">
           <VitalBars
             health={snapshot.health}

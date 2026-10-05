@@ -11,6 +11,7 @@ import { createTracked, stepTracked, syncTracked, type Tracked } from './watcher
 import { groundTarget, isDoorBlock, isLiquid, pickAt, REPLACEABLE_BLOCKS, walkTarget, type Pick, type Pickable } from './watcher/picking'
 import { disposeObject, makeLabel } from './watcher/sceneUtils'
 import { createSky } from './watcher/sky'
+import { applyBlockLight } from './watcher/blockLight'
 import { createWalkMarker } from './watcher/walkMarker'
 import useManualMovement from '../hooks/useManualMovement'
 import { createCameraRig, type CameraMode } from './watcher/cameraRig'
@@ -46,7 +47,10 @@ const CAP_SHADE = new THREE.Color().setRGB(0.4, 0.4, 0.4)
 type Surroundings3DProps = {
   movementEnabled: boolean
   blocks: Blocks | null
-  chest: { x: number; y: number; z: number } | null
+  // Auto Mine's deposit chests, outlined.
+  chests: { x: number; y: number; z: number }[]
+  // While set, a click on a block calls this instead of walking or opening it.
+  onBlockPick?: ((block: { x: number; y: number; z: number; name: string }) => void) | null
   onHover: (text: string | null) => void
   // A click (not a drag) on a block or mob: the world block the bot should walk to.
   onWalkTo: (target: { x: number; y: number; z: number; door?: { x: number; y: number; z: number } }) => void
@@ -71,7 +75,7 @@ type SceneState = {
   scene: THREE.Scene
   anchor: THREE.Vector3 | null
   blockGroup: THREE.Group | null
-  chestOutline: THREE.Object3D | null
+  chestOutlines: THREE.Object3D[]
   pickable: Pickable[]
   materials: { opaque: THREE.Material; translucent: THREE.Material; ghost: THREE.Material; hologram: THREE.Material; cap: THREE.Material }
   mode: ViewMode
@@ -82,7 +86,8 @@ type SceneState = {
 const Surroundings3D: React.FC<Surroundings3DProps> = ({
   blocks,
   movementEnabled,
-  chest,
+  chests,
+  onBlockPick = null,
   onHover,
   onWalkTo,
   onEntityContext,
@@ -135,6 +140,8 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
   onHoverRef.current = onHover
   const onBlockInteractRef = useRef(onBlockInteract)
   onBlockInteractRef.current = onBlockInteract
+  const onBlockPickRef = useRef(onBlockPick)
+  onBlockPickRef.current = onBlockPick
   const onWalkToRef = useRef(onWalkTo)
   onWalkToRef.current = onWalkTo
   const buildModeRef = useRef(buildMode)
@@ -194,7 +201,7 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
       scene,
       anchor: null,
       blockGroup: null,
-      chestOutline: null,
+      chestOutlines: [],
       pickable: [],
       anchorVersion: 0,
       // The game's fixed side shading is baked into vertex colors; the sun and shadows come on top.
@@ -232,6 +239,9 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
     applySeeThrough(state.materials.opaque, 'solid')
     applySeeThrough(state.materials.hologram, 'hologram')
     applySeeThrough(state.materials.cap, 'cap')
+    applyBlockLight(state.materials.opaque)
+    applyBlockLight(state.materials.translucent)
+    applyBlockLight(state.materials.cap)
 
     // The bot is drawn like any other player; the camera follows it.
     let bot: Tracked | null = null
@@ -526,7 +536,7 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
     }
     // On the container in the capture phase, so it runs before the camera controls' own pointerdown.
     const handleBuildPointerDown = (event: PointerEvent) => {
-      if (!buildModeRef.current || (event.button !== 0 && event.button !== 2)) return
+      if (!buildModeRef.current || onBlockPickRef.current || (event.button !== 0 && event.button !== 2)) return
       if (event.button === 2 && !heldBlockRef.current) return
       const mode: BuildLineMode = event.button === 2 ? 'place' : 'break'
       const picked = mode === 'place' ? pick(event) : breakPick(event)
@@ -573,6 +583,13 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
       }
       const picked = pick(event)
       if (!picked || !state.anchor) return
+      if (onBlockPickRef.current) {
+        if (picked.kind === 'block') {
+          const { x, y, z } = picked.position
+          onBlockPickRef.current({ x, y, z, name: picked.name })
+        }
+        return
+      }
       // Build mode clicks on blocks are one-block drags (handled above); a right click with nothing
       // placeable in hand does nothing.
       if (buildModeRef.current && picked.kind === 'block') return
@@ -788,26 +805,22 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
     if (!state?.anchor) {
       return
     }
-    if (state.chestOutline) {
-      disposeObject(state.chestOutline)
-      state.chestOutline = null
-    }
-    if (!chest) {
-      return
-    }
-    const outline = new THREE.LineSegments(
-      new THREE.EdgesGeometry(new THREE.BoxGeometry(1.06, 1.06, 1.06)),
-      new THREE.LineBasicMaterial({ color: '#fbbf24' })
-    )
-    outline.position.set(
-      chest.x - state.anchor.x + 0.5,
-      chest.y - state.anchor.y + 0.5,
-      chest.z - state.anchor.z + 0.5
-    )
-    state.scene.add(outline)
-    state.chestOutline = outline
+    for (const outline of state.chestOutlines) disposeObject(outline)
+    state.chestOutlines = chests.map((chest) => {
+      const outline = new THREE.LineSegments(
+        new THREE.EdgesGeometry(new THREE.BoxGeometry(1.06, 1.06, 1.06)),
+        new THREE.LineBasicMaterial({ color: '#fbbf24' })
+      )
+      outline.position.set(
+        chest.x - state.anchor!.x + 0.5,
+        chest.y - state.anchor!.y + 0.5,
+        chest.z - state.anchor!.z + 0.5
+      )
+      state.scene.add(outline)
+      return outline
+    })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chest?.x, chest?.y, chest?.z, anchorVersion])
+  }, [chests.map((chest) => `${chest.x},${chest.y},${chest.z}`).join(';'), anchorVersion])
 
   return (
     <div

@@ -1,5 +1,5 @@
 // Day and night for the watcher, following the world's time: the sun and moon cross the sky as square
-// discs like the game's, the sky and fog shift through dawn, day, dusk and night, stars come out, and the
+// discs like the game's, the sky shifts through dawn, day, dusk and night, stars come out, and the
 // sun (or moon) casts shadows around the bot. Caves skip the sky and get a dim light that follows the bot.
 import * as THREE from 'three'
 import type { ViewMode } from '../../utils/viewMode'
@@ -12,8 +12,6 @@ const SUN_COLOR = new THREE.Color('#fff6e0')
 const DUSK_SUN_COLOR = new THREE.Color('#ffb27a')
 const MOON_COLOR = new THREE.Color('#9fb4ff')
 
-// Fog distances in blocks; caves keep it closer so the dark closes in.
-const FOG = { open: { near: 110, far: 240 }, cave: { near: 55, far: 140 } }
 // How far around the bot shadows reach, and how far away the lights and discs sit.
 const SHADOW_RANGE = 85
 const LIGHT_DISTANCE = 180
@@ -43,14 +41,13 @@ const makeStars = () => {
     sizeAttenuation: false,
     transparent: true,
     opacity: 0,
-    fog: false,
     depthWrite: false,
   })
   return new THREE.Points(geometry, material)
 }
 
 const makeDisc = (color: string, size: number) => {
-  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ color, fog: false, depthWrite: false }))
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ color, depthWrite: false }))
   sprite.scale.setScalar(size)
   return sprite
 }
@@ -61,8 +58,6 @@ export const createSky = (scene: THREE.Scene, renderer: THREE.WebGLRenderer) => 
 
   const background = DAY_SKY.clone()
   scene.background = background
-  const fog = new THREE.Fog(background.clone(), FOG.open.near, FOG.open.far)
-  scene.fog = fog
 
   const ambient = new THREE.AmbientLight(0xffffff, 1)
   const light = new THREE.DirectionalLight(0xffffff, 1)
@@ -115,9 +110,6 @@ export const createSky = (scene: THREE.Scene, renderer: THREE.WebGLRenderer) => 
       .lerp(DUSK_SKY, dusk * 0.6)
       .lerp(CAVE_SKY, caveAmount)
     background.lerp(wanted, ease)
-    fog.color.copy(background)
-    fog.near += (THREE.MathUtils.lerp(FOG.open.near, FOG.cave.near, caveAmount) - fog.near) * ease
-    fog.far += (THREE.MathUtils.lerp(FOG.open.far, FOG.cave.far, caveAmount) - fog.far) * ease
 
     // The sun lights the day; after dusk the moon takes over from the other side, dimmer and bluer.
     const sunUp = height > -0.05

@@ -12,6 +12,18 @@ export type BotStatusPayload = {
 
 export type BotStatus = BotStatusPayload | null
 
+// A server list ping result. `motd` keeps its § formatting codes.
+export type ServerPing =
+  | {
+      ok: true
+      motd: string
+      favicon: string | null
+      version: string | null
+      players: { online: number; max: number; sample: string[] } | null
+      latency: number | null
+    }
+  | { ok: false; message: string }
+
 export type BotSnapshot =
   | {
       connected: true
@@ -113,7 +125,8 @@ export type PvpOptions = {
 export type MiningState = {
   active: boolean
   ores: string[]
-  chest: { x: number; y: number; z: number } | null
+  blocks: string[]
+  chests: { x: number; y: number; z: number }[]
   mined: number
   deposited: number
   status: string
@@ -167,6 +180,9 @@ export type WorldView = {
     // Per block: bits 0-5 = visible faces (up, down, north, south, west, east), 6-8 = view mode hints
     // (see src/utils/viewMode.ts).
     faces: number[]
+    // Block light (0-15) for every cell of the view box, 255 where light can't enter. Cells are laid out
+    // x fastest, then z, then y; `below` is the origin's layer.
+    light: { width: number; height: number; below: number; cells: Uint8Array }
     roofCutoff: number
     // Where the bot is, for picking the view mode automatically.
     environment: 'outside' | 'indoors' | 'cave'

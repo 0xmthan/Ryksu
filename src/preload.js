@@ -18,6 +18,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   minimize: () => ipcRenderer.send('window-controls', 'minimize'),
   close: () => ipcRenderer.send('window-controls', 'close'),
   openExternal: (url) => ipcRenderer.invoke('system:openExternal', url),
+  pingServer: (target) => ipcRenderer.invoke('server:ping', target),
   bot: {
     connect: (options) => ipcRenderer.invoke('bot:connect', options),
     disconnect: () => ipcRenderer.invoke('bot:disconnect'),
@@ -38,6 +39,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     dismissBedPickup: () => ipcRenderer.invoke('bot:dismissBedPickup'),
     startMining: (options) => ipcRenderer.invoke('bot:startMining', options),
     stopMining: () => ipcRenderer.invoke('bot:stopMining'),
+    getMineableBlocks: () => ipcRenderer.invoke('bot:getMineableBlocks'),
+    toggleMiningChest: (position) => ipcRenderer.invoke('bot:toggleMiningChest', position),
+    clearMiningChests: () => ipcRenderer.invoke('bot:clearMiningChests'),
     getWorldView: () => ipcRenderer.invoke('bot:getWorldView'),
     getSkin: (url) => ipcRenderer.invoke('bot:getSkin', url),
     lookupPlayerName: (uuid) => ipcRenderer.invoke('bot:lookupPlayerName', uuid),

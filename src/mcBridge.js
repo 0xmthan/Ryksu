@@ -1,4 +1,6 @@
+const { Notification } = require('electron')
 const botManager = require('./botManager')
+const { pingServer } = require('./serverPing')
 
 let registered = false
 
@@ -26,6 +28,14 @@ const registerMinecraftIpc = (ipcMain) => {
 
   botManager.on('status', (status) => {
     emitToRenderer('bot:status', status)
+  })
+
+  ipcMain.handle('server:ping', (_event, target) => pingServer(target))
+
+  botManager.on('miningStopped', (reason) => {
+    if (Notification.isSupported()) {
+      new Notification({ title: 'Auto Mine stopped', body: reason }).show()
+    }
   })
 
   botManager.on('state', (state) => {
@@ -130,6 +140,18 @@ const registerMinecraftIpc = (ipcMain) => {
       return { ok: false, message: error?.message || String(error) }
     }
   })
+
+  ipcMain.handle('bot:toggleMiningChest', (_event, position) => {
+    try {
+      return { ok: true, ...botManager.toggleMiningChest(position) }
+    } catch (error) {
+      return { ok: false, message: error?.message || String(error) }
+    }
+  })
+
+  ipcMain.handle('bot:clearMiningChests', () => ({ ok: true, state: botManager.clearMiningChests() }))
+
+  ipcMain.handle('bot:getMineableBlocks', () => botManager.getMineableBlocks())
 
   ipcMain.handle('bot:stopMining', () => {
     return { ok: true, state: botManager.stopMining() }

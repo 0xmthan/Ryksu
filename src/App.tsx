@@ -457,6 +457,7 @@ const App: React.FC = () => {
       setIsChatPanelOpen(false)
     } else {
       setIsViewingSavedChats(false)
+      setIsViewingAbout(false)
     }
   }, [isConnected])
 

@@ -115,7 +115,12 @@ class BotManager extends EventEmitter {
       pathfinder: this.pathfinder,
       autoTool: this.autoTool,
       isBusy: () => this.creeperWatch.isFleeing() || Boolean(this.pvp.target),
-      onStop: (reason) => this.chat.pushSystemMessage(`Mining stopped: ${reason}`),
+      onStop: (reason, { automatic }) => {
+        this.chat.pushSystemMessage(`Mining stopped: ${reason}`)
+        if (automatic) {
+          this.emit('miningStopped', reason)
+        }
+      },
       onUpdate: () => this._emitState(),
     })
     this.gestures = new GestureController({
@@ -764,11 +769,30 @@ class BotManager extends EventEmitter {
       this.emit('pathfinderOptions', this.behavior.setPathfinderOptions({ followEnabled: false }))
     }
     const state = this.mining.start(options || {})
+    const targets = this.mining._targetLabel()
     this.chat.pushSystemMessage(
-      `Mining ${state.ores.join(', ')} and storing it in the chest at ${state.chest.x} ${state.chest.y} ${state.chest.z}.`
+      state.chests.length > 0
+        ? `Mining ${targets} and storing it in ${state.chests.length === 1 ? 'the picked chest' : `${state.chests.length} picked chests`}.`
+        : `Mining ${targets} until the inventory is full (no chest picked).`
     )
     this._emitState()
     return state
+  }
+
+  toggleMiningChest(position) {
+    const result = this.mining.toggleChest(position)
+    this._emitState()
+    return result
+  }
+
+  clearMiningChests() {
+    const state = this.mining.clearChests()
+    this._emitState()
+    return state
+  }
+
+  getMineableBlocks() {
+    return this.mining.getMineableBlocks()
   }
 
   stopMining() {

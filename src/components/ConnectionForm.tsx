@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react'
 import { Check, Pencil, Server } from 'lucide-react'
 import type { AccountType, BotStatus, LastConnection } from '../types'
+import pkg from '../../package.json'
+import ServerPreview from './ServerPreview'
 
 type ConnectionFormProps = {
   status: BotStatus
@@ -137,6 +139,8 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
             </div>
           </section>
         ) : null}
+
+        <ServerPreview host={host} port={port} />
 
         <section className="overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-900/50 shadow-lg shadow-black/10">
           <div className="flex items-center justify-between gap-4 border-b border-neutral-800/80 px-5 py-3">
@@ -320,14 +324,13 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
                 <dt className="shrink-0 text-xs text-neutral-500">Account</dt>
                 <dd className="min-w-0 break-words text-right font-medium text-neutral-200">{accountLabel}</dd>
               </div>
-              <div className="flex items-center justify-between gap-4">
-                <dt className="shrink-0 text-xs text-neutral-500">Host</dt>
-                <dd className="min-w-0 break-words text-right font-medium text-neutral-200">{host || 'Not set'}</dd>
-              </div>
-              <div className="flex items-center justify-between gap-4">
-                <dt className="shrink-0 text-xs text-neutral-500">Port</dt>
-                <dd className="min-w-0 break-words text-right font-medium text-neutral-200">{port || 'Default'}</dd>
-              </div>
+              {/* The server card above shows the host and port once one is set. */}
+              {host.trim() ? null : (
+                <div className="flex items-center justify-between gap-4">
+                  <dt className="shrink-0 text-xs text-neutral-500">Host</dt>
+                  <dd className="min-w-0 break-words text-right font-medium text-neutral-200">Not set</dd>
+                </div>
+              )}
               <div className="flex items-center justify-between gap-4">
                 <dt className="shrink-0 text-xs text-neutral-500">Username</dt>
                 <dd className="min-w-0 break-words text-right font-medium text-neutral-200">{username || 'Not set'}</dd>
@@ -394,6 +397,7 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
           )}
         </section>
       </form>
+      <p className="mt-auto pt-6 text-center text-[11px] text-neutral-600">Ryksu v{pkg.version}</p>
     </div>
   )
 }

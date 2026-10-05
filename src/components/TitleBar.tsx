@@ -303,14 +303,16 @@ const TitleBar: React.FC<TitleBarProps> = ({
             </ToolbarButton>
           </>
         ) : null}
-        <ToolbarButton
-          label="About Ryksu"
-          description="App version, author, and license."
-          active={isAboutActive}
-          onClick={onToggleAbout}
-        >
-          <Info aria-hidden="true" className="h-[18px] w-[18px]" strokeWidth={1.75} />
-        </ToolbarButton>
+        {!isConnected && (
+          <ToolbarButton
+            label="About Ryksu"
+            description="App version, author, and license."
+            active={isAboutActive}
+            onClick={onToggleAbout}
+          >
+            <Info aria-hidden="true" className="h-[18px] w-[18px]" strokeWidth={1.75} />
+          </ToolbarButton>
+        )}
         {!isConnected && (
           <ToolbarButton
             label="Saved Chats"

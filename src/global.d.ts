@@ -10,6 +10,7 @@ import type {
   BuildAction,
   BuildCells,
   PlayerList,
+  ServerPing,
   Motion,
   MovementControls,
   WorldView,
@@ -37,6 +38,8 @@ declare global {
       minimize: () => void
       close: () => void
       openExternal: (url: string) => Promise<{ ok: boolean; message?: string }>
+      // The server's status from the multiplayer-list ping, without joining.
+      pingServer: (target: { host: string; port: string }) => Promise<ServerPing>
       bot: {
         connect: (options: {
           host: string
@@ -83,12 +86,22 @@ declare global {
         useBed: () => Promise<{ ok: boolean; sleeping?: boolean; message?: string }>
         pickUpBed: () => Promise<{ ok: boolean; message?: string }>
         dismissBedPickup: () => Promise<{ ok: boolean }>
-        startMining: (options: { ores: string[] }) => Promise<{
+        startMining: (options: { ores: string[]; blocks: string[] }) => Promise<{
           ok: boolean
           state?: MiningState
           message?: string
         }>
         stopMining: () => Promise<{ ok: boolean; state: MiningState }>
+        // Every block the connected bot's version can break, sorted by display name.
+        getMineableBlocks: () => Promise<{ name: string; displayName: string }[]>
+        // Adds the chest at the position to Auto Mine's deposit list, or removes it if it's already there.
+        toggleMiningChest: (position: { x: number; y: number; z: number }) => Promise<{
+          ok: boolean
+          added?: boolean
+          state?: MiningState
+          message?: string
+        }>
+        clearMiningChests: () => Promise<{ ok: boolean; state: MiningState }>
         getWorldView: () => Promise<WorldView | null>
         // A player skin as a data URL, or null if it couldn't be fetched.
         getSkin: (url: string) => Promise<string | null>

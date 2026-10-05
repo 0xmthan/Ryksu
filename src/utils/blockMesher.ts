@@ -191,11 +191,21 @@ type MeshBuffers = {
   colors: number[]
   // The block cell each vertex belongs to, so the watcher can fade whole blocks that hide the bot.
   cells: number[]
+  // Block light (0-1) per vertex, for the warm glow of torches and the like (see watcher/blockLight.ts).
+  light: number[]
   indices: number[]
   quadBlocks: number[]
 }
 
-const emptyBuffers = (): MeshBuffers => ({ positions: [], uvs: [], colors: [], cells: [], indices: [], quadBlocks: [] })
+const emptyBuffers = (): MeshBuffers => ({
+  positions: [],
+  uvs: [],
+  colors: [],
+  cells: [],
+  light: [],
+  indices: [],
+  quadBlocks: [],
+})
 
 const toGeometry = (buffers: MeshBuffers) => {
   const geometry = new THREE.BufferGeometry()
@@ -203,6 +213,7 @@ const toGeometry = (buffers: MeshBuffers) => {
   geometry.setAttribute('uv', new THREE.Float32BufferAttribute(buffers.uvs, 2))
   geometry.setAttribute('color', new THREE.Float32BufferAttribute(buffers.colors, 3))
   geometry.setAttribute('cell', new THREE.Float32BufferAttribute(buffers.cells, 3))
+  geometry.setAttribute('blockLight', new THREE.Float32BufferAttribute(buffers.light, 1))
   geometry.setIndex(buffers.indices)
   // Every quad has its own corners, so these come out flat per face, for the sun and shadows.
   geometry.computeVertexNormals()
@@ -233,7 +244,51 @@ const FALLBACK_MODEL: Element[] = [
   },
 ]
 
+// Smooth block light at a point (block units, relative to the origin), blended from the 8 cells around
+// it like the game's smooth lighting. Cells light can't enter are left out, so walls don't darken corners.
+const OPAQUE_LIGHT = 255
+const lightSampler = (light: Blocks['light'] | undefined) => {
+  if (!light) return () => 0
+  const { width, height, below, cells } = light
+  const radius = (width - 1) / 2
+  return (px: number, py: number, pz: number) => {
+    // Cell centers sit at whole numbers plus a half.
+    const ux = px + radius - 0.5
+    const uy = py + below - 0.5
+    const uz = pz + radius - 0.5
+    const x0 = Math.floor(ux)
+    const y0 = Math.floor(uy)
+    const z0 = Math.floor(uz)
+    const fx = ux - x0
+    const fy = uy - y0
+    const fz = uz - z0
+    let sum = 0
+    let weights = 0
+    for (let dy = 0; dy < 2; dy++) {
+      const y = y0 + dy
+      if (y < 0 || y >= height) continue
+      const wy = dy ? fy : 1 - fy
+      for (let dz = 0; dz < 2; dz++) {
+        const z = z0 + dz
+        if (z < 0 || z >= width) continue
+        const wz = wy * (dz ? fz : 1 - fz)
+        for (let dx = 0; dx < 2; dx++) {
+          const x = x0 + dx
+          if (x < 0 || x >= width) continue
+          const level = cells[(y * width + z) * width + x]
+          if (level === OPAQUE_LIGHT) continue
+          const weight = wz * (dx ? fx : 1 - fx)
+          sum += level * weight
+          weights += weight
+        }
+      }
+    }
+    return weights > 0.0001 ? sum / weights / 15 : 0
+  }
+}
+
 export const buildBlockMeshes = (blocks: Blocks, atlas: BlockAtlas, mode: ViewMode): BlockMeshes => {
+  const lightAt = lightSampler(blocks.light)
   const opaque = emptyBuffers()
   const translucent = emptyBuffers()
   const ghost = emptyBuffers()
@@ -304,9 +359,8 @@ export const buildBlockMeshes = (blocks: Blocks, atlas: BlockAtlas, mode: ViewMo
           if (rotation) {
             rotate(normal, rotation.axis, rotation.angle, ZERO)
           }
-          const shade = element.noShade
-            ? FULL_BRIGHT
-            : FACE_SHADE[nearestDirection(rotateBlock(normal, apply, ZERO))]
+          const facing = nearestDirection(rotateBlock(normal, apply, ZERO))
+          const shade = element.noShade ? FULL_BRIGHT : FACE_SHADE[facing]
 
           if (customFallbackColor) {
             color.copy(customFallbackColor).multiply(shade)
@@ -346,7 +400,12 @@ export const buildBlockMeshes = (blocks: Blocks, atlas: BlockAtlas, mode: ViewMo
               }
             }
             rotateBlock(corner, apply)
-            targetBuffers.positions.push(bx + corner.x / 16, by + corner.y / 16, bz + corner.z / 16)
+            const vx = bx + corner.x / 16
+            const vy = by + corner.y / 16
+            const vz = bz + corner.z / 16
+            targetBuffers.positions.push(vx, vy, vz)
+            // Sampled half a block out from the face, so a face takes the light of the space in front of it.
+            targetBuffers.light.push(lightAt(vx + normal.x * 0.5, vy + normal.y * 0.5, vz + normal.z * 0.5))
             const [u, v] = cornerUvs[k]
             targetBuffers.uvs.push(u + (centerU - u) * 0.001, v + (centerV - v) * 0.001)
             targetBuffers.colors.push(color.r, color.g, color.b)

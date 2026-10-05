@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Bug, Copy, ExternalLink, RefreshCw } from 'lucide-react'
+import { Bug, Check, Copy, ExternalLink, RefreshCw } from 'lucide-react'
 import pkg from '../../package.json'
 import logo from '../../assets/icon.png'
 import license from '../../LICENSE?raw'
@@ -12,15 +12,22 @@ export default function AboutPage() {
   const [isChecking, setIsChecking] = useState(false)
   const [updateMessage, setUpdateMessage] = useState('')
   const [actionMessage, setActionMessage] = useState('')
+  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle')
 
   const copyInfo = async () => {
     try {
       const result = await window.electronAPI.copyAppInfo()
-      setActionMessage(result.ok ? 'App info copied.' : 'Could not copy app info. Please try again.')
+      setCopyState(result.ok ? 'copied' : 'failed')
     } catch {
-      setActionMessage('Could not copy app info. Please try again.')
+      setCopyState('failed')
     }
   }
+
+  useEffect(() => {
+    if (copyState !== 'copied') return
+    const timer = setTimeout(() => setCopyState('idle'), 1500)
+    return () => clearTimeout(timer)
+  }, [copyState])
 
   const reportIssue = async () => {
     try {
@@ -101,10 +108,6 @@ export default function AboutPage() {
           </div>
         </dl>
         <div className="mt-5 flex flex-wrap gap-2">
-          <button type="button" onClick={copyInfo} className={actionClass}>
-            <Copy size={14} aria-hidden="true" />
-            Copy app info
-          </button>
           <button type="button" onClick={reportIssue} className={actionClass}>
             <Bug size={14} aria-hidden="true" />
             Report an issue
@@ -140,9 +143,25 @@ export default function AboutPage() {
         className="mt-4 rounded-2xl border border-neutral-800 bg-neutral-950/70 p-6"
         aria-labelledby="system-heading"
       >
-        <h2 id="system-heading" className="text-sm font-medium text-neutral-300">
-          System details
-        </h2>
+        <div className="flex items-center justify-between gap-4">
+          <h2 id="system-heading" className="text-sm font-medium text-neutral-300">
+            System details
+          </h2>
+          <button
+            type="button"
+            onClick={copyInfo}
+            aria-label="Copy app info"
+            title={copyState === 'copied' ? 'Copied' : 'Copy app info'}
+            className="rounded-md p-1.5 text-neutral-500 transition hover:bg-neutral-800 hover:text-sky-200
+              focus-visible:outline-sky-400"
+          >
+            {copyState === 'copied' ? (
+              <Check size={14} aria-hidden="true" className="text-emerald-400" />
+            ) : (
+              <Copy size={14} aria-hidden="true" />
+            )}
+          </button>
+        </div>
         {info ? (
           <dl className="mt-4 grid grid-cols-2 gap-y-2 text-xs text-neutral-400">
             <dt>Platform</dt>
@@ -161,6 +180,10 @@ export default function AboutPage() {
             {error ? 'System details unavailable.' : 'Loading system details…'}
           </p>
         )}
+        <div role="status" aria-live="polite" className="text-xs text-neutral-400">
+          {copyState === 'copied' && <span className="sr-only">App info copied.</span>}
+          {copyState === 'failed' && <p className="mt-3">Could not copy app info. Please try again.</p>}
+        </div>
       </section>
     </section>
   )

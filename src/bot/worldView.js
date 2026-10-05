@@ -146,6 +146,58 @@ const hashNumbers = (hash, values) => {
   return hash
 }
 
+// Light by state for blocks that only glow when lit; the block data gives one value for every state.
+const LIT_LIGHT = { furnace: 13, blast_furnace: 13, smoker: 13, redstone_ore: 9, deepslate_redstone_ore: 9, campfire: 15, soul_campfire: 10 }
+const emittedLight = (block, properties) => {
+  if (properties.lit === false || properties.lit === 'false') return 0
+  if (block.name.endsWith('candle') && properties.candles !== undefined) return 3 * Number(properties.candles)
+  return LIT_LIGHT[block.name] ?? block.emitLight ?? 0
+}
+
+// Block light (torches, lava, glowstone, …) spread through the view the way the game does it: one level
+// less per block, more through leaves and water, stopped by solid blocks. Computed here rather than read
+// from the server, whose light data is often missing or stale for parts of the world. Per cell: the
+// level, or OPAQUE for cells light can't enter (the renderer leaves them out when smoothing).
+const OPAQUE = 255
+const spreadLight = ({ grid, emits, filters, width, height }) => {
+  const total = grid.length
+  const cells = new Uint8Array(total)
+  const queue = []
+  for (let cell = 0; cell < total; cell++) {
+    const index = grid[cell]
+    if (index < 0) continue
+    if (filters[index] >= 15) cells[cell] = OPAQUE
+    if (emits[index] > 0) {
+      cells[cell] = emits[index]
+      queue.push(cell)
+    }
+  }
+  const layer = width * width
+  for (let head = 0; head < queue.length; head++) {
+    const cell = queue[head]
+    const level = cells[cell]
+    if (level <= 1) continue
+    const x = cell % width
+    const z = Math.floor(cell / width) % width
+    const y = Math.floor(cell / layer)
+    for (const [nx, ny, nz] of NEIGHBORS) {
+      const ax = x + nx
+      const ay = y + ny
+      const az = z + nz
+      if (ax < 0 || ay < 0 || az < 0 || ax >= width || ay >= height || az >= width) continue
+      const neighbor = cell + nx + nz * width + ny * layer
+      if (cells[neighbor] === OPAQUE) continue
+      const index = grid[neighbor]
+      const next = level - Math.max(1, index < 0 ? 0 : filters[index])
+      if (next > cells[neighbor]) {
+        cells[neighbor] = next
+        queue.push(neighbor)
+      }
+    }
+  }
+  return cells
+}
+
 // Name, properties and opacity per block state, looked up once per registry.
 const stateCaches = new WeakMap()
 const stateInfo = (registry, stateId) => {
@@ -167,7 +219,13 @@ const stateInfo = (registry, stateId) => {
         // Unknown state layout; the default model is used.
       }
       // Only solid, non-see-through full cubes hide the faces next to them.
-      info = { name: block.name, properties, occludes: FULL_CUBES.has(block.name) && !block.transparent }
+      info = {
+        name: block.name,
+        properties,
+        occludes: FULL_CUBES.has(block.name) && !block.transparent,
+        emitLight: emittedLight(block, properties),
+        filterLight: block.filterLight ?? (block.transparent ? 0 : 15),
+      }
     }
     cache.states.set(stateId, info)
   }
@@ -204,6 +262,9 @@ const getBlocks = (bot) => {
   // One palette entry per block state, so the renderer can pick the right model (facing, axis, …).
   const palette = []
   const properties = []
+  // Light given off and light blocked, per palette entry.
+  const emits = []
+  const filters = []
   const paletteIndex = new Map()
   // -1 = nothing drawn there; otherwise a palette index.
   const grid = new Int16Array(total).fill(-1)
@@ -241,6 +302,8 @@ const getBlocks = (bot) => {
           index = palette.length
           palette.push(info.name)
           properties.push(info.properties)
+          emits.push(info.emitLight)
+          filters.push(info.filterLight)
           paletteIndex.set(stateId, index)
         }
         const isWater = isWaterBlock(info.name, info.properties)
@@ -344,6 +407,8 @@ const getBlocks = (bot) => {
     positions,
     blocks,
     faces,
+    // Derived from the blocks, so the key above already changes with it.
+    light: { width, height, below: VOXEL_BELOW, cells: spreadLight({ grid, emits, filters, width, height }) },
   }
 
   bot._worldDirty = false
@@ -365,4 +430,4 @@ const getWorldView = (bot) => {
   }
 }
 
-module.exports = { getWorldView, describeItem }
+module.exports = { getWorldView, describeItem, spreadLight }

@@ -184,6 +184,9 @@ importers:
       minecraft-data:
         specifier: file:../minecraft-data-26.2
         version: file:../minecraft-data-26.2
+      minecraft-protocol:
+        specifier: ^1.68.0
+        version: 1.68.0(patch_hash=9be877c7e0b9293860f777dd89971db89d2a4dca13e32c25686d2fe0ade42ecf)(encoding@0.1.13)(supports-color@8.1.1)
       mineflayer:
         specifier: ^4.39.0
         version: 4.39.0(patch_hash=f33260a9883223a5687b8454c94b8c71670c2a8abff59c10e73fdd0b7d7043f7)(encoding@0.1.13)(supports-color@8.1.1)

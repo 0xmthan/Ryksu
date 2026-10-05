@@ -1,3 +1,4 @@
+const { Vec3 } = require('vec3')
 const { goals } = require('./core/pathfinder')
 
 // Ore choices shown in the UI, each mapped to the block names that count as that ore.
@@ -15,10 +16,11 @@ const ORE_BLOCKS = {
 }
 
 const ORE_SEARCH_RADIUS = 48
-const CHEST_SEARCH_RADIUS = 16
 const CHEST_NAMES = ['chest', 'trapped_chest', 'barrel']
 // Head back to the chest once this few inventory slots are left.
 const MIN_FREE_SLOTS = 3
+// Picked blocks are capped so a typo-free but huge list can't flood findBlocks.
+const MAX_CUSTOM_BLOCKS = 64
 const DROP_PICKUP_RADIUS = 5
 const FAILED_BLOCK_COOLDOWN_MS = 60000
 const BUSY_RETRY_MS = 1000
@@ -53,7 +55,9 @@ class MiningController {
     this.running = false
     this.runId = 0
     this.ores = []
-    this.chest = null
+    this.blocks = []
+    // Chests picked by hand in the 3D view; loot only goes into these.
+    this.chests = []
     this.mined = 0
     this.deposited = 0
     this.status = 'Idle'
@@ -75,14 +79,27 @@ class MiningController {
     return {
       active: this.running,
       ores: [...this.ores],
-      chest: this.chest ? { x: this.chest.x, y: this.chest.y, z: this.chest.z } : null,
+      blocks: [...this.blocks],
+      chests: this.chests.map(({ x, y, z }) => ({ x, y, z })),
       mined: this.mined,
       deposited: this.deposited,
       status: this.status,
     }
   }
 
-  start({ ores } = {}) {
+  // Every block the bot can break, for the block picker.
+  getMineableBlocks() {
+    const bot = this.bot
+    if (!bot?.registry) {
+      return []
+    }
+    return bot.registry.blocksArray
+      .filter((block) => block.diggable)
+      .map((block) => ({ name: block.name, displayName: block.displayName ?? block.name }))
+      .sort((a, b) => a.displayName.localeCompare(b.displayName))
+  }
+
+  start({ ores, blocks } = {}) {
     const bot = this.bot
     if (!bot?.entity) {
       throw new Error('The bot is not in the world yet.')
@@ -91,18 +108,16 @@ class MiningController {
       throw new Error('Already mining.')
     }
 
-    const selected = (Array.isArray(ores) ? ores : []).filter((ore) => ORE_BLOCKS[ore])
-    if (selected.length === 0) {
-      throw new Error('Pick at least one ore to mine.')
+    const selectedOres = (Array.isArray(ores) ? ores : []).filter((ore) => ORE_BLOCKS[ore])
+    const selectedBlocks = [...new Set(Array.isArray(blocks) ? blocks : [])]
+      .filter((name) => bot.registry.blocksByName[name]?.diggable)
+      .slice(0, MAX_CUSTOM_BLOCKS)
+    if (selectedOres.length === 0 && selectedBlocks.length === 0) {
+      throw new Error('Pick at least one ore or block to mine.')
     }
 
-    const chest = this._findNearestChest()
-    if (!chest) {
-      throw new Error(`Stand the bot within ${CHEST_SEARCH_RADIUS} blocks of a chest first.`)
-    }
-
-    this.ores = selected
-    this.chest = chest.position.clone()
+    this.ores = selectedOres
+    this.blocks = selectedBlocks
     this.mined = 0
     this.deposited = 0
     this.failedBlocks.clear()
@@ -113,7 +128,39 @@ class MiningController {
     return this.getState()
   }
 
-  stop(reason = 'Stopped.') {
+  // `automatic` is set when mining ends on its own (full inventory, missing tool, …) rather than on request.
+  // Adds the chest at `position` to the deposit list, or removes it if it's already there.
+  toggleChest(position) {
+    const bot = this.bot
+    if (!bot) {
+      throw new Error('The bot is not connected.')
+    }
+    const { x, y, z } = position ?? {}
+    if (![x, y, z].every(Number.isInteger)) {
+      throw new Error('Invalid block position.')
+    }
+    const index = this.chests.findIndex((chest) => chest.x === x && chest.y === y && chest.z === z)
+    if (index !== -1) {
+      this.chests.splice(index, 1)
+      this.onUpdate?.()
+      return { added: false, state: this.getState() }
+    }
+    const block = bot.blockAt(new Vec3(x, y, z))
+    if (!block || !CHEST_NAMES.includes(block.name)) {
+      throw new Error('Only chests, trapped chests and barrels can store loot.')
+    }
+    this.chests.push(block.position.clone())
+    this.onUpdate?.()
+    return { added: true, state: this.getState() }
+  }
+
+  clearChests() {
+    this.chests = []
+    this.onUpdate?.()
+    return this.getState()
+  }
+
+  stop(reason = 'Stopped.', { automatic = false } = {}) {
     if (!this.running) {
       return this.getState()
     }
@@ -126,7 +173,7 @@ class MiningController {
       // not digging
     }
     this._setStatus(reason)
-    this.onStop?.(reason)
+    this.onStop?.(reason, { automatic })
     return this.getState()
   }
 
@@ -141,17 +188,21 @@ class MiningController {
           continue
         }
 
-        if (this._freeSlots() < MIN_FREE_SLOTS) {
+        const hasChest = this.chests.length > 0
+        if (!hasChest && this._freeSlots() === 0) {
+          throw new Error('STOP: Inventory is full.')
+        }
+        if (hasChest && this._freeSlots() < MIN_FREE_SLOTS) {
           await this._depositAll(alive)
           continue
         }
 
         const ore = this._findOre()
         if (!ore) {
-          if (this._hasLoot()) {
+          if (hasChest && this._hasLoot()) {
             await this._depositAll(alive)
           }
-          this._setStatus(`No ${this.ores.join('/')} ore within ${ORE_SEARCH_RADIUS} blocks. Waiting…`)
+          this._setStatus(`No ${this._targetLabel()} within ${ORE_SEARCH_RADIUS} blocks. Waiting…`)
           await sleep(IDLE_RETRY_MS)
           continue
         }
@@ -163,7 +214,7 @@ class MiningController {
         }
         const message = error?.message ?? String(error)
         if (message.startsWith('STOP:')) {
-          this.stop(message.slice(5).trim())
+          this.stop(message.slice(5).trim(), { automatic: true })
           return
         }
         console.error('[Mining] step failed', error)
@@ -245,43 +296,68 @@ class MiningController {
     }
   }
 
+  // Fills the picked chests nearest first, moving on when one is full or gone.
   async _depositAll(alive) {
     const bot = this.bot
-    if (!this.chest) {
-      throw new Error('STOP: No chest set.')
+    if (this.chests.length === 0) {
+      throw new Error('STOP: No chest picked.')
     }
     if (this._depositPlan().length === 0) {
       throw new Error('STOP: Inventory is full of gear it keeps (tools, armor, food).')
     }
 
-    this._setStatus('Inventory full, going to the chest')
-    await this._goto(new goals.GoalGetToBlock(this.chest.x, this.chest.y, this.chest.z))
-    if (!alive()) {
-      return
-    }
+    const origin = bot.entity.position
+    const queue = [...this.chests].sort((a, b) => a.distanceTo(origin) - b.distanceTo(origin))
+    for (const chest of queue) {
+      if (!alive()) {
+        return
+      }
+      const label = `${chest.x} ${chest.y} ${chest.z}`
+      this._setStatus(`Inventory full, going to the chest at ${label}`)
+      try {
+        await this._goto(new goals.GoalGetToBlock(chest.x, chest.y, chest.z))
+      } catch (error) {
+        console.error(`[Mining] could not reach the chest at ${label}`, error)
+        continue
+      }
+      if (!alive()) {
+        return
+      }
 
-    const chestBlock = bot.blockAt(this.chest)
-    if (!chestBlock || !CHEST_NAMES.includes(chestBlock.name)) {
-      throw new Error('STOP: The chest is gone.')
-    }
+      const chestBlock = bot.blockAt(chest)
+      if (!chestBlock || !CHEST_NAMES.includes(chestBlock.name)) {
+        continue
+      }
 
-    this._setStatus('Putting items in the chest')
-    const container = await bot.openContainer(chestBlock)
+      this._setStatus(`Putting items in the chest at ${label}`)
+      if (await this._depositInto(chestBlock, alive)) {
+        return
+      }
+    }
+    throw new Error(
+      this.chests.length === 1 ? 'STOP: The chest is full or unreachable.' : 'STOP: All picked chests are full or unreachable.'
+    )
+  }
+
+  // True once everything that should go is stored; false if this chest filled up first.
+  async _depositInto(chestBlock, alive) {
+    const container = await this.bot.openContainer(chestBlock)
     try {
       for (const { type, count, name } of this._depositPlan()) {
         if (!alive()) {
-          return
+          return true
         }
         try {
           await container.deposit(type, null, count)
           this.deposited += count
         } catch (error) {
           if (/full/i.test(error?.message ?? '')) {
-            throw new Error('STOP: The chest is full.')
+            return false
           }
           console.error(`[Mining] could not deposit ${name}`, error)
         }
       }
+      return true
     } finally {
       container.close()
     }
@@ -348,13 +424,16 @@ class MiningController {
   _findOre() {
     const bot = this.bot
     const now = Date.now()
-    const ids = this.ores
-      .flatMap((ore) => ORE_BLOCKS[ore])
+    const ids = [...this.ores.flatMap((ore) => ORE_BLOCKS[ore]), ...this.blocks]
       .map((name) => bot.registry.blocksByName[name]?.id)
       .filter((id) => id !== undefined)
 
     const positions = bot.findBlocks({ matching: ids, maxDistance: ORE_SEARCH_RADIUS, count: 32 })
     for (const position of positions) {
+      // Never dig up the chest the loot goes into, even if chests were picked.
+      if (this.chests.some((chest) => chest.equals(position))) {
+        continue
+      }
       const failedAt = this.failedBlocks.get(posKey(position))
       if (failedAt && now - failedAt < FAILED_BLOCK_COOLDOWN_MS) {
         continue
@@ -367,13 +446,14 @@ class MiningController {
     return null
   }
 
-  _findNearestChest() {
+
+  _targetLabel() {
     const bot = this.bot
-    const ids = CHEST_NAMES.map((name) => bot.registry.blocksByName[name]?.id).filter(
-      (id) => id !== undefined
-    )
-    const position = bot.findBlock({ matching: ids, maxDistance: CHEST_SEARCH_RADIUS })
-    return position ?? null
+    const names = [
+      ...this.ores.map((ore) => `${ore} ore`),
+      ...this.blocks.map((name) => bot?.registry.blocksByName[name]?.displayName ?? name),
+    ]
+    return names.length > 3 ? `${names.slice(0, 3).join('/')} or ${names.length - 3} more` : names.join('/')
   }
 
   _markFailed(position) {

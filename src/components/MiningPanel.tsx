@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Pickaxe, Square, LoaderCircle, X } from 'lucide-react'
+import { MousePointerClick, Pickaxe, Plus, Square, LoaderCircle, X } from 'lucide-react'
 import ToolbarButton from './ToolbarButton'
 import type { MiningState } from '../types'
 
@@ -17,18 +17,33 @@ const ORE_OPTIONS = [
   { id: 'debris', label: 'Debris' },
 ]
 
-const STORAGE_KEY = 'ryksu.mining.ores'
+// Fired on window to put the 3D view into chest-picking mode (handled by the dashboard).
+export const PICK_MINING_CHESTS_EVENT = 'ryksu:pick-mining-chests'
 
-const loadOres = (): string[] => {
+const STORAGE_KEY = 'ryksu.mining.ores'
+const BLOCKS_STORAGE_KEY = 'ryksu.mining.blocks'
+const MAX_SUGGESTIONS = 8
+
+type MineableBlock = { name: string; displayName: string }
+
+const loadList = (key: string, fallback: string[]): string[] => {
   try {
-    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null')
+    const stored = JSON.parse(localStorage.getItem(key) ?? 'null')
     if (Array.isArray(stored)) {
-      return stored.filter((ore) => typeof ore === 'string')
+      return stored.filter((entry) => typeof entry === 'string')
     }
   } catch {
     // fall through to the default
   }
-  return ['iron', 'coal']
+  return fallback
+}
+
+const saveList = (key: string, value: string[]) => {
+  try {
+    localStorage.setItem(key, JSON.stringify(value))
+  } catch {
+    // storage unavailable; the choice just isn't remembered
+  }
 }
 
 type MiningPanelProps = {
@@ -37,18 +52,68 @@ type MiningPanelProps = {
 
 const MiningPanel: React.FC<MiningPanelProps> = ({ mining }) => {
   const [isOpen, setIsOpen] = useState(false)
-  const [ores, setOres] = useState<string[]>(loadOres)
+  const [ores, setOres] = useState<string[]>(() => loadList(STORAGE_KEY, ['iron', 'coal']))
+  const [blocks, setBlocks] = useState<string[]>(() => loadList(BLOCKS_STORAGE_KEY, []))
+  const [mineableBlocks, setMineableBlocks] = useState<MineableBlock[]>([])
+  const [query, setQuery] = useState('')
   const [isBusy, setIsBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const active = Boolean(mining?.active)
 
+  useEffect(() => saveList(STORAGE_KEY, ores), [ores])
+  useEffect(() => saveList(BLOCKS_STORAGE_KEY, blocks), [blocks])
+
+  // The block list depends on the server version, so load it from the connected bot when the panel opens.
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(ores))
-    } catch {
-      // storage unavailable; the choice just isn't remembered
+    if (!isOpen) return
+    let current = true
+    window.electronAPI.bot.getMineableBlocks().then(
+      (list) => {
+        if (current) setMineableBlocks(list)
+      },
+      () => {}
+    )
+    return () => {
+      current = false
     }
-  }, [ores])
+  }, [isOpen])
+
+  const displayNames = useMemo(
+    () => new Map(mineableBlocks.map((block) => [block.name, block.displayName])),
+    [mineableBlocks]
+  )
+
+  const suggestions = useMemo(() => {
+    const term = query.trim().toLowerCase()
+    if (!term) return []
+    return mineableBlocks
+      .filter(
+        (block) =>
+          !blocks.includes(block.name) &&
+          (block.displayName.toLowerCase().includes(term) || block.name.includes(term.replace(/\s+/g, '_')))
+      )
+      .slice(0, MAX_SUGGESTIONS)
+  }, [query, mineableBlocks, blocks])
+
+  const addBlock = (name: string) => {
+    setBlocks((previous) => (previous.includes(name) ? previous : [...previous, name]))
+    setQuery('')
+  }
+
+  const removeBlock = (name: string) => {
+    setBlocks((previous) => previous.filter((block) => block !== name))
+  }
+
+  const chests = mining?.chests ?? []
+
+  const startPickingChests = () => {
+    setIsOpen(false)
+    window.dispatchEvent(new Event(PICK_MINING_CHESTS_EVENT))
+  }
+
+  const removeChest = (chest: { x: number; y: number; z: number }) => {
+    window.electronAPI.bot.toggleMiningChest(chest).catch(() => setError('Could not remove the chest.'))
+  }
 
   useEffect(() => {
     if (!isOpen) return
@@ -67,7 +132,7 @@ const MiningPanel: React.FC<MiningPanelProps> = ({ mining }) => {
     setIsBusy(true)
     setError(null)
     try {
-      const response = await window.electronAPI.bot.startMining({ ores })
+      const response = await window.electronAPI.bot.startMining({ ores, blocks })
       if (!response.ok) {
         setError(response.message ?? 'Could not start mining.')
         setIsOpen(true)
@@ -100,7 +165,7 @@ const MiningPanel: React.FC<MiningPanelProps> = ({ mining }) => {
     <>
       <ToolbarButton
         label="Auto Mine"
-        description="Click to start or stop mining. Right-click to choose ores and view progress."
+        description="Click to start or stop mining. Right-click to choose ores or blocks and view progress."
         active={active}
         onClick={() => {
           if (!isBusy) void (active ? handleStop() : handleStart())
@@ -161,7 +226,7 @@ const MiningPanel: React.FC<MiningPanelProps> = ({ mining }) => {
                     <button
                       type="button"
                       onClick={handleStart}
-                      disabled={isBusy || ores.length === 0}
+                      disabled={isBusy || (ores.length === 0 && blocks.length === 0)}
                       className="flex items-center gap-2 rounded-full border border-sky-800 bg-sky-950/60 px-3
                         py-1 text-xs font-semibold text-sky-200 transition hover:border-sky-600
                         disabled:opacity-50"
@@ -198,9 +263,109 @@ const MiningPanel: React.FC<MiningPanelProps> = ({ mining }) => {
                   })}
                 </div>
 
+                <div className="mt-3">
+                  <label htmlFor="mining-block-search" className="text-[0.7rem] text-neutral-500">
+                    Other blocks
+                  </label>
+                  {blocks.length > 0 ? (
+                    <ul className="mt-1 flex flex-wrap gap-1">
+                      {blocks.map((name) => (
+                        <li
+                          key={name}
+                          className="flex items-center gap-1 rounded-full border border-sky-600 bg-sky-900/50 py-0.5
+                            pl-2 pr-1 text-[0.7rem] text-sky-100"
+                        >
+                          {displayNames.get(name) ?? name}
+                          <button
+                            type="button"
+                            onClick={() => removeBlock(name)}
+                            disabled={active}
+                            aria-label={`Remove ${displayNames.get(name) ?? name}`}
+                            className="rounded-full p-0.5 text-sky-300 hover:text-white disabled:cursor-not-allowed"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                  <input
+                    id="mining-block-search"
+                    type="search"
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' && suggestions[0]) {
+                        event.preventDefault()
+                        addBlock(suggestions[0].name)
+                      }
+                    }}
+                    disabled={active}
+                    placeholder={mineableBlocks.length ? 'Search blocks, e.g. dirt' : 'Loading blocks…'}
+                    className="mt-1 w-full rounded-md border border-neutral-700 bg-neutral-950/60 px-2 py-1 text-xs
+                      text-neutral-100 placeholder:text-neutral-600 focus:border-sky-600 focus:outline-none
+                      disabled:cursor-not-allowed disabled:opacity-50"
+                  />
+                  {suggestions.length > 0 ? (
+                    <ul className="mt-1 max-h-40 overflow-y-auto rounded-md border border-neutral-800 bg-neutral-950">
+                      {suggestions.map((block) => (
+                        <li key={block.name}>
+                          <button
+                            type="button"
+                            onClick={() => addBlock(block.name)}
+                            className="flex w-full items-center justify-between gap-2 px-2 py-1 text-left text-xs
+                              text-neutral-300 hover:bg-neutral-800 hover:text-white"
+                          >
+                            {block.displayName}
+                            <Plus className="h-3 w-3 text-neutral-500" aria-hidden="true" />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </div>
+
+                <div className="mt-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[0.7rem] text-neutral-500">Chests</span>
+                    <button
+                      type="button"
+                      onClick={startPickingChests}
+                      className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[0.7rem] text-amber-300
+                        hover:bg-neutral-800 hover:text-amber-200"
+                    >
+                      <MousePointerClick className="h-3 w-3" aria-hidden="true" />
+                      Pick chests
+                    </button>
+                  </div>
+                  {chests.length > 0 ? (
+                    <ul className="mt-1 flex flex-wrap gap-1">
+                      {chests.map((chest) => (
+                        <li
+                          key={`${chest.x},${chest.y},${chest.z}`}
+                          className="flex items-center gap-1 rounded-full border border-amber-500/50 bg-amber-900/30
+                            py-0.5 pl-2 pr-1 font-mono text-[0.68rem] text-amber-100"
+                        >
+                          {chest.x} {chest.y} {chest.z}
+                          <button
+                            type="button"
+                            onClick={() => removeChest(chest)}
+                            aria-label={`Remove the chest at ${chest.x} ${chest.y} ${chest.z}`}
+                            className="rounded-full p-0.5 text-amber-300 hover:text-white"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="mt-1 text-[0.68rem] text-neutral-600">None picked.</p>
+                  )}
+                </div>
+
                 <p className="mt-2 text-[0.68rem] leading-snug text-neutral-500">
-                  Stores loot in the chest nearest the bot at Start. Keeps tools, armor, food and a stack of
-                  blocks.
+                  Stores loot in the picked chests, nearest first. With none picked, it mines until the inventory is
+                  full and sends a notification. Keeps tools, armor, food and a stack of blocks.
                 </p>
 
                 <dl className="mt-2 space-y-1 text-xs">
@@ -209,13 +374,7 @@ const MiningPanel: React.FC<MiningPanelProps> = ({ mining }) => {
                     <dd className="text-right text-neutral-100">{mining?.status ?? 'Idle'}</dd>
                   </div>
                   <div className="flex justify-between gap-3">
-                    <dt className="text-neutral-500">Chest</dt>
-                    <dd className="font-mono text-neutral-200">
-                      {mining?.chest ? `${mining.chest.x} / ${mining.chest.y} / ${mining.chest.z}` : '—'}
-                    </dd>
-                  </div>
-                  <div className="flex justify-between gap-3">
-                    <dt className="text-neutral-500">Ores mined</dt>
+                    <dt className="text-neutral-500">Blocks mined</dt>
                     <dd className="text-neutral-200">{mining?.mined ?? 0}</dd>
                   </div>
                   <div className="flex justify-between gap-3">
