@@ -204,6 +204,7 @@ const armorTextures = (textures) => {
 }
 
 module.exports = () => {
+  /** @type {Record<string, { geometry?: Record<string, any>; textures?: Record<string, string> }>} */
   const entities = require('../vendor/prismarine-viewer-entities.json')
   const findTexture = makeFindTexture()
   const textures = makeTextures()

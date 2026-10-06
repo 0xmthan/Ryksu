@@ -193,12 +193,6 @@ export class MiningController {
     return { added: true, state: this.getState() }
   }
 
-  clearChests() {
-    this.chests = []
-    this.onUpdate?.()
-    return this.getState()
-  }
-
   stop(reason = 'Stopped.', { automatic = false } = {}) {
     if (!this.running) {
       return this.getState()

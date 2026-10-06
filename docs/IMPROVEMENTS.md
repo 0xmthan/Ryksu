@@ -15,7 +15,7 @@ Severity: 🔴 bug or real risk · 🟠 should fix soon · 🟡 cleanup or nice 
 | `pnpm lint` | ❌ just runs `echo "No linting configured"`. `npx eslint` crashes because ESLint 9 needs a flat config |
 | `prettier --check src` | ❌ 80 files not formatted |
 | Packaged `app.asar` | ⚠️ **489 MB** (whole `.app` is 800 MB) |
-| JS not type-checked | 40 files, ~8,250 lines (see `TYPESCRIPT_MIGRATION.md`) |
+| JS not type-checked | 40 files, ~8,250 lines (since converted to TypeScript) |
 
 ---
 
@@ -399,7 +399,7 @@ That's fine for now, but loading it lazily (`fetch` of a static asset) would mak
 1. **Tooling:** flat ESLint config, a one-off Prettier pass, and lint in CI (§6.1). *½ day*
 2. **Security quick wins:** remove the Microsoft password, `safeStorage` for the server password, CSP, navigation guards (§5). *1 day*
 3. **Chat storage bound** (§2.7) and **saved locations per server** (§3.8). *1 day*
-4. **IPC contract + TS migration**, Phases 1–6 (see `TYPESCRIPT_MIGRATION.md`). Includes the `BotManager` split (§2.1), the plugin base class (§2.8) and dedupe (§2.10). *2–3 weeks*
+4. ✅ **IPC contract + TS migration** (done). Includes the `BotManager` split (§2.1), the plugin base class (§2.8) and dedupe (§2.10). *2–3 weeks*
 5. **Folder restructure** with `git mv` only (§4), after the migration. *½ day*
 6. **Settings single source of truth** (§2.5) + context instead of prop drilling (§2.6). *2–3 days*
 7. **UI:** Automation popover (§3.1), resizable window (§3.2), shared Dialog (§3.5), toasts (§3.4), design tokens (§3.6). *1 week*

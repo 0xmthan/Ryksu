@@ -1,0 +1,23 @@
+{
+  // The main process, preload and world worker: Node, no DOM.
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "node_modules/.cache/tsc/main.tsbuildinfo",
+    "lib": ["ES2021"],
+    "types": ["node"]
+  },
+  "include": [
+    "src/main.ts",
+    "src/preload.ts",
+    "src/worldWorker.ts",
+    "src/mcBridge.ts",
+    "src/botManager.ts",
+    "src/appUpdates.ts",
+    "src/serverPing.ts",
+    "src/silenceKnownWarnings.ts",
+    "src/bot/**/*",
+    "src/ipc.ts",
+    "src/types.ts",
+    "src/shared/**/*"
+  ]
+}

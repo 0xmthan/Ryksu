@@ -1,54 +1,17 @@
-import type { Bot } from 'mineflayer'
 import type { Block } from 'prismarine-block'
 import type { Item } from 'prismarine-item'
 import * as nbt from 'prismarine-nbt'
 import { plugin as toolPlugin } from './core/tool'
+import { ToggleablePlugin } from './toggleablePlugin'
 
 type Enchant = { id?: string | { text?: string }; lvl?: unknown; Lvl?: unknown; level?: unknown }
 
-export class AutoToolController {
-  private bot: Bot | null
-  private desiredEnabled: boolean
-  private enabled: boolean
+export class AutoToolController extends ToggleablePlugin {
   private blockBreakListener: ((block: Block) => void) | null
 
   constructor() {
-    this.bot = null
-    this.desiredEnabled = false
-    this.enabled = false
+    super()
     this.blockBreakListener = null
-  }
-
-  attach(bot: Bot) {
-    this.bot = bot
-    if (this.desiredEnabled) {
-      this._enable()
-    }
-  }
-
-  detach() {
-    if (this.bot) {
-      this._disable()
-    }
-    this.bot = null
-  }
-
-  setEnabled(enabled: boolean) {
-    this.desiredEnabled = Boolean(enabled)
-
-    if (!this.bot) {
-      return
-    }
-
-    if (this.desiredEnabled) {
-      this._enable()
-    } else {
-      this._disable()
-    }
-  }
-
-  isEnabled() {
-    return this.desiredEnabled
   }
 
   async ensurePlugin() {
@@ -84,7 +47,7 @@ export class AutoToolController {
     }
   }
 
-  private _enable() {
+  protected _enable() {
     if (!this.bot || this.enabled) {
       return
     }
@@ -99,7 +62,7 @@ export class AutoToolController {
     this.enabled = true
   }
 
-  private _disable() {
+  protected _disable() {
     if (!this.bot || !this.enabled) {
       return
     }

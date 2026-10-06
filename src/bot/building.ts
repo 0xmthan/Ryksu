@@ -7,8 +7,7 @@ import { Vec3 } from 'vec3'
 import type { BuildAction } from '../types'
 import { goals } from './plugins/core/pathfinder'
 import type { Goal, PlaceWorld } from './plugins/core/pathfinder/lib/goals'
-
-type Vec3Like = { x: number; y: number; z: number }
+import type { Vec3Like } from '../ipc'
 
 // The bot's world has prismarine-world's raycast, which its typings don't list.
 const placeWorld = (bot: Bot) => bot.world as unknown as PlaceWorld

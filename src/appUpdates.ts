@@ -1,10 +1,5 @@
 import semver from 'semver'
-
-export type UpdateCheck = {
-  status: 'available' | 'current' | 'no-release' | 'error'
-  version?: string
-  message?: string
-}
+import type { UpdateCheck } from './ipc'
 
 export const RELEASES_URL = 'https://github.com/0xmthan/Ryksu/releases'
 

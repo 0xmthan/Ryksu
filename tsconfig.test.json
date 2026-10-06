@@ -1,0 +1,16 @@
+{
+  // Tests run in Node but load code from both sides, so they get both.
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "node_modules/.cache/tsc/test.tsbuildinfo",
+    "lib": ["ES2021", "DOM", "DOM.Iterable"],
+    "types": ["node"]
+  },
+  "include": [
+    "tests/**/*",
+    "src/**/*.d.ts",
+    // Module augmentations for mineflayer and prismarine (Bot and Entity fields).
+    "src/bot/types.ts",
+    "src/bot/plugins/core/types.ts"
+  ]
+}

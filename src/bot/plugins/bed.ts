@@ -2,6 +2,7 @@ import type { Bot } from 'mineflayer'
 import type { Block } from 'prismarine-block'
 import { Vec3 } from 'vec3'
 import type { PathfinderController } from './pathfinder'
+import { isTrue } from '../../shared/blockProps'
 
 export type BedResult = { sleeping: boolean; message: string }
 
@@ -348,7 +349,7 @@ export class BedController {
     try {
       const occupied = block.getProperties?.().occupied
       if (occupied !== undefined) {
-        return occupied === true || occupied === 'true'
+        return isTrue(occupied)
       }
       return Boolean(this._requireBot().parseBedMetadata(block)?.occupied)
     } catch {

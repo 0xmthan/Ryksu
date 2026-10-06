@@ -16,6 +16,8 @@ import {
   type BlocksData,
   type ComputeInput,
 } from './worldCompute'
+import { HOTBAR_START } from '../shared/inventory'
+import { isTrue } from '../shared/blockProps'
 
 export { spreadLight } from './worldCompute'
 
@@ -31,7 +33,7 @@ type Properties = Record<string, string | number | boolean>
 type Description = NonNullable<InventoryItem>
 
 const isSubmerged = (name: string, properties: Properties | undefined) =>
-  WATER_PLANTS.has(name) || properties?.waterlogged === true || properties?.waterlogged === 'true'
+  WATER_PLANTS.has(name) || isTrue(properties?.waterlogged)
 const isWaterBlock = (name: string, properties: Properties | undefined) =>
   name === 'water' || isSubmerged(name, properties)
 
@@ -53,7 +55,6 @@ const windowTitle = (bot: Bot, title: unknown) => {
 
 const ARMOR_SLOTS = { 5: 'head', 6: 'torso', 7: 'legs', 8: 'feet' } as const
 const OFFHAND_SLOT = 45
-const HOTBAR_START = 36
 
 const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X']
 

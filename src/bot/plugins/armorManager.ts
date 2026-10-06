@@ -1,53 +1,17 @@
 import type { Bot } from 'mineflayer'
 import { initializeBot as loadArmorManagerPlugin } from './core/armor'
+import { ToggleablePlugin } from './toggleablePlugin'
 
 type Listener = (...args: unknown[]) => void
 
-export class ArmorManagerController {
-  private bot: Bot | null
-  private enabled: boolean
-  private desiredEnabled: boolean
+export class ArmorManagerController extends ToggleablePlugin {
   private playerCollectListener: Listener | null | undefined
   private spawnListener: (() => void) | null
 
   constructor() {
-    this.bot = null
-    this.enabled = false
-    this.desiredEnabled = false
+    super()
     this.playerCollectListener = null
     this.spawnListener = null
-  }
-
-  attach(bot: Bot) {
-    this.bot = bot
-    if (this.desiredEnabled) {
-      this._enable()
-    }
-  }
-
-  detach() {
-    if (this.bot) {
-      this._disable()
-    }
-    this.bot = null
-  }
-
-  setEnabled(enabled: boolean) {
-    this.desiredEnabled = Boolean(enabled)
-
-    if (!this.bot) {
-      return
-    }
-
-    if (this.desiredEnabled) {
-      this._enable()
-    } else {
-      this._disable()
-    }
-  }
-
-  isEnabled() {
-    return this.desiredEnabled
   }
 
   private async _equipAllSafe(context: string) {
@@ -68,7 +32,7 @@ export class ArmorManagerController {
     }
   }
 
-  private _enable() {
+  protected _enable() {
     if (!this.bot || this.enabled) {
       return
     }
@@ -102,7 +66,7 @@ export class ArmorManagerController {
     this.enabled = true
   }
 
-  private _disable() {
+  protected _disable() {
     if (!this.bot || !this.enabled) {
       return
     }

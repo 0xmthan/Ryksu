@@ -1,6 +1,7 @@
 // What's under the mouse in the watcher: a block (with the side that was hit) or an entity.
 import * as THREE from 'three'
 import type { BlockView } from '../../types'
+import { isTrue } from '../../shared/blockProps'
 
 type Blocks = BlockView
 
@@ -72,7 +73,7 @@ const toPick = (hit: THREE.Intersection, pickable: Pickable[], anchor: THREE.Vec
     const { origin, palette, positions, blocks } = picked.blocks
     const name = palette[blocks[index]]
     const props = picked.blocks.properties?.[blocks[index]]
-    const open = props?.open === true || props?.open === 'true'
+    const open = isTrue(props?.open)
     return {
       kind: 'block',
       name,

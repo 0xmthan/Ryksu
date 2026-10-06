@@ -21,9 +21,9 @@ import type {
   TradeOffer,
   WorldView,
 } from '../types'
+import { HOTBAR_START } from '../shared/inventory'
 
 // Window slot of the first hotbar slot in the player inventory.
-const HOTBAR_START = 36
 
 type ConnectedSnapshot = Extract<BotSnapshot, { connected: true }>
 

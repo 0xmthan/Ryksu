@@ -1,9 +1,10 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import os from 'node:os'
-import { checkForUpdates, type UpdateCheck } from '../src/appUpdates'
+import type { IpcMain } from 'electron'
+import { registerAppIpc } from '../src/appIpc'
+import { checkForUpdates } from '../src/appUpdates'
+import type { UpdateCheck } from '../src/ipc'
 import { fake } from './fakes'
-import { loadModule } from './loadModule'
 
 // A stand-in for fetch that answers with `response` (only the fields checkForUpdates reads).
 const respond = (response: object) => async () => fake<Response>(response)
@@ -51,24 +52,15 @@ test('update checks request latest GitHub release with a bounded timeout', async
 
 type Handler = (...args: unknown[]) => unknown
 
-// Runs src/main.ts against a fake Electron and returns the IPC handlers it registered.
+// Registers the app's IPC handlers against fakes and returns them.
 function mainHandlers(updateResult: UpdateCheck, openError = false) {
   const handlers = new Map<string, Handler>()
   const opened: string[] = []
   let copied = ''
-  const electron = {
-    app: {
-      getVersion: () => '2.1.0',
-      // No display.json there, so the frame cap stays on.
-      getPath: () => os.tmpdir() + '/ryksu-test-missing',
-      commandLine: { appendSwitch() {} },
-      whenReady: () => ({ then() {} }),
-      on() {},
-    },
-    BrowserWindow: {},
-    ipcMain: { handle: (name: string, handler: Handler) => handlers.set(name, handler), on() {} },
+  registerAppIpc({
+    ipcMain: fake<IpcMain>({ handle: (name: string, handler: Handler) => handlers.set(name, handler) }),
     clipboard: {
-      writeText: (text: string) => {
+      writeText: async (text: string) => {
         copied = text
       },
     },
@@ -78,27 +70,16 @@ function mainHandlers(updateResult: UpdateCheck, openError = false) {
         opened.push(url)
       },
     },
-  }
-  loadModule(
-    'src/main.ts',
-    {
-      electron,
-      './silenceKnownWarnings': {},
-      './mcBridge': { registerMinecraftIpc() {} },
-      './appUpdates': {
-        checkForUpdates: async () => updateResult,
-        RELEASES_URL: 'https://github.com/0xmthan/Ryksu/releases',
-      },
-    },
-    {
-      process: {
-        versions: { electron: '44.5.1', chrome: '148', node: '22' },
-        platform: 'darwin',
-        arch: 'arm64',
-      },
-      console: { log() {} },
-    }
-  )
+    getAppInfo: () => ({
+      version: '2.1.0',
+      electron: '44.5.1',
+      chromium: '148',
+      node: '22',
+      platform: 'darwin',
+      arch: 'arm64',
+    }),
+    checkForUpdates: async () => updateResult,
+  })
   const handler = (name: string) => {
     const found = handlers.get(name)
     assert.ok(found, `${name} is registered`)

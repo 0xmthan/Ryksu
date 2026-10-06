@@ -1,0 +1,22 @@
+{
+  // The window: DOM, no Node. It reaches the main process only through window.electronAPI.
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "node_modules/.cache/tsc/renderer.tsbuildinfo",
+    "lib": ["ES2021", "DOM", "DOM.Iterable"]
+  },
+  "include": [
+    "src/renderer.tsx",
+    "src/App.tsx",
+    "src/components/**/*",
+    "src/hooks/**/*",
+    "src/utils/**/*",
+    "src/electronApi.ts",
+    "src/global.d.ts",
+    "src/css.d.ts",
+    "src/raw.d.ts",
+    "src/ipc.ts",
+    "src/types.ts",
+    "src/shared/**/*"
+  ]
+}

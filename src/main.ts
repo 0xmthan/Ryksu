@@ -2,8 +2,8 @@ import './silenceKnownWarnings'
 import { app, BrowserWindow, clipboard, ipcMain, shell } from 'electron'
 import fs from 'node:fs'
 import path from 'node:path'
-import { checkForUpdates, RELEASES_URL } from './appUpdates'
-import type { AppInfo } from './ipc'
+import { registerAppIpc } from './appIpc'
+import { BotManager } from './botManager'
 import { registerMinecraftIpc } from './mcBridge'
 
 // Set by Electron Forge's Vite plugin.
@@ -35,43 +35,20 @@ ipcMain.handle('app:setUnlimitedFps', (_event, enabled: unknown) => {
   }
 })
 
-registerMinecraftIpc(ipcMain)
+registerMinecraftIpc(ipcMain, new BotManager())
 
-const getAppInfo = (): AppInfo => ({
-  version: app.getVersion(),
-  electron: process.versions.electron,
-  chromium: process.versions.chrome,
-  node: process.versions.node,
-  platform: process.platform,
-  arch: process.arch,
-})
-
-ipcMain.handle('app:getInfo', getAppInfo)
-
-ipcMain.handle('app:copyInfo', () => {
-  const info = getAppInfo()
-  clipboard.writeText(
-    [
-      `Ryksu ${info.version}`,
-      `Platform: ${info.platform} / ${info.arch}`,
-      `Electron: ${info.electron}`,
-      `Chromium: ${info.chromium}`,
-      `Node.js: ${info.node}`,
-    ].join('\n')
-  )
-  return { ok: true }
-})
-
-ipcMain.handle('app:checkForUpdates', async () => {
-  const result = await checkForUpdates(app.getVersion())
-  if (result.status === 'available') {
-    try {
-      await shell.openExternal(RELEASES_URL)
-    } catch {
-      return { status: 'error', message: 'An update is available, but the releases page could not open.' }
-    }
-  }
-  return result
+registerAppIpc({
+  ipcMain,
+  clipboard,
+  shell,
+  getAppInfo: () => ({
+    version: app.getVersion(),
+    electron: process.versions.electron,
+    chromium: process.versions.chrome,
+    node: process.versions.node,
+    platform: process.platform,
+    arch: process.arch,
+  }),
 })
 
 ipcMain.on('window-controls', (event, action: unknown) => {

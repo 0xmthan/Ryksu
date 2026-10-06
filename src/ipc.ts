@@ -1,6 +1,5 @@
-// The channels between the window and the main process, in one place: the preload (src/preload.ts) calls
-// them and the main process (src/main.ts, src/mcBridge.ts) answers, both typed from these maps.
-import type { UpdateCheck } from './appUpdates'
+// The channels between the window and the main process, in one place: the window's API (src/electronApi.ts)
+// calls them and the main process (src/main.ts, src/mcBridge.ts) answers, both typed from these maps.
 import type {
   AutoEatOptions,
   BotSnapshot,
@@ -20,6 +19,12 @@ import type {
   TradeOffer,
   WorldView,
 } from './types'
+
+export type UpdateCheck = {
+  status: 'available' | 'current' | 'no-release' | 'error'
+  version?: string
+  message?: string
+}
 
 export type Vec3Like = { x: number; y: number; z: number }
 
@@ -81,7 +86,6 @@ export type InvokeChannels = {
   'server:ping': { args: [target: { host: string; port: string }]; result: ServerPing }
   'bot:connect': { args: [options: ConnectOptions]; result: Result }
   'bot:disconnect': { args: []; result: { ok: boolean } }
-  'bot:getSnapshot': { args: []; result: BotSnapshot }
   'bot:getSupportedVersions': { args: []; result: string[] }
   'bot:getChatHistory': { args: []; result: ChatMessage[] }
   'bot:sendChat': { args: [message: string]; result: Result }
@@ -100,7 +104,6 @@ export type InvokeChannels = {
     args: [position: Vec3Like]
     result: Result<{ added?: boolean; state?: MiningState }>
   }
-  'bot:clearMiningChests': { args: []; result: { ok: boolean; state: MiningState } }
   'bot:getWorldView': { args: []; result: WorldView | null }
   // A player skin as a data URL, or null if it couldn't be fetched.
   'bot:getSkin': { args: [url: string]; result: string | null }
@@ -123,8 +126,6 @@ export type InvokeChannels = {
   // `replace`: the clicked block is grass or the like, which the placed block takes the place of.
   'bot:firstPersonPlace': { args: [position: Vec3Like, face: Vec3Like, replace?: boolean]; result: Result }
   'bot:setMovementControls': { args: [controls: MovementControls]; result: Result }
-  // Walk up to a door and open it.
-  'bot:openDoor': { args: [location: Vec3Like, standLocation?: Vec3Like]; result: Result }
   'bot:interactBlock': { args: [position: Vec3Like]; result: Result }
   'bot:inventoryAction': { args: [action: InventoryAction]; result: Result }
   // Build mode: break or place a line of blocks.
@@ -144,14 +145,11 @@ export type InvokeChannels = {
     args: [options: Partial<AutoEatOptions>]
     result: { ok: boolean; options: AutoEatOptions }
   }
-  'bot:getAutoEatOptions': { args: []; result: AutoEatOptions }
   'bot:setPathfinderOptions': {
     args: [options: Partial<PathfinderOptions>]
     result: { ok: boolean; options: PathfinderOptions }
   }
-  'bot:getPathfinderOptions': { args: []; result: PathfinderOptions }
   'bot:setPvpOptions': { args: [options: Partial<PvpOptions>]; result: { ok: boolean; options: PvpOptions } }
-  'bot:getPvpOptions': { args: []; result: PvpOptions }
 }
 
 // Fire-and-forget channels (ipcRenderer.send / ipcMain.on) and their arguments.

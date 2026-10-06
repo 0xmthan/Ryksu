@@ -129,6 +129,7 @@ module.exports = () => {
 
   const blocks = {}
   for (const [name, state] of Object.entries(blockStates)) {
+    /** @type {{ variants?: any[]; multipart?: any[]; tint?: unknown; [key: string]: unknown }} */
     let entry
     if (isBlockEntity(name)) {
       entry = blockEntityEntry(name, models, textureId)

@@ -3,6 +3,7 @@
 import type { Bot } from 'mineflayer'
 import { Vec3 } from 'vec3'
 import type { Vec3Like } from '../ipc'
+import { isTrue } from '../shared/blockProps'
 
 const POLL_MS = 100
 const GIVE_UP_MS = 30000
@@ -19,8 +20,6 @@ const isDoorBlock = (name: unknown): name is string =>
   typeof name === 'string' &&
   (name.endsWith('_door') || name === 'door' || name === 'wooden_door') &&
   !name.endsWith('trapdoor')
-
-const isOpen = (props: Record<string, unknown>) => props.open === true || props.open === 'true'
 
 export class DoorOpener {
   private getBot: () => Bot | null
@@ -47,8 +46,8 @@ export class DoorOpener {
 
     const pos = new Vec3(Math.floor(doorLocation.x), Math.floor(doorLocation.y), Math.floor(doorLocation.z))
     const initialBlock = this.getBot()?.blockAt(pos)
-    const wasOpen = isOpen(
-      typeof initialBlock?.getProperties === 'function' ? initialBlock.getProperties() : {}
+    const wasOpen = isTrue(
+      typeof initialBlock?.getProperties === 'function' ? initialBlock.getProperties().open : undefined
     )
 
     const op: Operation = { aborted: false, interval: null, timeout: null }
@@ -86,7 +85,7 @@ export class DoorOpener {
       const props = typeof block.getProperties === 'function' ? block.getProperties() : {}
 
       // If the door already changed its state, we're done.
-      if (isOpen(props) !== wasOpen) {
+      if (isTrue(props.open) !== wasOpen) {
         cleanup()
         return
       }

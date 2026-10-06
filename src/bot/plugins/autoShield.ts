@@ -1,12 +1,9 @@
-import type { Bot } from 'mineflayer'
 import type { Entity } from 'prismarine-entity'
+import { ToggleablePlugin } from './toggleablePlugin'
 
-export class AutoShieldController {
+export class AutoShieldController extends ToggleablePlugin {
   private isManuallyControlled: () => boolean
   private isOverridden: () => boolean
-  private bot: Bot | null
-  private desiredEnabled: boolean
-  private enabled: boolean
   private hurtListener: ((entity: Entity, source?: Entity) => void) | null
   private tickListener: (() => void) | null
   private recentThreats: Map<number, number>
@@ -24,11 +21,9 @@ export class AutoShieldController {
     isManuallyControlled = () => false,
     isOverridden = () => false,
   }: { isManuallyControlled?: () => boolean; isOverridden?: () => boolean } = {}) {
+    super()
     this.isManuallyControlled = isManuallyControlled
     this.isOverridden = isOverridden
-    this.bot = null
-    this.desiredEnabled = false
-    this.enabled = false
     this.hurtListener = null
     this.tickListener = null
     this.recentThreats = new Map()
@@ -40,35 +35,6 @@ export class AutoShieldController {
     this.currentThreat = null
     this.lastLookTargetId = null
     this.nextAllowedLookTime = 0
-  }
-
-  attach(bot: Bot) {
-    this.bot = bot
-    if (this.desiredEnabled) {
-      this._enable()
-    }
-  }
-
-  detach() {
-    this._disable()
-    this.bot = null
-  }
-
-  setEnabled(enabled: boolean) {
-    this.desiredEnabled = Boolean(enabled)
-    if (!this.bot) {
-      return
-    }
-
-    if (this.desiredEnabled) {
-      this._enable()
-    } else {
-      this._disable()
-    }
-  }
-
-  isEnabled() {
-    return this.desiredEnabled
   }
 
   requestBlockAfterAttack(target: Entity | null | undefined) {
@@ -84,7 +50,7 @@ export class AutoShieldController {
     this._evaluateThreats()
   }
 
-  private _enable() {
+  protected _enable() {
     if (!this.bot || this.enabled) {
       return
     }
@@ -106,7 +72,7 @@ export class AutoShieldController {
     this.enabled = true
   }
 
-  private _disable() {
+  protected _disable() {
     if (!this.bot || !this.enabled) {
       return
     }

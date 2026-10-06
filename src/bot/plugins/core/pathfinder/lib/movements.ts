@@ -16,6 +16,8 @@ export type MovementBlock = Block & {
   climbable: boolean
   height: number
   openable: boolean
+  // An open door or fence gate, walked through rather than around (see isOpenDoorway).
+  openDoorway: boolean
 }
 // An unloaded block deliberately has no position or block methods. Its flags
 // prevent planning paths into unloaded terrain.
@@ -27,6 +29,7 @@ export interface UnloadedBlock {
   liquid: false
   climbable: false
   openable: false
+  openDoorway?: undefined
   height: number
   position?: undefined
   type?: undefined
@@ -35,6 +38,32 @@ export type BlockInfo = MovementBlock | UnloadedBlock
 import { Vec3 } from 'vec3'
 import * as nbt from 'prismarine-nbt'
 import { Move } from './move'
+import { isTrue } from '../../../../../shared/blockProps'
+
+// prismarine-block gives open doors and fence gates a full block bounding box, so the pathfinder would see
+// them as solid obstacles and walk around them or try to break them. getBlock marks them safe and
+// non-physical instead, so it walks right through.
+export const isOpenDoorway = (
+  b:
+    | { name?: string; getProperties?: () => Record<string, unknown>; _properties?: Record<string, unknown> }
+    | null
+    | undefined
+) => {
+  if (
+    !b ||
+    !(
+      b.name?.endsWith('_door') ||
+      b.name === 'door' ||
+      b.name === 'wooden_door' ||
+      b.name?.includes('gate')
+    ) ||
+    b.name?.endsWith('trapdoor')
+  ) {
+    return false
+  }
+  const props = typeof b.getProperties === 'function' ? b.getProperties() : b._properties || {}
+  return isTrue(props.open)
+}
 
 const cardinalDirections = [
   { x: -1, z: 0 }, // West
@@ -322,6 +351,12 @@ export class Movements {
     for (const shape of b.shapes) {
       b.height = Math.max(b.height, pos.y + dy + shape[4])
     }
+    b.openDoorway = isOpenDoorway(b)
+    if (b.openDoorway) {
+      b.safe = true
+      b.physical = false
+      b.height = pos.y + dy
+    }
     return b
   }
 
@@ -519,6 +554,19 @@ export class Movements {
   }
 
   getMoveDiagonal(node: Move, dir: Direction, neighbors: Move[]) {
+    // An open door still has its panel along one edge of the block, so only straight moves fit through.
+    // Diagonals that start, end or cut a corner in a doorway clip the panel and leave the bot stuck on it.
+    for (const [dx, dz] of [
+      [0, 0],
+      [dir.x, dir.z],
+      [dir.x, 0],
+      [0, dir.z],
+    ] as const) {
+      for (const dy of [0, 1]) {
+        if (this.getBlock(node, dx, dy, dz).openDoorway) return
+      }
+    }
+
     let cost = Math.SQRT2 // move cost
     const toBreak: Vec3[] = []
 

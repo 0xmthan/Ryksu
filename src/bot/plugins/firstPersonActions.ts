@@ -4,8 +4,8 @@
 import type { Bot } from 'mineflayer'
 import { Vec3 } from 'vec3'
 import { placeBlock, isPlaceable, isEmptySpace, findSupport } from '../building'
+import type { Vec3Like } from '../../ipc'
 
-type Vec3Like = { x: number; y: number; z: number }
 type ActionResult = { ok: boolean; message?: string }
 
 // The game's reach: entities from the eyes, blocks from the eyes to the block's center.

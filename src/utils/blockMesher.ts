@@ -7,6 +7,7 @@ import type { BlockView } from '../types'
 import type { BlockAtlas } from './blockAtlas'
 import { blockColor } from './blockColors'
 import { blockVisibility, CAP_BIT, type ViewMode } from './viewMode'
+import { isTrue } from '../shared/blockProps'
 
 type Blocks = BlockView
 
@@ -111,7 +112,7 @@ const TRANSLUCENT = /stained_glass(?!_pane)|^ice$|frosted_ice|slime_block|honey_
 
 const WATER_PLANTS = new Set(['seagrass', 'tall_seagrass', 'kelp', 'kelp_plant', 'bubble_column'])
 const isSubmerged = (name: string, properties?: Record<string, unknown>) =>
-  WATER_PLANTS.has(name) || properties?.waterlogged === true || properties?.waterlogged === 'true'
+  WATER_PLANTS.has(name) || isTrue(properties?.waterlogged)
 
 const WATER_APPLIES: Apply[] = data.blocks['water']?.variants?.[0]?.[1] ?? [{ m: 40 }]
 const WATER_TINT_HEX = data.blocks['water']?.tint ?? '#3f76e4'

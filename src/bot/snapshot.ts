@@ -2,6 +2,7 @@
 import type { Bot } from 'mineflayer'
 import type { BotSnapshot, StatusEffect } from '../types'
 import { readOxygen } from './oxygen'
+import { isTrue } from '../shared/blockProps'
 
 type Connected = Extract<BotSnapshot, { connected: true }>
 export type Vitals = Pick<
@@ -19,12 +20,7 @@ const headUnderwater = (bot: Bot) => {
     const block = eyes ? bot.blockAt(eyes) : null
     if (!block) return false
     const waterlogged = block.getProperties?.().waterlogged
-    return (
-      block.name === 'water' ||
-      block.name === 'bubble_column' ||
-      waterlogged === true ||
-      waterlogged === 'true'
-    )
+    return block.name === 'water' || block.name === 'bubble_column' || isTrue(waterlogged)
   } catch {
     return false
   }

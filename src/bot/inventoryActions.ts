@@ -2,10 +2,10 @@
 // 0 crafting result, 1-4 crafting inputs, 5-8 armor, 9-35 main, 36-44 hotbar, 45 offhand.
 import type { Bot } from 'mineflayer'
 import type { InventoryAction } from '../types'
+import { HOTBAR_START } from '../shared/inventory'
 
 const FIRST_SLOT = 0
 const LAST_SLOT = 45
-const HOTBAR_START = 36
 const DROP_MODE = 4
 
 const assertSlot = (slot: number, last = LAST_SLOT) => {

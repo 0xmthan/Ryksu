@@ -608,12 +608,6 @@ export class BotManager extends EventEmitter<BotManagerEvents> {
     return result
   }
 
-  clearMiningChests() {
-    const state = this.mining.clearChests()
-    this._emitState()
-    return state
-  }
-
   getMineableBlocks() {
     return this.mining.getMineableBlocks()
   }
@@ -693,10 +687,6 @@ export class BotManager extends EventEmitter<BotManagerEvents> {
     return this.autoEat.setOptions(options || {})
   }
 
-  getAutoEatOptions() {
-    return this.autoEat.getOptions()
-  }
-
   setPathfinderOptions(options: Partial<PathfinderOptions> | null | undefined) {
     // Being sent somewhere calls off an attack and any existing door operation.
     if (options?.goToLocation) {
@@ -709,16 +699,8 @@ export class BotManager extends EventEmitter<BotManagerEvents> {
     return this.behavior.setPathfinderOptions(options || {})
   }
 
-  getPathfinderOptions() {
-    return this.behavior.getPathfinderOptions()
-  }
-
   setPvpOptions(options: Partial<PvpOptions> | null | undefined) {
     return this.behavior.setPvpOptions(options || {})
-  }
-
-  getPvpOptions() {
-    return this.behavior.getPvpOptions()
   }
 
   followEntity(entityId: number) {
@@ -755,15 +737,6 @@ export class BotManager extends EventEmitter<BotManagerEvents> {
       `Attacking ${entity.username ?? entity.displayName ?? entity.name ?? 'entity'}.`
     )
     return { ok: true }
-  }
-
-  // Walks up to a door clicked in the watcher and opens it.
-  openDoor(location: Vec3Like, standLocation?: Vec3Like) {
-    const target = standLocation || location
-    return this.setPathfinderOptions({
-      followEnabled: false,
-      goToLocation: { x: target.x, y: target.y, z: target.z, door: location },
-    })
   }
 
   // The user has the bot's controls (walking it, or a block or trader is being opened, or a window is open);
@@ -829,6 +802,3 @@ export class BotManager extends EventEmitter<BotManagerEvents> {
     }
   }
 }
-
-const botManager = new BotManager()
-export default botManager

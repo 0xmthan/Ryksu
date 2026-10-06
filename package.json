@@ -7,7 +7,7 @@
   "packageManager": "pnpm@12.8.1",
   "scripts": {
     "test": "node --no-experimental-strip-types --require ./scripts/test-typescript.cjs --test tests/*.test.ts",
-    "typecheck": "node scripts/generate-minecraft-data-types.cjs && tsc --noEmit",
+    "typecheck": "node scripts/generate-minecraft-data-types.cjs && tsc -b",
     "dev": "electron-forge start",
     "package": "electron-forge package",
     "make": "electron-forge make",

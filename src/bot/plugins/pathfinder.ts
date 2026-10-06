@@ -3,8 +3,7 @@ import type { Entity } from 'prismarine-entity'
 import type { PathfinderOptions } from '../../types'
 import { pathfinder as pathfinderPlugin, Movements, goals } from './core/pathfinder'
 import type { Goal } from './core/pathfinder/lib/goals'
-import type { BlockInfo, Direction, MovementBlock } from './core/pathfinder/lib/movements'
-import type { Move } from './core/pathfinder/lib/move'
+import { isOpenDoorway } from './core/pathfinder/lib/movements'
 import { applyBlockEditing } from './blockEditing'
 
 type FollowOptions = Pick<PathfinderOptions, 'followEnabled' | 'followTarget'>
@@ -13,73 +12,6 @@ type GoToRun = {
   target: { x: number; y: number; z: number }
   goal: Goal | null
   promise: Promise<unknown> | null
-}
-type DoorwayBlock = BlockInfo & { openDoorway?: boolean }
-
-// The movements patch below runs once per process; this marks it on the prototype.
-const patchedPrototype = Movements.prototype as Movements & { _openDoorPatched?: boolean }
-
-// mineflayer-pathfinder treats open doors as solid obstacles because prismarine-block
-// assigns them boundingBox: 'block'. This patch marks open doors and open fence gates as safe and non-physical
-// so the pathfinder can walk right through them instead of seeing an impassable obstacle or trying to break them.
-const isOpenDoorway = (
-  b:
-    | { name?: string; getProperties?: () => Record<string, unknown>; _properties?: Record<string, unknown> }
-    | null
-    | undefined
-) => {
-  if (
-    !b ||
-    !(
-      b.name?.endsWith('_door') ||
-      b.name === 'door' ||
-      b.name === 'wooden_door' ||
-      b.name?.includes('gate')
-    ) ||
-    b.name?.endsWith('trapdoor')
-  ) {
-    return false
-  }
-  const props = typeof b.getProperties === 'function' ? b.getProperties() : b._properties || {}
-  return props.open === true || props.open === 'true'
-}
-
-if (!patchedPrototype._openDoorPatched) {
-  patchedPrototype._openDoorPatched = true
-  const originalGetBlock = Movements.prototype.getBlock
-  Movements.prototype.getBlock = function (this: Movements, pos, dx, dy, dz) {
-    const b: DoorwayBlock = originalGetBlock.call(this, pos, dx, dy, dz)
-    if (isOpenDoorway(b as MovementBlock)) {
-      const door = b as MovementBlock & { openDoorway?: boolean }
-      door.safe = true
-      door.physical = false
-      door.height = (pos ? pos.y : 0) + dy
-      door.openDoorway = true
-    }
-    return b
-  }
-
-  // An open door still has its panel along one edge of the block, so only straight moves fit through.
-  // Diagonals that start, end or cut a corner in a doorway clip the panel and leave the bot stuck on it.
-  const originalGetMoveDiagonal = Movements.prototype.getMoveDiagonal
-  Movements.prototype.getMoveDiagonal = function (
-    this: Movements,
-    node: Move,
-    dir: Direction,
-    neighbors: Move[]
-  ) {
-    for (const [dx, dz] of [
-      [0, 0],
-      [dir.x, dir.z],
-      [dir.x, 0],
-      [0, dir.z],
-    ]) {
-      for (const dy of [0, 1]) {
-        if ((this.getBlock(node, dx, dy, dz) as DoorwayBlock).openDoorway) return
-      }
-    }
-    return originalGetMoveDiagonal.call(this, node, dir, neighbors)
-  }
 }
 
 // The pathfinder picks walk / sprint / sprint-jump each tick by simulating ahead. Coming into a doorway

@@ -1,6 +1,7 @@
 import type { Bot } from 'mineflayer'
 import type { AutoEatOptions, AutoEatPriority } from '../../types'
 import { loader, type EatUtil } from './core/autoEat'
+import { ToggleablePlugin } from './toggleablePlugin'
 
 export const PRIORITY_OPTIONS: AutoEatPriority[] = [
   'foodPoints',
@@ -95,14 +96,11 @@ type EatListeners = Record<
   (opts?: { food?: { name?: string; displayName?: string } }) => void
 >
 
-export class AutoEatController {
+export class AutoEatController extends ToggleablePlugin {
   private onEating: (food: string | null) => void
   private onResult: (result: { food: string; ok: boolean }) => void
   eating: string | null
   private eatListeners: EatListeners | null
-  private bot: Bot | null
-  private enabled: boolean
-  private desiredEnabled: boolean
   private spawnListener: (() => void) | null
   private healthListener: (() => void) | null
   private options: AutoEatOptions
@@ -116,48 +114,14 @@ export class AutoEatController {
     onEating?: (food: string | null) => void
     onResult?: (result: { food: string; ok: boolean }) => void
   } = {}) {
+    super()
     this.onEating = onEating
     this.onResult = onResult
     this.eating = null
     this.eatListeners = null
-    this.bot = null
-    this.enabled = false
-    this.desiredEnabled = false
     this.spawnListener = null
     this.healthListener = null
     this.options = { ...DEFAULT_OPTIONS }
-  }
-
-  attach(bot: Bot) {
-    this.bot = bot
-    if (this.desiredEnabled) {
-      this._enable()
-    }
-  }
-
-  detach() {
-    if (this.bot) {
-      this._disable()
-    }
-    this.bot = null
-  }
-
-  setEnabled(enabled: boolean) {
-    this.desiredEnabled = Boolean(enabled)
-
-    if (!this.bot) {
-      return
-    }
-
-    if (this.desiredEnabled) {
-      this._enable()
-    } else {
-      this._disable()
-    }
-  }
-
-  isEnabled() {
-    return this.desiredEnabled
   }
 
   getOptions() {
@@ -182,7 +146,7 @@ export class AutoEatController {
     return this.getOptions()
   }
 
-  private async _enable() {
+  protected async _enable() {
     if (!this.bot || this.enabled) {
       return
     }
@@ -258,7 +222,7 @@ export class AutoEatController {
     this.enabled = true
   }
 
-  private _disable() {
+  protected _disable() {
     if (!this.bot || !this.enabled) {
       return
     }

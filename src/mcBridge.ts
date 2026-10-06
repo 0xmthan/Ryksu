@@ -1,13 +1,22 @@
 import { Notification, type IpcMain, type IpcMainInvokeEvent, type WebContents } from 'electron'
-import botManager from './botManager'
-import type { EventChannels, InvokeArgs, InvokeChannel, InvokeResult, SendChannels } from './ipc'
+import type { BotManager } from './botManager'
+import type { EventChannels, InvokeArgs, InvokeChannel, InvokeResult, Result, SendChannels } from './ipc'
 import { pingServer } from './serverPing'
 
 let registered = false
 
 const errorMessage = (error: unknown) => (error as Error | undefined)?.message || String(error)
 
-export const registerMinecraftIpc = (ipcMain: IpcMain) => {
+// Runs an action for the window: ok with whatever it returns, or not ok with the message of what it threw.
+const attempt = async <T extends object>(action: () => T | void | Promise<T | void>) => {
+  try {
+    return { ok: true, ...(await action()) } as Result<Partial<T>>
+  } catch (error) {
+    return { ok: false, message: errorMessage(error) } as Result<Partial<T>>
+  }
+}
+
+export const registerMinecraftIpc = (ipcMain: IpcMain, botManager: BotManager) => {
   if (registered) {
     return
   }
@@ -90,29 +99,21 @@ export const registerMinecraftIpc = (ipcMain: IpcMain) => {
     emitToRenderer('bot:chat', entry)
   })
 
-  handle('bot:connect', async (event, options) => {
+  handle('bot:connect', (event, options) => {
     setActiveWebContents(event.sender)
 
-    try {
+    return attempt(async () => {
       await botManager.connect(options)
       const snapshot = botManager.getSnapshot()
       if (snapshot) {
         emitToRenderer('bot:state', snapshot)
       }
-      return { ok: true }
-    } catch (error) {
-      return { ok: false, message: errorMessage(error) }
-    }
+    })
   })
 
   handle('bot:disconnect', async () => {
     await botManager.disconnect()
     return { ok: true }
-  })
-
-  handle('bot:getSnapshot', () => {
-    const snapshot = botManager.getSnapshot()
-    return snapshot ?? { connected: false }
   })
 
   handle('bot:getSupportedVersions', () => {
@@ -123,108 +124,41 @@ export const registerMinecraftIpc = (ipcMain: IpcMain) => {
     return botManager.getChatHistory()
   })
 
-  handle('bot:sendChat', async (_event, message) => {
-    try {
-      await botManager.sendChat(message)
-      return { ok: true }
-    } catch (error) {
-      return { ok: false, message: errorMessage(error) }
-    }
-  })
+  handle('bot:sendChat', (_event, message) => attempt(() => botManager.sendChat(message)))
 
-  handle('bot:useBed', async () => {
-    try {
-      const result = await botManager.useNearestBed()
-      return { ok: true, ...result }
-    } catch (error) {
-      return { ok: false, message: errorMessage(error) }
-    }
-  })
+  handle('bot:useBed', () => attempt(() => botManager.useNearestBed()))
 
-  handle('bot:pickUpBed', async () => {
-    try {
-      const result = await botManager.pickUpBed()
-      return { ok: true, ...result }
-    } catch (error) {
-      return { ok: false, message: errorMessage(error) }
-    }
-  })
+  handle('bot:pickUpBed', () => attempt(() => botManager.pickUpBed()))
 
   handle('bot:dismissBedPickup', () => {
     botManager.dismissBedPickup()
     return { ok: true }
   })
 
-  handle('bot:startMining', (_event, options) => {
-    try {
-      return { ok: true, state: botManager.startMining(options) }
-    } catch (error) {
-      return { ok: false, message: errorMessage(error) }
-    }
-  })
+  handle('bot:startMining', (_event, options) => attempt(() => ({ state: botManager.startMining(options) })))
 
-  handle('bot:toggleMiningChest', (_event, position) => {
-    try {
-      return { ok: true, ...botManager.toggleMiningChest(position) }
-    } catch (error) {
-      return { ok: false, message: errorMessage(error) }
-    }
-  })
+  handle('bot:toggleMiningChest', (_event, position) => attempt(() => botManager.toggleMiningChest(position)))
 
-  handle('bot:clearMiningChests', () => ({ ok: true, state: botManager.clearMiningChests() }))
+  handle('bot:interactBlock', (_event, position) => attempt(() => botManager.interactBlock(position)))
 
-  handle('bot:getMineableBlocks', () => botManager.getMineableBlocks())
+  handle('bot:inventoryAction', (_event, action) => attempt(() => botManager.inventoryAction(action)))
 
-  handle('bot:stopMining', () => {
-    return { ok: true, state: botManager.stopMining() }
-  })
-
-  handle('bot:interactBlock', async (_event, position) => {
-    try {
-      await botManager.interactBlock(position)
-      return { ok: true }
-    } catch (error) {
-      return { ok: false, message: errorMessage(error) }
-    }
-  })
-
-  handle('bot:inventoryAction', async (_event, action) => {
-    try {
-      await botManager.inventoryAction(action)
-      return { ok: true }
-    } catch (error) {
-      return { ok: false, message: errorMessage(error) }
-    }
-  })
-
-  handle('bot:buildAction', async (_event, action) => {
-    try {
-      return { ok: true, message: await botManager.buildAction(action) }
-    } catch (error) {
-      return { ok: false, message: errorMessage(error) }
-    }
-  })
+  handle('bot:buildAction', (_event, action) =>
+    attempt(async () => ({ message: await botManager.buildAction(action) }))
+  )
 
   handle('bot:cancelBuild', () => ({ ok: true, stopped: botManager.cancelBuild() }))
 
-  handle('bot:openTrader', async (_event, entityId) => {
+  handle('bot:openTrader', (_event, entityId) => {
     if (!Number.isInteger(entityId)) return { ok: false, message: 'Invalid entity.' }
-    try {
-      return { ok: true, trades: await botManager.openTrader(entityId) }
-    } catch (error) {
-      return { ok: false, message: errorMessage(error) }
-    }
+    return attempt(async () => ({ trades: await botManager.openTrader(entityId) }))
   })
 
-  handle('bot:trade', async (_event, index, count) => {
+  handle('bot:trade', (_event, index, count) => {
     if (!Number.isInteger(index) || !Number.isInteger(count) || count < 1) {
       return { ok: false, message: 'Invalid trade.' }
     }
-    try {
-      return { ok: true, trades: await botManager.trade(index, count) }
-    } catch (error) {
-      return { ok: false, message: errorMessage(error) }
-    }
+    return attempt(async () => ({ trades: await botManager.trade(index, count) }))
   })
 
   handle('bot:closeTrader', () => {
@@ -252,19 +186,6 @@ export const registerMinecraftIpc = (ipcMain: IpcMain) => {
   )
 
   handle('bot:setMovementControls', (_event, controls) => botManager.manualMovement.setControls(controls))
-
-  handle('bot:openDoor', (_event, location, standLocation) => {
-    if (
-      !location ||
-      !Number.isFinite(location.x) ||
-      !Number.isFinite(location.y) ||
-      !Number.isFinite(location.z)
-    ) {
-      return { ok: false, message: 'Invalid location.' }
-    }
-    botManager.openDoor(location, standLocation)
-    return { ok: true }
-  })
 
   // Player skins for the watcher, fetched here since the page can't load other sites' images into WebGL.
   const skinCache = new Map<string, Promise<string | null>>()
@@ -298,10 +219,10 @@ export const registerMinecraftIpc = (ipcMain: IpcMain) => {
       playerNameCache.set(
         uuid,
         fetch(`https://sessionserver.mojang.com/session/minecraft/profile/${uuid}`)
-          .then((response) => (response.ok && response.status !== 204 ? response.json() : null))
-          .then((profile: { name?: unknown } | null) =>
-            typeof profile?.name === 'string' ? profile.name : null
+          .then((response) =>
+            response.ok && response.status !== 204 ? (response.json() as Promise<{ name?: unknown }>) : null
           )
+          .then((profile) => (typeof profile?.name === 'string' ? profile.name : null))
           .catch(() => {
             playerNameCache.delete(uuid)
             return null
@@ -346,26 +267,14 @@ export const registerMinecraftIpc = (ipcMain: IpcMain) => {
     return { ok: true, options: updated }
   })
 
-  handle('bot:getAutoEatOptions', () => {
-    return botManager.getAutoEatOptions()
-  })
-
   handle('bot:setPathfinderOptions', (_event, options) => {
     const updated = botManager.setPathfinderOptions(options)
     return { ok: true, options: updated }
   })
 
-  handle('bot:getPathfinderOptions', () => {
-    return botManager.getPathfinderOptions()
-  })
-
   handle('bot:setPvpOptions', (_event, options) => {
     const updated = botManager.setPvpOptions(options)
     return { ok: true, options: updated }
-  })
-
-  handle('bot:getPvpOptions', () => {
-    return botManager.getPvpOptions()
   })
 
   on('bot:subscribe', (event) => {
