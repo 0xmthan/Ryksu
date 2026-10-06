@@ -38,7 +38,7 @@ export type BlockInfo = MovementBlock | UnloadedBlock
 import { Vec3 } from 'vec3'
 import * as nbt from 'prismarine-nbt'
 import { Move } from './move'
-import { isTrue } from '../../../../../shared/blockProps'
+import { isDoorBlock, isTrue } from '../../../../../shared/blocks'
 
 // prismarine-block gives open doors and fence gates a full block bounding box, so the pathfinder would see
 // them as solid obstacles and walk around them or try to break them. getBlock marks them safe and
@@ -49,16 +49,7 @@ export const isOpenDoorway = (
     | null
     | undefined
 ) => {
-  if (
-    !b ||
-    !(
-      b.name?.endsWith('_door') ||
-      b.name === 'door' ||
-      b.name === 'wooden_door' ||
-      b.name?.includes('gate')
-    ) ||
-    b.name?.endsWith('trapdoor')
-  ) {
+  if (!b || !(isDoorBlock(b.name) || b.name?.includes('gate'))) {
     return false
   }
   const props = typeof b.getProperties === 'function' ? b.getProperties() : b._properties || {}

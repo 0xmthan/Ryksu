@@ -14,7 +14,12 @@ import { Vec3 } from 'vec3'
 
 import { Physics } from './lib/physics'
 import * as nbt from 'prismarine-nbt'
-import interactableBlocks from './lib/interactable.json'
+import interactiveBlocks from '../../../../shared/data/interactiveBlocks.json'
+import interactableOnly from './lib/interactable.json'
+
+// Blocks a right-click uses rather than places against, so placing on one needs sneaking: the containers the
+// app opens, plus doors, buttons, beds and the like.
+const interactableBlocks = new Set<string>([...interactiveBlocks, ...interactableOnly])
 
 function hasFollowTarget(goal: Goal): goal is GoalFollow {
   return Boolean((goal as Partial<GoalFollow>).entity)
@@ -593,7 +598,7 @@ function inject(bot: CoreBot) {
             lockEquipItem.release()
             const refBlock = bot.blockAt(new Vec3(placingBlock!.x, placingBlock!.y, placingBlock!.z), false)!
             if (!lockPlaceBlock.tryAcquire()) return
-            if (interactableBlocks.includes(refBlock.name)) {
+            if (interactableBlocks.has(refBlock.name)) {
               bot.setControlState('sneak', true)
             }
             bot

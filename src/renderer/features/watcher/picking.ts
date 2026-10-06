@@ -1,14 +1,11 @@
 // What's under the mouse in the watcher: a block (with the side that was hit) or an entity.
 import * as THREE from 'three'
 import type { BlockView } from '../../../shared/types'
-import { isTrue } from '../../../shared/blockProps'
+import { isTrue } from '../../../shared/blocks'
 
 type Blocks = BlockView
 
 export type Pickable = { mesh: THREE.Mesh; quads: number[]; blocks: Blocks }
-
-export const isDoorBlock = (name: string) =>
-  (name.endsWith('_door') || name === 'door' || name === 'wooden_door') && !name.endsWith('trapdoor')
 
 export type Pick =
   | { kind: 'block'; name: string; position: THREE.Vector3; normal: THREE.Vector3; open?: boolean }

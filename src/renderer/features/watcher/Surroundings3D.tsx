@@ -15,15 +15,7 @@ import { loadBlockAtlas, type BlockAtlas } from './meshing/blockAtlas'
 import { modeFor, type ViewMode } from './viewMode'
 import { createTracked, stepTracked, syncTracked, type Tracked } from './entity/entityObjects'
 import { createSelfMotion } from './selfMotion'
-import {
-  groundTarget,
-  isDoorBlock,
-  isLiquid,
-  pickAt,
-  REPLACEABLE_BLOCKS,
-  walkTarget,
-  type Pick,
-} from './picking'
+import { groundTarget, isLiquid, pickAt, REPLACEABLE_BLOCKS, walkTarget, type Pick } from './picking'
 import { disposeObject, makeLabel } from './sceneUtils'
 import { createSky } from './scene/sky'
 import { applyBlockLight } from './scene/blockLight'
@@ -52,6 +44,7 @@ import { reportFps } from '../../lib/frameRate'
 import { applyEdgeFog, fogObject, updateEdgeFog } from './scene/edgeFog'
 import { updateTorchRayBlocks, updateTorchRayCasters, updateTorchRayLights } from './scene/torchRays'
 import { applyWater, setWaterQuality, updateWater } from './scene/water'
+import { isDoorBlock } from '../../../shared/blocks'
 
 type Blocks = BlockView
 

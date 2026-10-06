@@ -2,7 +2,7 @@ import type { Bot } from 'mineflayer'
 import type { Block } from 'prismarine-block'
 import { Vec3 } from 'vec3'
 import type { PathfinderController } from './pathfinder'
-import { isTrue } from '../../../shared/blockProps'
+import { isTrue } from '../../../shared/blocks'
 
 export type BedResult = { sleeping: boolean; message: string }
 

@@ -3,7 +3,7 @@
 import type { Bot } from 'mineflayer'
 import { Vec3 } from 'vec3'
 import type { Vec3Like } from '../../../shared/ipc'
-import { isTrue } from '../../../shared/blockProps'
+import { isDoorBlock, isTrue } from '../../../shared/blocks'
 
 const POLL_MS = 100
 const GIVE_UP_MS = 30000
@@ -15,11 +15,6 @@ type Operation = {
   interval: ReturnType<typeof setInterval> | null
   timeout: ReturnType<typeof setTimeout> | null
 }
-
-const isDoorBlock = (name: unknown): name is string =>
-  typeof name === 'string' &&
-  (name.endsWith('_door') || name === 'door' || name === 'wooden_door') &&
-  !name.endsWith('trapdoor')
 
 export class DoorOpener {
   private getBot: () => Bot | null

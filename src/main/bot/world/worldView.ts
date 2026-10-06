@@ -17,7 +17,7 @@ import {
   type ComputeInput,
 } from './worldCompute'
 import { HOTBAR_START } from '../../../shared/inventory'
-import { isTrue } from '../../../shared/blockProps'
+import { isTrue } from '../../../shared/blocks'
 
 export { spreadLight } from './worldCompute'
 

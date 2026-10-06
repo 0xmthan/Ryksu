@@ -2,7 +2,7 @@
 import type { Bot } from 'mineflayer'
 import type { BotSnapshot, StatusEffect } from '../../shared/types'
 import { readOxygen } from './oxygen'
-import { isTrue } from '../../shared/blockProps'
+import { isTrue } from '../../shared/blocks'
 
 type Connected = Extract<BotSnapshot, { connected: true }>
 export type Vitals = Pick<

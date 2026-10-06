@@ -7,7 +7,7 @@ import type { BlockView } from '../../../../shared/types'
 import type { BlockAtlas } from './blockAtlas'
 import { blockColor } from '../../../lib/blockColors'
 import { blockVisibility, CAP_BIT, type ViewMode } from '../viewMode'
-import { isTrue } from '../../../../shared/blockProps'
+import { isTrue } from '../../../../shared/blocks'
 
 type Blocks = BlockView
 
