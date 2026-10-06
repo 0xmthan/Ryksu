@@ -221,7 +221,7 @@ const pose = (bot: Bot, entity: Entity, yaw: number, headYaw: number): EntityPos
   }
 }
 
-const describeEntity = (bot: Bot, entity: Entity): MotionEntity | null => {
+const describeEntity = (bot: Bot, entity: Entity, trustedPlayers: ReadonlySet<string>): MotionEntity | null => {
   const kind = entityKind(entity)
   if (!kind) {
     return null
@@ -242,7 +242,7 @@ const describeEntity = (bot: Bot, entity: Entity): MotionEntity | null => {
     kind,
     ...(typeof health === 'number' && Number.isFinite(health) ? { health } : {}),
     ...(typeof ping === 'number' && Number.isFinite(ping) ? { ping } : {}),
-    ...(kind === 'player' && bot._trustedPlayers?.has(entity.username?.toLowerCase() ?? '') ? { trusted: true } : {}),
+    ...(kind === 'player' && trustedPlayers.has(entity.username?.toLowerCase() ?? '') ? { trusted: true } : {}),
     // Mob type (zombie, cow, …) for picking its model, and what a dropped item is.
     type: entity.name ?? null,
     item,
@@ -254,7 +254,8 @@ const describeEntity = (bot: Bot, entity: Entity): MotionEntity | null => {
   }
 }
 
-export const getMotion = (bot: Bot | null): Motion | null => {
+// `trustedPlayers`: lowercase names badged on their nametags.
+export const getMotion = (bot: Bot | null, trustedPlayers: ReadonlySet<string> = new Set()): Motion | null => {
   if (!bot?.entity) {
     return null
   }
@@ -264,7 +265,7 @@ export const getMotion = (bot: Bot | null): Motion | null => {
     if (entity === bot.entity || !entity?.position || entity.position.distanceTo(position) > ENTITY_RANGE) {
       continue
     }
-    const described = describeEntity(bot, entity)
+    const described = describeEntity(bot, entity, trustedPlayers)
     if (described) entities.push(described)
   }
   const equipment = botEquipment(bot)

@@ -267,7 +267,7 @@ export class CreeperWatch {
   private _attack(creeper: Entity) {
     this.bot!.attack(creeper)
     const held = this.bot!.heldItem?.name ?? 'other'
-    this.cooldown = (this.pvp?._getCooldownTicks?.(held) ?? 12) + 2
+    this.cooldown = (this.pvp?.cooldownTicksFor(held) ?? 12) + 2
     this.bot!.setControlState('sprint', false)
   }
 

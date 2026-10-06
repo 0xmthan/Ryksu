@@ -116,7 +116,7 @@ export class PvpController {
     this.tickListener = null
     this.hurtListener = null
     this.defendTarget = null
-    this._clearTarget()
+    this.clearTarget()
     this.movements = null
     if (this.jumpReleaseTimer) {
       clearTimeout(this.jumpReleaseTimer)
@@ -135,7 +135,7 @@ export class PvpController {
   setEnabled(enabled: boolean) {
     this.enabled = Boolean(enabled)
     if (!this.enabled) {
-      this._clearTarget()
+      this.clearTarget()
     }
     return this.enabled
   }
@@ -257,7 +257,7 @@ export class PvpController {
     if (!this.defendTarget) return
     this.defendTarget = null
     this.defendUntil = 0
-    this._clearTarget()
+    this.clearTarget()
   }
 
   // Fight back against any mob that hurts the bot, even when mob attacking is turned off.
@@ -304,7 +304,7 @@ export class PvpController {
     const defending = this._isDefending()
     if (!this.enabled && !defending) {
       if (this.target) {
-        this._clearTarget()
+        this.clearTarget()
       }
       return
     }
@@ -320,7 +320,7 @@ export class PvpController {
     if (!this.target || !this._isValidTarget(this.target)) {
       this.target = this._findTarget()
       if (!this.target) {
-        this._clearTarget()
+        this.clearTarget()
         return
       }
     }
@@ -328,7 +328,7 @@ export class PvpController {
     let distance = bot.entity.position.distanceTo(this.target.position)
 
     if (distance > this.config.viewDistance) {
-      this._clearTarget()
+      this.clearTarget()
       return
     }
 
@@ -341,7 +341,7 @@ export class PvpController {
           this.target = closerTarget
           distance = bot.entity.position.distanceTo(closerTarget.position)
         } else {
-          this._clearTarget()
+          this.clearTarget()
           return
         }
       }
@@ -496,7 +496,7 @@ export class PvpController {
 
       bot.attack(target)
       const heldName = bot.heldItem?.name ?? 'other'
-      this.cooldownTicks = this._getCooldownTicks(heldName) + this.config.cooldownPadding
+      this.cooldownTicks = this.cooldownTicksFor(heldName) + this.config.cooldownPadding
       if (this.autoShield?.isEnabled?.()) {
         this.autoShield.requestBlockAfterAttack(target)
       }
@@ -507,7 +507,7 @@ export class PvpController {
     }
   }
 
-  _getCooldownTicks(weaponName: string) {
+  cooldownTicksFor(weaponName: string) {
     const speed = attackSpeeds[weaponName] ?? attackSpeeds.other ?? 4
     if (!speed || speed <= 0) {
       return 20
@@ -515,7 +515,7 @@ export class PvpController {
     return Math.max(8, Math.floor((1 / speed) * 20))
   }
 
-  _clearTarget() {
+  clearTarget() {
     this._cancelPendingAttack()
     if (this.bot?.pathfinder && this.movementAllowed && this.isControllingPathfinder) {
       try {

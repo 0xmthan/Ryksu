@@ -241,7 +241,7 @@ export class MiningController {
           if (hasChest && this._hasLoot()) {
             await this._depositAll(alive)
           }
-          this._setStatus(`No ${this._targetLabel()} within ${ORE_SEARCH_RADIUS} blocks. Waiting…`)
+          this._setStatus(`No ${this.describeTargets()} within ${ORE_SEARCH_RADIUS} blocks. Waiting…`)
           await sleep(IDLE_RETRY_MS)
           continue
         }
@@ -299,7 +299,7 @@ export class MiningController {
   private async _equipTool(block: Block) {
     const bot = this.bot!
     if (this.autoTool && !bot.tool) {
-      await this.autoTool._ensurePlugin()
+      await this.autoTool.ensurePlugin()
     }
     if (bot.tool) {
       try {
@@ -486,7 +486,7 @@ export class MiningController {
   }
 
 
-  _targetLabel() {
+  describeTargets() {
     const bot = this.bot
     const names = [
       ...this.ores.map((ore) => `${ore} ore`),

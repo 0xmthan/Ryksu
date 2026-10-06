@@ -386,34 +386,60 @@ const shiftSlice = (bot: Bot, old: Slice, origin: Vec3) => {
   return slice
 }
 
+// What the 3D view keeps between updates, per connection: the scanned slice, the last payload built from it,
+// and what changed since (the bot manager fills these in from world events).
+export type WorldTracker = {
+  // "x,y,z" of blocks that changed.
+  changes: Set<string>
+  // "cx,cz" of chunk columns that loaded or unloaded.
+  chunks: Set<string>
+  // Something changed since the last read.
+  dirty: boolean
+  // Read everything again (respawn, another dimension).
+  fullDirty: boolean
+  // Blocks out from the bot the view covers (the render distance); the default when unset.
+  radius?: number
+  cached: { origin: { x: number; y: number; z: number }; slice: Slice; data: BlocksData | null } | null
+}
+
+export const createWorldTracker = (radius?: number): WorldTracker => ({
+  changes: new Set(),
+  chunks: new Set(),
+  dirty: false,
+  fullDirty: false,
+  radius,
+  cached: null,
+})
+
 // Brings the kept slice up to date, reading as little of the world as it can; null when nothing changed.
-// Dirty state the bot manager keeps: `_worldChanges` holds "x,y,z" of updated blocks, `_worldChunks`
-// "cx,cz" of chunk columns that loaded or unloaded, and `_worldFullDirty` asks for a fresh read
-// (respawn, another dimension).
-export const readSlice = (bot: Bot): Slice | null => {
+export const readSlice = (bot: Bot, tracker: WorldTracker): Slice | null => {
   const botPos = bot.entity.position.floored()
-  const cached = bot._worldSlice
+  const cached = tracker.cached
   const near =
     cached &&
     (botPos.x - cached.origin.x) ** 2 + (botPos.z - cached.origin.z) ** 2 < RECENTER_DISTANCE * RECENTER_DISTANCE &&
     Math.abs(botPos.y - cached.origin.y) < 6
-  if (near && !bot._worldDirty) return null
+  if (near && !tracker.dirty) return null
 
   // A changed render distance reads the whole (resized) box again.
-  const radius = bot._worldRadius ?? VOXEL_RADIUS
+  const radius = tracker.radius ?? VOXEL_RADIUS
   let slice: Slice
-  if (!cached?.slice || bot._worldFullDirty || cached.slice.radius !== radius) {
+  if (!cached?.slice || tracker.fullDirty || cached.slice.radius !== radius) {
     slice = scanSlice(bot, botPos, radius)
   } else {
     slice = near ? cached.slice : shiftSlice(bot, cached.slice, botPos)
-    patchChunks(bot, slice, bot._worldChunks ?? [])
-    patchSlice(bot, slice, bot._worldChanges ?? [])
+    patchChunks(bot, slice, tracker.chunks)
+    patchSlice(bot, slice, tracker.changes)
   }
-  bot._worldChanges?.clear?.()
-  bot._worldChunks?.clear?.()
-  bot._worldFullDirty = false
-  bot._worldDirty = false
-  bot._worldSlice = { origin: { x: slice.origin.x, y: slice.origin.y, z: slice.origin.z }, slice, data: cached?.data ?? null }
+  tracker.changes.clear()
+  tracker.chunks.clear()
+  tracker.fullDirty = false
+  tracker.dirty = false
+  tracker.cached = {
+    origin: { x: slice.origin.x, y: slice.origin.y, z: slice.origin.z },
+    slice,
+    data: cached?.data ?? null,
+  }
   return slice
 }
 
@@ -437,28 +463,32 @@ export const computeInput = (bot: Bot, slice: Slice): ComputeInput => ({
 })
 
 // Keeps the payload the watcher last got, for getWorldView.
-export const setBlocksData = (bot: Bot, data: BlocksData) => {
-  if (bot._worldSlice) bot._worldSlice.data = data
+export const setBlocksData = (tracker: WorldTracker, data: BlocksData) => {
+  if (tracker.cached) tracker.cached.data = data
 }
 
 // The blocks payload, computed right here (on this thread). The bot manager uses a worker instead.
-const getBlocks = (bot: Bot): BlocksData | null => {
-  const slice = readSlice(bot)
-  if (!slice) return bot._worldSlice?.data ?? null
+const getBlocks = (bot: Bot, tracker: WorldTracker): BlocksData | null => {
+  const slice = readSlice(bot, tracker)
+  if (!slice) return tracker.cached?.data ?? null
 
   const data = computeBlocks(computeInput(bot, slice))
-  setBlocksData(bot, data)
+  setBlocksData(tracker, data)
   return data
 }
 
 // `cachedBlocks`: don't compute here, use the last payload (the bot manager's worker keeps it current).
-export const getWorldView = (bot: Bot | null, { cachedBlocks = false } = {}): WorldView | null => {
+export const getWorldView = (
+  bot: Bot | null,
+  tracker: WorldTracker,
+  { cachedBlocks = false } = {}
+): WorldView | null => {
   if (!bot?.entity || !bot.world) {
     return null
   }
   return {
     inventory: getInventory(bot),
-    blocks: cachedBlocks ? (bot._worldSlice?.data ?? null) : getBlocks(bot),
+    blocks: cachedBlocks ? (tracker.cached?.data ?? null) : getBlocks(bot, tracker),
   }
 }
 

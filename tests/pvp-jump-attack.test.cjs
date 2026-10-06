@@ -48,7 +48,7 @@ test('cancelling an attack while waiting prevents a late strike', async (t) => {
   const { controller, bot, target, events } = setup()
   t.after(() => controller.detach())
   const attack = controller._attemptAttack(target)
-  controller._clearTarget()
+  controller.clearTarget()
   bot.entity.onGround = false
   bot.emit('physicsTick')
   await attack
@@ -82,7 +82,7 @@ test('weapon equipping cannot queue duplicate or cancelled attacks', async (t) =
   t.after(() => controller.detach())
   const attack = controller._attemptAttack(target)
   await controller._attemptAttack(target)
-  controller._clearTarget()
+  controller.clearTarget()
   equipped()
   await attack
   assert.deepEqual(events, [])

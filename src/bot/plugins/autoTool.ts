@@ -51,7 +51,7 @@ export class AutoToolController {
     return this.desiredEnabled
   }
 
-  async _ensurePlugin() {
+  async ensurePlugin() {
     if (!this.bot) {
       return false
     }
@@ -73,7 +73,7 @@ export class AutoToolController {
       return
     }
 
-    if (!(await this._ensurePlugin()) || !this.bot?.tool) {
+    if (!(await this.ensurePlugin()) || !this.bot?.tool) {
       return
     }
 
