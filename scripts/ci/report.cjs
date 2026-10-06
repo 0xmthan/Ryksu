@@ -141,6 +141,7 @@ function summary(results, env = {}, auditReport = null, manifest = {}) {
     `| Dependency installation | ${status(outputs.install)} |`,
     `| Type check | ${status(outputs.types)} |`,
     `| Lint | ${status(outputs.lint)} |`,
+    `| Format | ${status(outputs.format)} |`,
     `| Tests | ${status(outputs.tests)} |`,
     `| Release ZIP | ${release.result === 'skipped' ? (requested ? '⏭ Skipped · checks did not pass' : '⏭ Skipped · no release requested') : status(release.result)} |`,
     '',

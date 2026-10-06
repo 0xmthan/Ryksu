@@ -51,6 +51,7 @@ jobs:
       install: ${{ steps.install.outcome }}
       types: ${{ steps.types.outcome }}
       lint: ${{ steps.lint.outcome }}
+      format: ${{ steps.format.outcome }}
       tests: ${{ steps.tests.outcome }}
     defaults:
       run:
@@ -97,6 +98,9 @@ jobs:
       - name: Lint
         id: lint
         run: pnpm lint
+      - name: Format check
+        id: format
+        run: pnpm format:check
       - name: Run tests
         id: tests
         run: pnpm test
