@@ -274,7 +274,7 @@ const TitleBar: React.FC<TitleBarProps> = ({
               active={autoShieldEnabled}
               onClick={() => onAutoShieldToggle(!autoShieldEnabled)}
             >
-              <ShieldHalf aria-hidden="true" className="h-[18px] w-[18px]" strokeWidth={1.75} />
+              <ShieldHalf aria-hidden="true" className="h-4.5 w-4.5" strokeWidth={1.75} />
             </ToolbarButton>
             <ToolbarButton
               label="Auto Tool"
@@ -282,7 +282,7 @@ const TitleBar: React.FC<TitleBarProps> = ({
               active={autoToolEnabled}
               onClick={() => onAutoToolToggle(!autoToolEnabled)}
             >
-              <Pickaxe aria-hidden="true" className="h-[18px] w-[18px]" strokeWidth={1.75} />
+              <Pickaxe aria-hidden="true" className="h-4.5 w-4.5" strokeWidth={1.75} />
             </ToolbarButton>
             <ToolbarButton
               label="Auto Eat"
@@ -291,7 +291,7 @@ const TitleBar: React.FC<TitleBarProps> = ({
               onClick={() => onAutoEatToggle(!autoEatEnabled)}
               onConfigure={onAutoEatConfigure}
             >
-              <Apple aria-hidden="true" className="h-[18px] w-[18px]" strokeWidth={1.75} />
+              <Apple aria-hidden="true" className="h-4.5 w-4.5" strokeWidth={1.75} />
             </ToolbarButton>
             <ToolbarButton
               label="Attack Mobs"
@@ -300,7 +300,7 @@ const TitleBar: React.FC<TitleBarProps> = ({
               onClick={() => onPvpToggle(!pvpEnabled)}
               onConfigure={onPvpConfigure}
             >
-              <Swords aria-hidden="true" className="h-[18px] w-[18px]" strokeWidth={1.75} />
+              <Swords aria-hidden="true" className="h-4.5 w-4.5" strokeWidth={1.75} />
             </ToolbarButton>
             <ToolbarButton
               label="Jump Attack"
@@ -308,7 +308,7 @@ const TitleBar: React.FC<TitleBarProps> = ({
               active={jumpAttackEnabled}
               onClick={() => onJumpAttackToggle(!jumpAttackEnabled)}
             >
-              <ChevronsUp aria-hidden="true" className="h-[18px] w-[18px]" strokeWidth={1.75} />
+              <ChevronsUp aria-hidden="true" className="h-4.5 w-4.5" strokeWidth={1.75} />
             </ToolbarButton>
             <MiningPanel mining={mining} />
             <ToolbarButton
@@ -317,7 +317,7 @@ const TitleBar: React.FC<TitleBarProps> = ({
               active={allowBlockBreak}
               onClick={() => onAllowBlockBreakToggle(!allowBlockBreak)}
             >
-              <Hammer aria-hidden="true" className="h-[18px] w-[18px]" strokeWidth={1.75} />
+              <Hammer aria-hidden="true" className="h-4.5 w-4.5" strokeWidth={1.75} />
             </ToolbarButton>
           </>
         ) : null}
@@ -327,7 +327,7 @@ const TitleBar: React.FC<TitleBarProps> = ({
           active={isSettingsActive}
           onClick={onToggleSettings}
         >
-          <Settings aria-hidden="true" className="h-[18px] w-[18px]" strokeWidth={1.75} />
+          <Settings aria-hidden="true" className="h-4.5 w-4.5" strokeWidth={1.75} />
         </ToolbarButton>
         {!isConnected && (
           <ToolbarButton
@@ -336,7 +336,7 @@ const TitleBar: React.FC<TitleBarProps> = ({
             active={isAboutActive}
             onClick={onToggleAbout}
           >
-            <Info aria-hidden="true" className="h-[18px] w-[18px]" strokeWidth={1.75} />
+            <Info aria-hidden="true" className="h-4.5 w-4.5" strokeWidth={1.75} />
           </ToolbarButton>
         )}
         {!isConnected && (
@@ -348,7 +348,7 @@ const TitleBar: React.FC<TitleBarProps> = ({
             active={isChatActive}
             onClick={onToggleChat}
           >
-            <MessageSquareText aria-hidden="true" className="h-[18px] w-[18px]" strokeWidth={1.75} />
+            <MessageSquareText aria-hidden="true" className="h-4.5 w-4.5" strokeWidth={1.75} />
           </ToolbarButton>
         )}
         {isConnected ? (

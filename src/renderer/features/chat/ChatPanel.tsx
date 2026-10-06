@@ -74,7 +74,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   return (
     <section
       aria-label="Server chat"
-      className={`absolute bottom-12 left-3 z-30 w-[min(560px,calc(100%_-_24px))] font-mono text-[13px]
+      className={`absolute bottom-12 left-3 z-30 w-[min(560px,calc(100%-24px))] font-mono text-[13px]
         leading-5 ${open ? '' : 'pointer-events-none'} ${hidden ? 'hidden' : ''}`}
     >
       <div
@@ -98,8 +98,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         {visible.map((message) => (
           <p
             key={message.id}
-            className={`${open ? 'py-0.5' : 'bg-neutral-950/55 px-2 py-0.5'} break-words whitespace-pre-wrap
-            text-neutral-100 [text-shadow:1px_1px_2px_#000]`}
+            className={`${open ? 'py-0.5' : 'bg-neutral-950/55 px-2 py-0.5'} wrap-break-word
+            whitespace-pre-wrap text-neutral-100 [text-shadow:1px_1px_2px_#000]`}
             style={
               !open
                 ? { opacity: Math.min(1, Math.max(0, (10000 - (now - message.timestamp)) / 2000)) }

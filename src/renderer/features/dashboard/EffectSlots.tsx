@@ -85,7 +85,7 @@ const EffectSlot: React.FC<{ effect: StatusEffect; now: number }> = ({ effect, n
             src={icons[effect.name]}
             alt=""
             draggable={false}
-            className="h-[18px] w-[18px] [image-rendering:pixelated]"
+            className="h-4.5 w-4.5 [image-rendering:pixelated]"
           />
         ) : (
           <span className="text-[0.6rem] text-neutral-300">{effect.label.slice(0, 2)}</span>
@@ -98,7 +98,7 @@ const EffectSlot: React.FC<{ effect: StatusEffect; now: number }> = ({ effect, n
             {level}
           </span>
         ) : null}
-        <span className="absolute inset-x-0 bottom-0 h-[2px] bg-white/10">
+        <span className="absolute inset-x-0 bottom-0 h-0.5 bg-white/10">
           <span className={`block h-full ${tone.bar}`} style={{ width: `${fraction * 100}%` }} />
         </span>
       </div>

@@ -51,8 +51,8 @@ const ToolbarButton: React.FC<{
         role="tooltip"
         className="pointer-events-none absolute right-0 top-full z-50 mt-2 w-52 translate-y-1 rounded-lg
           border border-neutral-700 bg-neutral-900 px-3 py-2.5 text-left opacity-0 shadow-xl transition
-          duration-150 group-hover:translate-y-0 group-hover:opacity-100
-          group-has-[:focus-visible]:translate-y-0 group-has-[:focus-visible]:opacity-100"
+          duration-150 group-hover:translate-y-0 group-hover:opacity-100 group-has-focus-visible:translate-y-0
+          group-has-focus-visible:opacity-100"
       >
         <span
           className="absolute -top-1 right-3 h-2 w-2 rotate-45 border-l border-t border-neutral-700

@@ -320,7 +320,7 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
             <dl className="grid gap-5 px-5 py-5 text-sm text-neutral-300">
               <div className="flex items-center justify-between gap-4">
                 <dt className="shrink-0 text-xs text-neutral-500">Account</dt>
-                <dd className="min-w-0 break-words text-right font-medium text-neutral-200">
+                <dd className="min-w-0 wrap-break-word text-right font-medium text-neutral-200">
                   {accountLabel}
                 </dd>
               </div>
@@ -328,25 +328,27 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
               {host.trim() ? null : (
                 <div className="flex items-center justify-between gap-4">
                   <dt className="shrink-0 text-xs text-neutral-500">Host</dt>
-                  <dd className="min-w-0 break-words text-right font-medium text-neutral-200">Not set</dd>
+                  <dd className="min-w-0 wrap-break-word text-right font-medium text-neutral-200">Not set</dd>
                 </div>
               )}
               <div className="flex items-center justify-between gap-4">
                 <dt className="shrink-0 text-xs text-neutral-500">Username</dt>
-                <dd className="min-w-0 break-words text-right font-medium text-neutral-200">
+                <dd className="min-w-0 wrap-break-word text-right font-medium text-neutral-200">
                   {username || 'Not set'}
                 </dd>
               </div>
               <div className="flex items-center justify-between gap-4">
                 <dt className="shrink-0 text-xs text-neutral-500">Version</dt>
-                <dd className="min-w-0 break-words text-right font-medium text-neutral-200">
+                <dd className="min-w-0 wrap-break-word text-right font-medium text-neutral-200">
                   {versionLabel}
                 </dd>
               </div>
               {accountType === 'offline' && preJoinLoginEnabled ? (
                 <div className="flex items-center justify-between gap-4">
                   <dt className="shrink-0 text-xs text-neutral-500">Login Screen</dt>
-                  <dd className="min-w-0 break-words text-right font-medium text-neutral-200">Auto login</dd>
+                  <dd className="min-w-0 wrap-break-word text-right font-medium text-neutral-200">
+                    Auto login
+                  </dd>
                 </div>
               ) : null}
               {onlinePassword ? (

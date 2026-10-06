@@ -88,7 +88,7 @@ const SleepButton: React.FC<SleepButtonProps> = ({ isSleeping, canSleep, bedPick
       >
         <Icon
           aria-hidden="true"
-          className={`h-[18px] w-[18px] ${isBusy ? 'animate-spin' : ''}`}
+          className={`h-4.5 w-4.5 ${isBusy ? 'animate-spin' : ''}`}
           strokeWidth={1.75}
         />
       </button>
@@ -132,7 +132,7 @@ const SleepButton: React.FC<SleepButtonProps> = ({ isSleeping, canSleep, bedPick
           role="tooltip"
           className="pointer-events-none absolute right-0 top-full z-50 mt-2 w-52 rounded-lg border
             border-neutral-700 bg-neutral-900 px-3 py-2.5 text-xs text-neutral-400 shadow-xl opacity-0
-            transition group-hover:opacity-100 group-has-[:focus-visible]:opacity-100"
+            transition group-hover:opacity-100 group-has-focus-visible:opacity-100"
         >
           <span className="mb-1 block font-semibold text-neutral-100">{label}</span>
           {description}

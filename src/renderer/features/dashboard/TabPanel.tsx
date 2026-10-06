@@ -23,14 +23,11 @@ const PingBars: React.FC<{ ping: number | null }> = ({ ping }) => {
   const color =
     bars >= 4 ? 'bg-emerald-400' : bars === 3 ? 'bg-lime-300' : bars === 2 ? 'bg-amber-300' : 'bg-rose-400'
   return (
-    <span
-      className="flex items-end gap-[2px]"
-      title={ping == null ? 'Ping unknown' : `${Math.round(ping)} ms`}
-    >
+    <span className="flex items-end gap-0.5" title={ping == null ? 'Ping unknown' : `${Math.round(ping)} ms`}>
       {[4, 6, 8, 10].map((height, index) => (
         <span
           key={height}
-          className={`w-[3px] rounded-[1px] ${index < bars ? color : 'bg-white/10'}`}
+          className={`w-0.75 rounded-[1px] ${index < bars ? color : 'bg-white/10'}`}
           style={{ height }}
         />
       ))}
@@ -84,10 +81,7 @@ const TabPanel: React.FC = () => {
       <div className="overflow-y-auto p-1.5">
         <ul className="grid grid-cols-2 gap-x-1.5 gap-y-0.5">
           {list?.online.map((player) => (
-            <li
-              key={player.uuid}
-              className="flex items-center gap-1.5 rounded-md bg-white/[0.04] px-1.5 py-1"
-            >
+            <li key={player.uuid} className="flex items-center gap-1.5 rounded-md bg-white/4 px-1.5 py-1">
               <PlayerHead name={player.name} size={16} />
               <span className="min-w-0 flex-1 truncate text-neutral-100">{player.name}</span>
               {player.bot ? (

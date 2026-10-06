@@ -69,7 +69,7 @@ const PlayerHead: React.FC<{ name: string; size?: number; className?: string }> 
   return (
     <span
       aria-hidden="true"
-      className={`relative inline-block shrink-0 overflow-hidden rounded-[2px] ${className}`}
+      className={`relative inline-block shrink-0 overflow-hidden rounded-xs ${className}`}
       style={box}
     >
       <span style={layer(8)} />

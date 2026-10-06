@@ -149,7 +149,7 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
   queuedBuild = null,
   onHotbarScroll,
   onCloseChat,
-  className = 'relative mt-3 h-[360px] w-full',
+  className = 'relative mt-3 h-90 w-full',
 }) => {
   const containerRef = useRef<HTMLDivElement>(null)
   const mainHandRef = useRef<HTMLDivElement>(null)
@@ -1207,11 +1207,11 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
         <>
           {/* The game's crosshair: a thin plus that inverts what's behind it. */}
           <div
-            className="pointer-events-none absolute left-1/2 top-1/2 z-10 h-[18px] w-[18px] -translate-x-1/2
+            className="pointer-events-none absolute left-1/2 top-1/2 z-10 h-4.5 w-4.5 -translate-x-1/2
               -translate-y-1/2 mix-blend-difference"
           >
-            <span className="absolute left-0 top-1/2 h-[2px] w-full -translate-y-1/2 bg-white" />
-            <span className="absolute left-1/2 top-0 h-full w-[2px] -translate-x-1/2 bg-white" />
+            <span className="absolute left-0 top-1/2 h-0.5 w-full -translate-y-1/2 bg-white" />
+            <span className="absolute left-1/2 top-0 h-full w-0.5 -translate-x-1/2 bg-white" />
           </div>
           {firstPersonView.locked ? null : (
             <div

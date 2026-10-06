@@ -173,15 +173,15 @@ const MiningPanel: React.FC<MiningPanelProps> = ({ mining }) => {
         onConfigure={() => setIsOpen(true)}
       >
         {isBusy ? (
-          <LoaderCircle aria-hidden="true" className="h-[18px] w-[18px] animate-spin" />
+          <LoaderCircle aria-hidden="true" className="h-4.5 w-4.5 animate-spin" />
         ) : (
-          <Pickaxe aria-hidden="true" className="h-[18px] w-[18px]" strokeWidth={1.75} />
+          <Pickaxe aria-hidden="true" className="h-4.5 w-4.5" strokeWidth={1.75} />
         )}
       </ToolbarButton>
       {isOpen
         ? createPortal(
             <div
-              className="fixed inset-0 z-[60] flex items-center justify-center bg-neutral-950/70 p-4"
+              className="fixed inset-0 z-60 flex items-center justify-center bg-neutral-950/70 p-4"
               role="dialog"
               aria-modal="true"
               aria-labelledby="mining-settings-title"

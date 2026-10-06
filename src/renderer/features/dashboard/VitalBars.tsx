@@ -64,7 +64,7 @@ const Bar: React.FC<{
         {label}
         {badge}
       </span>
-      <span className="flex flex-1 flex-col gap-[2px]">
+      <span className="flex flex-1 flex-col gap-0.5">
         <span className="relative block">
           <span
             key={change?.id}
@@ -86,7 +86,7 @@ const Bar: React.FC<{
           </span>
           {mark ? (
             <span
-              className="absolute -inset-y-[3px] w-[2px] -translate-x-1/2 rounded-full bg-neutral-950
+              className="absolute -inset-y-0.75 w-0.5 -translate-x-1/2 rounded-full bg-neutral-950
                 shadow-[0_0_0_1px_#ffffff73]"
               style={{ left: percent(mark.at) }}
               title={mark.title}
@@ -95,7 +95,7 @@ const Bar: React.FC<{
         </span>
         {saturation != null ? (
           <span
-            className="block h-[2px] overflow-hidden rounded-full"
+            className="block h-0.5 overflow-hidden rounded-full"
             title={`Saturation ${saturation.toFixed(1)}`}
           >
             <span
@@ -179,11 +179,11 @@ export const Hotbar: React.FC<{
             }
             aria-label={`Hotbar slot ${index + 1}${item ? `: ${item.displayName}` : ': empty'}`}
             aria-pressed={active}
-            className={`relative flex h-[34px] w-[34px] items-center justify-center rounded-md border
+            className={`relative flex h-8.5 w-8.5 items-center justify-center rounded-md border
             transition-colors ${
               active
-                ? 'border-white/40 bg-white/[0.08] shadow-[0_0_12px_#ffffff14]'
-                : 'border-white/[0.04] bg-black/30 hover:border-white/15 hover:bg-white/[0.04]'
+                ? 'border-white/40 bg-white/8 shadow-[0_0_12px_#ffffff14]'
+                : 'border-white/4 bg-black/30 hover:border-white/15 hover:bg-white/4'
             }`}
           >
             <span

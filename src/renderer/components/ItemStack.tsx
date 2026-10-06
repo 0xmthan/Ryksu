@@ -26,11 +26,9 @@ export const itemDetails = (item: Item) => [
 
 // The game's bar under a damaged item: black track, colored remaining part.
 const DurabilityBar: React.FC<{ left: number }> = ({ left }) => (
-  <span
-    className="pointer-events-none absolute bottom-[3px] left-1/2 z-[1] h-[3px] w-[70%] -translate-x-1/2
-      bg-black"
-  >
-    <span className="block h-[2px]" style={{ width: `${left * 100}%`, background: durabilityColor(left) }} />
+  <span className="pointer-events-none absolute bottom-0.75 left-1/2 z-1 h-0.75 w-[70%] -translate-x-1/2
+    bg-black">
+    <span className="block h-0.5" style={{ width: `${left * 100}%`, background: durabilityColor(left) }} />
   </span>
 )
 

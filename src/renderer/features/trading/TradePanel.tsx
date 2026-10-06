@@ -72,9 +72,9 @@ const TradePanel: React.FC<TradePanelProps> = ({ title, trades, onTradesChange, 
         aria-modal="true"
         aria-label={`Trading with ${title}`}
         tabIndex={-1}
-        className="flex max-h-[min(560px,calc(100%-32px))] w-[460px] max-w-[calc(100%-32px)] flex-col
-          rounded-2xl border border-white/10 bg-neutral-900/85 text-xs text-neutral-300
-          shadow-[0_20px_70px_#0009] outline-none backdrop-blur-2xl"
+        className="flex max-h-[min(560px,calc(100%-32px))] w-115 max-w-[calc(100%-32px)] flex-col rounded-2xl
+          border border-white/10 bg-neutral-900/85 text-xs text-neutral-300 shadow-[0_20px_70px_#0009]
+          outline-none backdrop-blur-2xl"
       >
         <header className="flex items-center justify-between gap-3 border-b border-white/5 px-4 py-3">
           <div className="flex items-center gap-2.5">
@@ -114,7 +114,7 @@ const TradePanel: React.FC<TradePanelProps> = ({ title, trades, onTradesChange, 
               <li
                 key={offer.index}
                 className={`flex items-center gap-3 rounded-xl px-2.5 py-2 transition-colors ${
-                  offer.disabled ? 'bg-white/[0.02] opacity-50' : 'bg-white/[0.04] hover:bg-white/[0.07]'
+                  offer.disabled ? 'bg-white/2 opacity-50' : 'bg-white/4 hover:bg-white/[0.07]'
                 }`}
               >
                 <div className="flex items-center gap-1.5">
