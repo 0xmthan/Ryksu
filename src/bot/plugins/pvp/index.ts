@@ -545,7 +545,6 @@ export class PvpController {
     if (!this.jumpAttackEnabled || !bot.entity?.onGround) return Promise.resolve()
 
     return new Promise<void>((resolve) => {
-      let timeout: ReturnType<typeof setTimeout> | undefined
       const finish = () => {
         clearTimeout(timeout)
         bot.removeListener('physicsTick', onTick)
@@ -558,7 +557,7 @@ export class PvpController {
       run.cancelJump = finish
       bot.on('physicsTick', onTick)
       // A low ceiling can prevent takeoff; keep fighting rather than waiting indefinitely.
-      timeout = setTimeout(finish, 500)
+      const timeout = setTimeout(finish, 500)
       try {
         bot.setControlState('jump', true)
         if (this.jumpReleaseTimer) clearTimeout(this.jumpReleaseTimer)

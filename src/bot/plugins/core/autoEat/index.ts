@@ -142,7 +142,7 @@ export class EatUtil extends EventEmitter<EatEvents> {
     opts.equipOldItem = opts.equipOldItem === undefined ? this.opts.returnToLastItem : opts.equipOldItem
     opts.offhand = opts.offhand === undefined ? this.opts.offhand : opts.offhand
     opts.priority = opts.priority === undefined ? this.opts.priority : opts.priority
-    let choice = this.normalizeFoodChoice(opts.food)
+    const choice = this.normalizeFoodChoice(opts.food)
     if (choice != null) opts.food = choice
     else {
       const allItems = this.getAllItems()

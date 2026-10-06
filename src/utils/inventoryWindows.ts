@@ -7,7 +7,7 @@ const windowTitle = (raw: string) => {
     if (!value || typeof value !== 'object') return ''
     const component = value as { text?: string; translate?: string; extra?: unknown[] }
     const translated = component.translate?.startsWith('container.')
-      ? component.translate.slice(10).replace(/[_\.]/g, ' ').replace(/\b\w/g, letter => letter.toUpperCase()) : ''
+      ? component.translate.slice(10).replace(/[_.]/g, ' ').replace(/\b\w/g, letter => letter.toUpperCase()) : ''
     return (component.text ?? translated) + (component.extra?.map(read).join('') ?? '')
   }
   try { return read(JSON.parse(raw)) } catch { return raw }

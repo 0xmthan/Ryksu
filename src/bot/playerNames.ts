@@ -32,6 +32,7 @@ export const isOfflineUuid = (uuid: unknown) => plainUuid(uuid)[12] === '3'
 // Required lazily so tests can load this module without Electron.
 const dataFolder = (): string | null => {
   try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     return (require('electron') as typeof import('electron')).app.getPath('userData')
   } catch {
     return null

@@ -8,7 +8,7 @@ const status = (result) => ({
   skipped: '⏭ Skipped',
 }[result] || '— Not run')
 
-const cell = (value) => String(value).replace(/[&<>|`\[\]\\]/g, (char) => `&#${char.charCodeAt(0)};`).replace(/[\r\n]+/g, ' ')
+const cell = (value) => String(value).replace(/[&<>|`[\]\\]/g, (char) => `&#${char.charCodeAt(0)};`).replace(/[\r\n]+/g, ' ')
 const hasPublishedFix = (advisory) => typeof advisory.patched_versions === 'string' && advisory.patched_versions.trim() !== '' && !/^(?:none|<0\.0\.0)$/i.test(advisory.patched_versions.trim())
 const isArtifactUrl = (url) => /^https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/actions\/runs\/\d+\/artifacts\/\d+$/.test(url || '')
 
@@ -81,6 +81,7 @@ function summary(results, env = {}, auditReport = null, manifest = {}) {
     `| Package audit | ${status(packages.result)} |`,
     `| Dependency installation | ${status(outputs.install)} |`,
     `| Type check | ${status(outputs.types)} |`,
+    `| Lint | ${status(outputs.lint)} |`,
     `| Tests | ${status(outputs.tests)} |`,
     `| Release ZIP | ${release.result === 'skipped' ? (requested ? '⏭ Skipped · checks did not pass' : '⏭ Skipped · no release requested') : status(release.result)} |`, '',
   ]

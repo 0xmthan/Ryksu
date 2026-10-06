@@ -31,9 +31,7 @@ export class Lock {
       return
     }
 
-    // Cannot use for await without a variable. But the variable is never used. So eslint complains ¯\_(ツ)_/¯
     for await (const _ of on(this._emitter, 'release')) {
-      // eslint-disable-line
       if (!this._locked) {
         this._locked = true
         return

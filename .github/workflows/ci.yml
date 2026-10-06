@@ -50,6 +50,7 @@ jobs:
       release-version: ${{ steps.release.outputs.version }}
       install: ${{ steps.install.outcome }}
       types: ${{ steps.types.outcome }}
+      lint: ${{ steps.lint.outcome }}
       tests: ${{ steps.tests.outcome }}
     defaults:
       run:
@@ -93,6 +94,9 @@ jobs:
       - name: Type check
         id: types
         run: pnpm typecheck
+      - name: Lint
+        id: lint
+        run: pnpm lint
       - name: Run tests
         id: tests
         run: pnpm test

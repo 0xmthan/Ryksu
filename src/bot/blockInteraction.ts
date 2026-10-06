@@ -31,7 +31,6 @@ export const openInteractiveBlock = async (bot: Bot, position: { x: number; y: n
   // Register before activating: a blocked chest or protected block may never open.
   const opening = block
   await new Promise<void>((resolve, reject) => {
-    let timer: ReturnType<typeof setTimeout> | undefined
     const cleanup = () => {
       clearTimeout(timer)
       bot.removeListener('windowOpen', opened)
@@ -41,7 +40,7 @@ export const openInteractiveBlock = async (bot: Bot, position: { x: number; y: n
     const ended = () => { cleanup(); reject(new Error('Disconnected while opening the block.')) }
     bot.once('windowOpen', opened)
     bot.once('end', ended)
-    timer = setTimeout(() => { cleanup(); reject(new Error('The block did not open. It may be blocked or protected.')) }, 5000)
+    const timer = setTimeout(() => { cleanup(); reject(new Error('The block did not open. It may be blocked or protected.')) }, 5000)
     Promise.resolve().then(() => bot.activateBlock(opening)).catch((error) => { cleanup(); reject(error) })
   })
 }

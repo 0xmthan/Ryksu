@@ -1,6 +1,16 @@
 # Build outputs
 dist
 dist-electron
+.vite
+.webpack
+out
+
+# Generated and vendored data
+src/generated
+scripts/vendor
+
+# Prose keeps its own line breaks
+*.md
 
 # Node modules
 node_modules

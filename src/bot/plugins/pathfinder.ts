@@ -1,6 +1,5 @@
 import type { Bot } from 'mineflayer'
 import type { Entity } from 'prismarine-entity'
-import { Vec3 } from 'vec3'
 import type { PathfinderOptions } from '../../types'
 import { pathfinder as pathfinderPlugin, Movements, goals } from './core/pathfinder'
 import type { Goal } from './core/pathfinder/lib/goals'
@@ -212,7 +211,7 @@ export class PathfinderController {
     if (!this.bot || !this._ensurePlugin()) {
       return false
     }
-    this._cancelGoTo('replace-goal')
+    this._cancelGoTo()
     this.bot.pathfinder.setMovements(this.movements!)
     this.bot.pathfinder.setGoal(goal, true)
     return true
@@ -231,7 +230,7 @@ export class PathfinderController {
       return Promise.reject(new Error('Pathfinder is not available.'))
     }
 
-    this._cancelGoTo('replace-goal')
+    this._cancelGoTo()
     this.bot.pathfinder.setMovements(this.movements!)
     return this.bot.pathfinder.goto(goal)
   }
@@ -401,7 +400,7 @@ export class PathfinderController {
       applyBlockEditing(this.movements, this.allowBlockBreak)
     }
 
-    this._cancelGoTo('replace-goal')
+    this._cancelGoTo()
 
     const door = location.door && typeof location.door === 'object' ? location.door : null
     const doorPos = door
@@ -436,14 +435,6 @@ export class PathfinderController {
       return
     }
 
-    const botPosition = this.bot?.entity?.position
-    if (botPosition) {
-      const targetVec = new Vec3(target.x + 0.5, target.y, target.z + 0.5)
-      const distance = botPosition.distanceTo(targetVec)
-      if (Number.isFinite(distance)) {
-      }
-    }
-
     // This go-to's own record; a newer go-to replaces it, and then this one must leave everything alone
     // (its promise fails with GoalChanged as the new goal takes over).
     const run: GoToRun = { target, goal: null, promise: null }
@@ -459,7 +450,7 @@ export class PathfinderController {
         return Promise.reject(new Error('Unable to reach target location.'))
       }
 
-      const { label, goal } = goalsToTry[index]
+      const { goal } = goalsToTry[index]
       run.goal = goal
 
       return bot.pathfinder.goto(goal).catch((error) => {
@@ -511,10 +502,8 @@ export class PathfinderController {
     run.promise.catch(() => {})
   }
 
-  private _cancelGoTo(reason = 'cancel') {
+  private _cancelGoTo() {
     if (!this.activeGoTo) {
-      if (reason !== 'replace-goal') {
-      }
       return
     }
 

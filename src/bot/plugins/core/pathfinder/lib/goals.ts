@@ -24,12 +24,12 @@ import { getShapeFaceCenters } from './shapes'
 // Goal base class
 export class Goal {
   // Return the distance between node and the goal
-  heuristic(node: Vec3): number {
+  heuristic(_node: Vec3): number {
     return 0
   }
 
   // Return true if the node has reach the goal
-  isEnd(node: Vec3): boolean {
+  isEnd(_node: Vec3): boolean {
     return true
   }
 

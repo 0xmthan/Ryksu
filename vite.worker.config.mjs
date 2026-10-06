@@ -1,3 +1,4 @@
+// @ts-check
 import { defineConfig } from 'vite'
 
 // The world view worker (src/worldWorker.ts), built next to main.cjs. Everything it needs is bundled in.

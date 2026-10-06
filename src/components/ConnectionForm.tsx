@@ -67,7 +67,6 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
     }
   }, [lastConnection])
 
-  const hasRequiredFields = Boolean(host.trim() && username.trim())
   const accountLabel = accountType === 'online' ? 'Online (Microsoft)' : 'Offline'
   const versionLabel = version === 'auto' ? 'Auto (detect server version)' : version || 'Not set'
   const microsoftAuth = status?.stage === 'auth-required' ? status.microsoftAuth : undefined
@@ -286,7 +285,7 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
                         onChange={(event) => onPreJoinLoginToggle(event.target.checked)}
                         className="h-4 w-4 accent-sky-500"
                       />
-                      Log in on the server's login screen
+                      Log in on the server&apos;s login screen
                     </label>
                     <p className="mt-1 pl-6.5 text-[11px] leading-relaxed text-neutral-500">
                       Enable for servers like AuthMe that require login before joining.
