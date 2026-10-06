@@ -1,47 +1,73 @@
-const fs = require('node:fs')
-const { releaseVersion } = require('./release-version.cjs')
+// The CI report: package audit counts for the audit job's outputs, and the run summary with its results table and
+// affected packages. Pure functions; scripts/ci/cli.ts reads the files and environment and writes the outputs.
+import { releaseVersion } from './release-version.ts'
 
-const status = (result) =>
-  ({
-    success: '✅ Passed',
-    failure: '❌ Failed',
-    cancelled: '⏹ Cancelled',
-    skipped: '⏭ Skipped',
-  })[result] || '— Not run'
+export type Severity = 'critical' | 'high' | 'moderate' | 'low' | 'info'
+// `pnpm audit --json` output, loosely: only the fields the report reads, and none of them trusted.
+export type AuditReport = Record<string, unknown> | null
+export type Manifest = { dependencies?: Record<string, string>; devDependencies?: Record<string, string> }
+// The workflow's `needs` context: each job's result and outputs.
+export type JobResults = Record<string, { result?: string; outputs?: Record<string, string> } | undefined>
 
-const cell = (value) =>
+type Finding = { version?: string; dev?: boolean; paths?: string[] }
+type Advisory = {
+  module_name: string
+  severity: Severity
+  patched_versions?: unknown
+  url?: string
+  github_advisory_id?: string
+  title?: string
+  findings?: Finding[]
+}
+type PackageGroup = {
+  severity: Severity
+  versions: Set<string>
+  scopes: Set<string>
+  parents: Set<string>
+  advisories: Advisory[]
+}
+
+const SEVERITIES: Severity[] = ['critical', 'high', 'moderate', 'low', 'info']
+
+const status = (result: string | undefined) =>
+  (
+    ({
+      success: '✅ Passed',
+      failure: '❌ Failed',
+      cancelled: '⏹ Cancelled',
+      skipped: '⏭ Skipped',
+    }) as Record<string, string>
+  )[result ?? ''] || '— Not run'
+
+const cell = (value: unknown) =>
   String(value)
     .replace(/[&<>|`[\]\\]/g, (char) => `&#${char.charCodeAt(0)};`)
     .replace(/[\r\n]+/g, ' ')
-const hasPublishedFix = (advisory) =>
+const hasPublishedFix = (advisory: Advisory) =>
   typeof advisory.patched_versions === 'string' &&
   advisory.patched_versions.trim() !== '' &&
   !/^(?:none|<0\.0\.0)$/i.test(advisory.patched_versions.trim())
-const isArtifactUrl = (url) =>
+const isArtifactUrl = (url: string | undefined) =>
   /^https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/actions\/runs\/\d+\/artifacts\/\d+$/.test(url || '')
 
-function auditCounts(report) {
-  const counts = report?.metadata?.vulnerabilities
-  if (
-    !counts ||
-    !['critical', 'high', 'moderate', 'low', 'info'].every(
-      (key) => Number.isInteger(counts[key]) && counts[key] >= 0
-    )
-  )
+export function auditCounts(report: AuditReport): Record<Severity, number> | null {
+  const counts = (report?.metadata as { vulnerabilities?: Record<string, unknown> } | undefined)
+    ?.vulnerabilities
+  if (!counts || !SEVERITIES.every((key) => Number.isInteger(counts[key]) && (counts[key] as number) >= 0))
     return null
-  return counts
+  return counts as Record<Severity, number>
 }
 
-function packageDetails(report, manifest = {}) {
-  const rank = { critical: 5, high: 4, moderate: 3, low: 2, info: 1 }
-  const advisories = Object.values(report?.advisories || {})
-    .filter((a) => a && typeof a.module_name === 'string')
+export function packageDetails(report: AuditReport, manifest: Manifest = {}): string[] {
+  const rank: Record<string, number> = { critical: 5, high: 4, moderate: 3, low: 2, info: 1 }
+  const advisories = Object.values((report?.advisories || {}) as Record<string, Advisory | null>)
+    .filter((a): a is Advisory => Boolean(a) && typeof a?.module_name === 'string')
     .sort(
       (a, b) =>
         (rank[b.severity] || 0) - (rank[a.severity] || 0) || a.module_name.localeCompare(b.module_name)
     )
   if (!advisories.length) return []
-  const groups = new Map()
+  const groups = new Map<string, PackageGroup>()
   for (const advisory of advisories) {
     const group = groups.get(advisory.module_name) || {
       severity: advisory.severity,
@@ -110,7 +136,12 @@ function packageDetails(report, manifest = {}) {
   return lines
 }
 
-function summary(results, env = {}, auditReport = null, manifest = {}) {
+export function summary(
+  results: JobResults,
+  env: Record<string, string | undefined> = {},
+  auditReport: AuditReport = null,
+  manifest: Manifest = {}
+): string {
   const packages = results.packages || {}
   const checks = results.checks || {}
   const release = results.release || {}
@@ -121,7 +152,7 @@ function summary(results, env = {}, auditReport = null, manifest = {}) {
   const complete =
     packages.result === 'success' &&
     checks.result === 'success' &&
-    ['success', 'skipped'].includes(release.result)
+    ['success', 'skipped'].includes(release.result ?? '')
   const lines = [
     '## CI report',
     '',
@@ -146,7 +177,7 @@ function summary(results, env = {}, auditReport = null, manifest = {}) {
     `| Release ZIP | ${release.result === 'skipped' ? (requested ? '⏭ Skipped · checks did not pass' : '⏭ Skipped · no release requested') : status(release.result)} |`,
     '',
   ]
-  let counts
+  let counts: Record<Severity, number> | null = null
   try {
     counts = auditCounts({
       metadata: { vulnerabilities: JSON.parse(packages.outputs?.vulnerabilities || 'null') },
@@ -170,11 +201,9 @@ function summary(results, env = {}, auditReport = null, manifest = {}) {
   else if (counts && Object.values(counts).some((count) => count > 0)) {
     lines.push('Package details unavailable. Check the audit job or download the package-audit artifact.', '')
   }
-  if (isArtifactUrl(packages.outputs?.['artifact-url'])) {
-    lines.push(
-      `[Download full package audit (JSON)](${packages.outputs['artifact-url']}) · Available for 30 days.`,
-      ''
-    )
+  const auditUrl = packages.outputs?.['artifact-url']
+  if (isArtifactUrl(auditUrl)) {
+    lines.push(`[Download full package audit (JSON)](${auditUrl}) · Available for 30 days.`, '')
   }
   if (release.result === 'success' && release.outputs?.['artifact-url']) {
     const url = release.outputs['artifact-url']
@@ -186,29 +215,3 @@ function summary(results, env = {}, auditReport = null, manifest = {}) {
   lines.push(`[View job logs](${url})`, '')
   return lines.join('\n')
 }
-
-if (require.main === module) {
-  if (process.argv[2] === 'audit') {
-    let counts
-    try {
-      counts = auditCounts(JSON.parse(fs.readFileSync('audit.json', 'utf8')))
-    } catch {}
-    fs.appendFileSync(process.env.GITHUB_OUTPUT, `vulnerabilities=${counts ? JSON.stringify(counts) : ''}\n`)
-    if (counts) console.log('Vulnerabilities:', counts)
-    else console.log('Audit did not return vulnerability counts; see the audit step for errors.')
-  } else if (process.argv[2] === 'summary') {
-    let auditReport = null
-    try {
-      auditReport = JSON.parse(fs.readFileSync('audit-report/audit.json', 'utf8'))
-    } catch {}
-    const manifest = JSON.parse(fs.readFileSync('package.json', 'utf8'))
-    fs.appendFileSync(
-      process.env.GITHUB_STEP_SUMMARY,
-      summary(JSON.parse(process.env.CI_RESULTS), process.env, auditReport, manifest)
-    )
-  } else {
-    throw new Error('Expected audit or summary mode')
-  }
-}
-
-module.exports = { auditCounts, summary, packageDetails }

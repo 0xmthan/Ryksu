@@ -32,7 +32,7 @@ jobs:
       - name: Collect audit results
         id: audit-data
         if: always()
-        run: node scripts/ci/report.cjs audit
+        run: node scripts/ci/cli.ts audit
       - name: Save full package audit
         id: audit-upload
         if: always() && steps.audit-data.outputs.vulnerabilities != ''
@@ -91,7 +91,7 @@ jobs:
         id: release
         env:
           COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
-        run: node scripts/ci/release-version.cjs
+        run: node scripts/ci/cli.ts release-version
       - name: Type check
         id: types
         run: pnpm typecheck
@@ -175,6 +175,10 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v6
+      # Node 22 runs the TypeScript CI scripts directly (built-in type stripping).
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
       - name: Load package audit details
         uses: actions/download-artifact@v8
         continue-on-error: true
@@ -185,4 +189,4 @@ jobs:
         env:
           CI_RESULTS: ${{ toJSON(needs) }}
           COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
-        run: node scripts/ci/report.cjs summary
+        run: node scripts/ci/cli.ts summary

@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { auditCounts, summary, packageDetails } from '../scripts/ci/report.cjs'
+import { auditCounts, summary, packageDetails } from '../scripts/ci/report'
 
 const counts = { critical: 1, high: 32, moderate: 14, low: 3, info: 0 }
 const results = {

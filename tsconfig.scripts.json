@@ -15,7 +15,6 @@
   "include": [
     "scripts/**/*.js",
     "scripts/**/*.cjs",
-    "scripts/**/*.d.cts",
     "forge.config.js",
     "postcss.config.js",
     "eslint.config.mjs",

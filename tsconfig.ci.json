@@ -1,0 +1,14 @@
+{
+  // The CI scripts, which CI runs with Node's built-in type stripping (no install, no build): only syntax Node
+  // can erase, and imports with their .ts extension.
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "node_modules/.cache/tsc/ci.tsbuildinfo",
+    "lib": ["ES2022"],
+    "types": ["node"],
+    "allowImportingTsExtensions": true,
+    "erasableSyntaxOnly": true,
+    "verbatimModuleSyntax": true
+  },
+  "include": ["scripts/ci/**/*.ts"]
+}
