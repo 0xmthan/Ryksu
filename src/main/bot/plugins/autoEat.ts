@@ -146,12 +146,12 @@ export class AutoEatController extends ToggleablePlugin {
     return this.getOptions()
   }
 
-  protected async _enable() {
+  protected _enable() {
     if (!this.bot || this.enabled) {
       return
     }
 
-    const autoEat: EatUtil | null = await loadAutoEatPlugin(this.bot)
+    const autoEat: EatUtil | null = loadAutoEatPlugin(this.bot)
     if (!autoEat || !this.bot || !this.desiredEnabled) {
       return
     }

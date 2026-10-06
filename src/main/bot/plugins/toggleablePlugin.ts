@@ -41,7 +41,7 @@ export abstract class ToggleablePlugin {
     return this.desiredEnabled
   }
 
-  protected abstract _enable(): void | Promise<void>
+  protected abstract _enable(): void
 
   protected abstract _disable(): void
 }
