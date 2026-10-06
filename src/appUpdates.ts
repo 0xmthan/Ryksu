@@ -8,7 +8,10 @@ export type UpdateCheck = {
 
 export const RELEASES_URL = 'https://github.com/0xmthan/Ryksu/releases'
 
-export async function checkForUpdates(currentVersion: string, fetchRelease: typeof fetch = fetch): Promise<UpdateCheck> {
+export async function checkForUpdates(
+  currentVersion: string,
+  fetchRelease: typeof fetch = fetch
+): Promise<UpdateCheck> {
   try {
     const response = await fetchRelease('https://api.github.com/repos/0xmthan/Ryksu/releases/latest', {
       headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'Ryksu' },

@@ -50,13 +50,15 @@ ipcMain.handle('app:getInfo', getAppInfo)
 
 ipcMain.handle('app:copyInfo', () => {
   const info = getAppInfo()
-  clipboard.writeText([
-    `Ryksu ${info.version}`,
-    `Platform: ${info.platform} / ${info.arch}`,
-    `Electron: ${info.electron}`,
-    `Chromium: ${info.chromium}`,
-    `Node.js: ${info.node}`,
-  ].join('\n'))
+  clipboard.writeText(
+    [
+      `Ryksu ${info.version}`,
+      `Platform: ${info.platform} / ${info.arch}`,
+      `Electron: ${info.electron}`,
+      `Chromium: ${info.chromium}`,
+      `Node.js: ${info.node}`,
+    ].join('\n')
+  )
   return { ok: true }
 })
 

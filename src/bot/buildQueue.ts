@@ -54,7 +54,10 @@ export class BuildQueue {
       const sameKind =
         running.type === action?.type && (action.type !== 'place' || bot.heldItem?.name === running.itemName)
       if (sameKind && Array.isArray(action.cells)) {
-        running.feed.incoming.push({ cells: action.cells, face: action.type === 'place' ? action.face : undefined })
+        running.feed.incoming.push({
+          cells: action.cells,
+          face: action.type === 'place' ? action.face : undefined,
+        })
         return `Added ${action.cells.length} more.`
       }
       this.queue.push(action)

@@ -11,7 +11,16 @@ import { Hammer } from 'lucide-react'
 import { PICK_MINING_CHESTS_EVENT } from './MiningPanel'
 import VitalBars, { Hotbar } from './VitalBars'
 import { useSavedLocations } from '../hooks/useSavedLocations'
-import type { AutoEatOptions, BotSnapshot, BuildAction, BuildCells, ChatMessage, MotionEntity, TradeOffer, WorldView } from '../types'
+import type {
+  AutoEatOptions,
+  BotSnapshot,
+  BuildAction,
+  BuildCells,
+  ChatMessage,
+  MotionEntity,
+  TradeOffer,
+  WorldView,
+} from '../types'
 
 // Window slot of the first hotbar slot in the player inventory.
 const HOTBAR_START = 36
@@ -161,12 +170,21 @@ const Dashboard: React.FC<DashboardProps> = ({
     setBlockFeedback('Opening block…')
     try {
       const result = await window.electronAPI.bot.interactBlock(position)
-      if (!result.ok) { setBlockFeedback(result.message ?? 'Could not open block.'); return }
+      if (!result.ok) {
+        setBlockFeedback(result.message ?? 'Could not open block.')
+        return
+      }
       const view = await window.electronAPI.bot.getWorldView()
-      if (view?.inventory.window) { setWorldView(view); setInventoryOpen(true); setBlockFeedback(null) }
-      else setBlockFeedback('The block closed before it could be displayed.')
-    } catch (error) { setBlockFeedback(error instanceof Error ? error.message : 'Could not open block.') }
-    finally { setOpeningBlock(false) }
+      if (view?.inventory.window) {
+        setWorldView(view)
+        setInventoryOpen(true)
+        setBlockFeedback(null)
+      } else setBlockFeedback('The block closed before it could be displayed.')
+    } catch (error) {
+      setBlockFeedback(error instanceof Error ? error.message : 'Could not open block.')
+    } finally {
+      setOpeningBlock(false)
+    }
   }
   useEffect(() => window.electronAPI.bot.onNotice(setBlockFeedback), [])
   // A follow (a gesture, the Follow button, …) stays in the bubble until it stops, then says so briefly.
@@ -255,7 +273,20 @@ const Dashboard: React.FC<DashboardProps> = ({
     }
     window.addEventListener('keydown', handleKey)
     return () => window.removeEventListener('keydown', handleKey)
-  }, [showChat, openingBlock, inventoryOpen, entityContext, onChatInputChange, onChatOpen, selectHotbar, buildMode, miningActive, pickingChests, following, updatePathfinder])
+  }, [
+    showChat,
+    openingBlock,
+    inventoryOpen,
+    entityContext,
+    onChatInputChange,
+    onChatOpen,
+    selectHotbar,
+    buildMode,
+    miningActive,
+    pickingChests,
+    following,
+    updatePathfinder,
+  ])
 
   return (
     <div className="relative min-h-0 min-w-0 flex-1 bg-neutral-950 text-neutral-100">
@@ -303,16 +334,19 @@ const Dashboard: React.FC<DashboardProps> = ({
       <div className="pointer-events-none absolute inset-0">
         {pickingChests ? (
           <div
-            className="pointer-events-auto absolute left-1/2 top-15 z-20 flex -translate-x-1/2 items-center gap-3
-              rounded-lg border border-amber-400/40 bg-neutral-950/85 px-3 py-2 text-xs text-amber-100 backdrop-blur-xl"
+            className="pointer-events-auto absolute left-1/2 top-15 z-20 flex -translate-x-1/2 items-center
+              gap-3 rounded-lg border border-amber-400/40 bg-neutral-950/85 px-3 py-2 text-xs text-amber-100
+              backdrop-blur-xl"
           >
             <span>
-              Click chests or barrels to store Auto Mine loot in ({snapshot.mining?.chests.length ?? 0} picked)
+              Click chests or barrels to store Auto Mine loot in ({snapshot.mining?.chests.length ?? 0}{' '}
+              picked)
             </span>
             <button
               type="button"
               onClick={() => setPickingChests(false)}
-              className="rounded-md border border-amber-400/50 px-2 py-0.5 font-semibold hover:bg-amber-400/10"
+              className="rounded-md border border-amber-400/50 px-2 py-0.5 font-semibold
+                hover:bg-amber-400/10"
             >
               Done
             </button>
@@ -334,7 +368,8 @@ const Dashboard: React.FC<DashboardProps> = ({
           <div
             role="status"
             className="absolute left-1/2 top-15 flex -translate-x-1/2 items-center gap-2.5 rounded-full border
-              border-sky-400/30 bg-neutral-950/75 py-1.5 pl-2 pr-3.5 text-xs text-neutral-300 shadow-lg backdrop-blur-xl"
+              border-sky-400/30 bg-neutral-950/75 py-1.5 pl-2 pr-3.5 text-xs text-neutral-300 shadow-lg
+              backdrop-blur-xl"
           >
             <span className="flex h-6 w-6 items-center justify-center rounded-full bg-sky-400/15 text-sky-300">
               <Hammer aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2} />
@@ -345,7 +380,10 @@ const Dashboard: React.FC<DashboardProps> = ({
               <kbd className="font-sans text-neutral-300">Right</kbd> place ·{' '}
               <span className="text-neutral-400">drag for a line</span> ·{' '}
               <kbd className="font-sans text-neutral-300">Middle drag</kbd> turn ·{' '}
-              <kbd className="rounded border border-white/15 px-1 font-sans text-[10px] text-neutral-300">B</kbd> exit
+              <kbd className="rounded border border-white/15 px-1 font-sans text-[10px] text-neutral-300">
+                B
+              </kbd>{' '}
+              exit
             </span>
           </div>
         ) : null}
@@ -395,7 +433,10 @@ const Dashboard: React.FC<DashboardProps> = ({
             <span className="flex max-w-[45%] items-center gap-2 rounded-md bg-neutral-950/80 px-2.5 py-1.5">
               <span className="truncate text-sky-300">{snapshot.mining.status}</span>
               <span className="shrink-0 text-neutral-500">
-                <kbd className="rounded border border-white/15 px-1 font-sans text-[10px] text-neutral-300">Esc</kbd> stop
+                <kbd className="rounded border border-white/15 px-1 font-sans text-[10px] text-neutral-300">
+                  Esc
+                </kbd>{' '}
+                stop
               </span>
             </span>
           ) : null}
@@ -404,21 +445,28 @@ const Dashboard: React.FC<DashboardProps> = ({
       {blockFeedback || following ? (
         <div
           role="status"
-          className="absolute bottom-28 left-1/2 z-30 flex -translate-x-1/2 items-center gap-2 rounded-lg border
-            border-white/10 bg-neutral-900/80 px-4 py-2 text-xs backdrop-blur-xl"
+          className="absolute bottom-28 left-1/2 z-30 flex -translate-x-1/2 items-center gap-2 rounded-lg
+            border border-white/10 bg-neutral-900/80 px-4 py-2 text-xs backdrop-blur-xl"
         >
           {blockFeedback ?? (
             <>
               <span>Following {following}</span>
               <span className="text-neutral-500">
-                <kbd className="rounded border border-white/15 px-1 font-sans text-[10px] text-neutral-300">Esc</kbd> stop
+                <kbd className="rounded border border-white/15 px-1 font-sans text-[10px] text-neutral-300">
+                  Esc
+                </kbd>{' '}
+                stop
               </span>
             </>
           )}
         </div>
       ) : null}
       {inventoryOpen && !showChat ? (
-        <InventoryPage key={worldView?.inventory.window?.id ?? 0} inventory={worldView?.inventory ?? null} onClose={closePage} />
+        <InventoryPage
+          key={worldView?.inventory.window?.id ?? 0}
+          inventory={worldView?.inventory ?? null}
+          onClose={closePage}
+        />
       ) : null}
       {entityContext && !inventoryOpen && !showChat ? (
         <EntityPopover
@@ -451,7 +499,6 @@ const Dashboard: React.FC<DashboardProps> = ({
         onClose={onChatClose}
         hidden={inventoryOpen || Boolean(entityContext) || Boolean(trader)}
       />
-
     </div>
   )
 }

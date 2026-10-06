@@ -9,9 +9,11 @@ module.exports = {
     icon: './assets/icon',
     // Vite's default filter only copies bundles. The main process keeps
     // runtime dependencies external so their native modules and data survive.
-    ignore: (file) => Boolean(file) && !['/.vite', '/node_modules', '/package.json'].some(
-      (entry) => file === entry || file.startsWith(`${entry}/`),
-    ),
+    ignore: (file) =>
+      Boolean(file) &&
+      !['/.vite', '/node_modules', '/package.json'].some(
+        (entry) => file === entry || file.startsWith(`${entry}/`)
+      ),
   },
   rebuildConfig: {},
   makers: [
@@ -33,9 +35,7 @@ module.exports = {
           { entry: 'src/preload.ts', config: 'vite.preload.config.mjs', target: 'preload' },
           { entry: 'src/worldWorker.ts', config: 'vite.worker.config.mjs', target: 'main' },
         ],
-        renderer: [
-          { name: 'main_window', config: 'vite.renderer.config.mjs' },
-        ],
+        renderer: [{ name: 'main_window', config: 'vite.renderer.config.mjs' }],
       },
     },
     // Fuses are used to enable/disable various Electron functionality

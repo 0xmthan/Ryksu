@@ -123,7 +123,21 @@ export const spreadLight = ({
 
 // `input`: the slice's grid and per-cell arrays, its palette, origin and the sky light at the bot's head.
 export const computeBlocks = (input: ComputeInput): BlocksData => {
-  const { origin, width, height, palette, properties, emits, filters, grid, kinds, leafy, submerged, occludes, skyLight } = input
+  const {
+    origin,
+    width,
+    height,
+    palette,
+    properties,
+    emits,
+    filters,
+    grid,
+    kinds,
+    leafy,
+    submerged,
+    occludes,
+    skyLight,
+  } = input
   const radius = input.radius ?? VOXEL_RADIUS
   const indexOf = (x: number, y: number, z: number) => (y * width + z) * width + x
 
@@ -223,4 +237,3 @@ export const computeBlocks = (input: ComputeInput): BlocksData => {
   }
   return data
 }
-

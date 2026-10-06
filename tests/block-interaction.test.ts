@@ -19,12 +19,17 @@ test('nearby containers open without walking and remove temporary listeners', as
 test('distant crafting tables are approached before activation', async () => {
   const bot = makeBot('crafting_table')
   const calls: string[] = []
-  bot.pathfinder = { goto: async (goal: { x: number }) => {
-    calls.push('walk')
-    assert.equal(goal.x, 10)
-    bot.entity.position.set(9, 0, 0)
-  } }
-  bot.activateBlock = async () => { calls.push('open'); bot.emit('windowOpen', {}) }
+  bot.pathfinder = {
+    goto: async (goal: { x: number }) => {
+      calls.push('walk')
+      assert.equal(goal.x, 10)
+      bot.entity.position.set(9, 0, 0)
+    },
+  }
+  bot.activateBlock = async () => {
+    calls.push('open')
+    bot.emit('windowOpen', {})
+  }
   await openInteractiveBlock(asBot(bot), { x: 10, y: 0, z: 0 })
   assert.deepEqual(calls, ['walk', 'open'])
 })

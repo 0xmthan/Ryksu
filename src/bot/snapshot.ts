@@ -19,7 +19,12 @@ const headUnderwater = (bot: Bot) => {
     const block = eyes ? bot.blockAt(eyes) : null
     if (!block) return false
     const waterlogged = block.getProperties?.().waterlogged
-    return block.name === 'water' || block.name === 'bubble_column' || waterlogged === true || waterlogged === 'true'
+    return (
+      block.name === 'water' ||
+      block.name === 'bubble_column' ||
+      waterlogged === true ||
+      waterlogged === 'true'
+    )
   } catch {
     return false
   }
@@ -30,12 +35,16 @@ const headUnderwater = (bot: Bot) => {
 const statusEffects = (bot: Bot, effectStarts: ReadonlyMap<number, number>): StatusEffect[] => {
   const effects = bot.entity?.effects ?? {}
   return Object.values(effects).flatMap((effect) => {
-    const info = bot.registry.effects?.[effect.id] as { name: string; displayName?: string; type?: string } | undefined
+    const info = bot.registry.effects?.[effect.id] as
+      { name: string; displayName?: string; type?: string } | undefined
     if (!info) return []
     return [
       {
         // Icon name, e.g. "jump_boost".
-        name: info.name.replace(/([a-z])([A-Z])/g, '$1_$2').replace(/[\s']/g, '_').toLowerCase(),
+        name: info.name
+          .replace(/([a-z])([A-Z])/g, '$1_$2')
+          .replace(/[\s']/g, '_')
+          .toLowerCase(),
         label: info.displayName ?? info.name,
         level: (effect.amplifier ?? 0) + 1,
         good: info.type === 'good',

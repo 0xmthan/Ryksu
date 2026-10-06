@@ -5,7 +5,8 @@ import { readOxygen } from '../src/bot/oxygen'
 import { fake } from './fakes'
 
 const registry = { entitiesByName: { player: { metadataKeys: ['shared_flags', 'air_supply'] } } }
-const botWith = (metadata: number[], extra = {}) => fake<Bot>({ registry, entity: { name: 'player', metadata }, ...extra })
+const botWith = (metadata: number[], extra = {}) =>
+  fake<Bot>({ registry, entity: { name: 'player', metadata }, ...extra })
 
 test('oxygen comes from the bot, not from what mineflayer last saw on any entity', () => {
   // A nearby mob's air update leaves bot.oxygenLevel at its value; the bot's own air is full.

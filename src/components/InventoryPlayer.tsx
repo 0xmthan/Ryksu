@@ -24,7 +24,10 @@ const InventoryPlayer: React.FC = () => {
     let model: ReturnType<typeof buildEntityModel> = null
     let animator: ReturnType<typeof createAnimator> | null = null
     let appearance = ''
-    let mouseX = 0, mouseY = 0, yaw = 0, pitch = 0
+    let mouseX = 0,
+      mouseY = 0,
+      yaw = 0,
+      pitch = 0
     const update = (entity: MotionEntity) => {
       const next = lookOf(entity)
       if (next === appearance) return
@@ -34,28 +37,57 @@ const InventoryPlayer: React.FC = () => {
       animator = model ? createAnimator(model) : null
       if (model) scene.add(model.root)
     }
-    update({ id: -1, kind: 'player', type: 'player', item: null, name: 'Bot',
-      x: 0, y: 0, z: 0, yaw: 0, headYaw: 0, pitch: 0, swing: 0, hurt: 0 })
-    const unsubscribe = window.electronAPI.bot.onMotion((motion) => update({
-      ...motion.bot, id: -1, kind: 'player', type: 'player', item: null, name: 'Bot',
-      skin: motion.bot.skin ?? undefined,
-      cape: motion.bot.cape ?? undefined,
-    }))
+    update({
+      id: -1,
+      kind: 'player',
+      type: 'player',
+      item: null,
+      name: 'Bot',
+      x: 0,
+      y: 0,
+      z: 0,
+      yaw: 0,
+      headYaw: 0,
+      pitch: 0,
+      swing: 0,
+      hurt: 0,
+    })
+    const unsubscribe = window.electronAPI.bot.onMotion((motion) =>
+      update({
+        ...motion.bot,
+        id: -1,
+        kind: 'player',
+        type: 'player',
+        item: null,
+        name: 'Bot',
+        skin: motion.bot.skin ?? undefined,
+        cape: motion.bot.cape ?? undefined,
+      })
+    )
     const move = (event: MouseEvent) => {
       const rect = element.getBoundingClientRect()
       mouseX = Math.atan((event.clientX - rect.left - rect.width / 2) / 180)
       mouseY = Math.atan((event.clientY - rect.top - rect.height * 0.25) / 180)
     }
     window.addEventListener('mousemove', move)
-    let frame = 0, previous = performance.now()
+    let frame = 0,
+      previous = performance.now()
     const render = (now: number) => {
       const delta = Math.min((now - previous) / 1000, 0.1)
       previous = now
       yaw += (mouseX - yaw) * (1 - Math.exp(-delta * 12))
       pitch += (mouseY - pitch) * (1 - Math.exp(-delta * 12))
       if (model) model.root.rotation.y = yaw * 0.45
-      animator?.update({ now: now / 1000, delta, stride: 0, walk: 0,
-        headYaw: yaw * 0.55, pitch: -pitch, sitting: false, crouching: false })
+      animator?.update({
+        now: now / 1000,
+        delta,
+        stride: 0,
+        walk: 0,
+        headYaw: yaw * 0.55,
+        pitch: -pitch,
+        sitting: false,
+        crouching: false,
+      })
       renderer.render(scene, camera)
       frame = requestAnimationFrame(render)
     }

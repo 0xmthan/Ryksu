@@ -37,8 +37,8 @@ export const blockVisibility = (
     if (above || !(faces & SHELL_BIT)) return null
     if (faces & CUT_TOP_BIT) mask |= 1
   } else if (mode === 'roof' && faces & ROOM_BIT) {
-    if (above) return (mask || hasPlant) ? { mask, ghost: true } : null
+    if (above) return mask || hasPlant ? { mask, ghost: true } : null
     if (faces & CUT_TOP_BIT) mask |= 1
   }
-  return (mask || hasPlant) ? { mask, ghost: false } : null
+  return mask || hasPlant ? { mask, ghost: false } : null
 }

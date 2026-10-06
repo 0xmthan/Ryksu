@@ -387,7 +387,11 @@ const App: React.FC = () => {
       setStatus({ ...incomingStatus, message: resolvedMessage ?? undefined })
 
       // The pill only says sign-in is pending; the code and link go to chat to read.
-      if (incomingStatus.stage === 'auth-required' && resolvedMessage && resolvedMessage !== lastAuthMessage.current) {
+      if (
+        incomingStatus.stage === 'auth-required' &&
+        resolvedMessage &&
+        resolvedMessage !== lastAuthMessage.current
+      ) {
         lastAuthMessage.current = resolvedMessage
         pushSystemChat(
           incomingStatus.microsoftAuth?.verificationUri
@@ -510,7 +514,9 @@ const App: React.FC = () => {
           onJumpAttackToggle={handleJumpAttackToggle}
         />
       </div>
-      <main className={`flex min-h-0 flex-1 overflow-y-auto ${isConnected && sidePage !== 'about' ? '' : 'pt-12'}`}>
+      <main
+        className={`flex min-h-0 flex-1 overflow-y-auto ${isConnected && sidePage !== 'about' ? '' : 'pt-12'}`}
+      >
         {sidePage === 'about' ? (
           <AboutPage />
         ) : sidePage === 'settings' && !isConnected ? (

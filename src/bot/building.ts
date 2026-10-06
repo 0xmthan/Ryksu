@@ -34,7 +34,8 @@ const PLACES_AS: Record<string, string> = {
   cocoa_beans: 'cocoa',
 }
 
-export const isPlaceable = (bot: Bot, item: Item | null | undefined) => Boolean(item && bot.registry.blocksByName[PLACES_AS[item.name] ?? item.name])
+export const isPlaceable = (bot: Bot, item: Item | null | undefined) =>
+  Boolean(item && bot.registry.blocksByName[PLACES_AS[item.name] ?? item.name])
 
 const toVec = (position: Vec3Like | null | undefined) => {
   if (!position || !(['x', 'y', 'z'] as const).every((key) => Number.isInteger(position[key]))) {
@@ -81,7 +82,8 @@ const inTheWay = (bot: Bot, target: Vec3) => {
 
 // Something to break there: not air or liquid (plants and flowers have no collision box, but count).
 const LIQUIDS = new Set(['water', 'lava', 'bubble_column'])
-export const isEmptySpace = (block: Block | null | undefined): block is null | undefined => !block || block.name.endsWith('air') || LIQUIDS.has(block.name)
+export const isEmptySpace = (block: Block | null | undefined): block is null | undefined =>
+  !block || block.name.endsWith('air') || LIQUIDS.has(block.name)
 
 export const breakBlock = async (bot: Bot, position: Vec3Like, { equipTool = false } = {}) => {
   const target = toVec(position)
@@ -205,7 +207,8 @@ const RETRYABLE = /standing there|Nothing to place against|out of reach|close en
 const MAX_PASSES = 256
 
 // Why a cell got skipped instead of stopping the whole line.
-const SKIPPABLE = /already there|standing there|Nothing to|out of reach|close enough|can't be broken|already gone|took too long/i
+const SKIPPABLE =
+  /already there|standing there|Nothing to|out of reach|close enough|can't be broken|already gone|took too long/i
 
 // Breaks or places every cell of a dragged line in order. One cell reports its own error; a longer line
 // skips cells it can't do and stops only when the blocks run out or it's cancelled.
@@ -304,7 +307,8 @@ export const buildCells = async (
             return `Ran out of ${item!.displayName} after ${done}.`
           }
           const occupant = bot.blockAt(cell)
-          if (occupant && occupant.boundingBox !== 'empty') throw new Error(`${name(occupant)} is already there.`)
+          if (occupant && occupant.boundingBox !== 'empty')
+            throw new Error(`${name(occupant)} is already there.`)
           const support = findSupport(bot, cell, face)
           if (!support) throw new Error('Nothing to place against there.')
           last = await step(placeBlock(bot, support.position, support.face), stopped)
@@ -324,7 +328,8 @@ export const buildCells = async (
         if (isCancelled()) return stoppedMessage()
         const message = String((error as Error | undefined)?.message)
         if (single()) throw error
-        if (!SKIPPABLE.test(message)) return `${placing ? 'Placed' : 'Broke'} ${done}, then: ${message || 'it failed.'}`
+        if (!SKIPPABLE.test(message))
+          return `${placing ? 'Placed' : 'Broke'} ${done}, then: ${message || 'it failed.'}`
         if (RETRYABLE.test(message)) retry.push({ cell, face })
         else {
           skipped++

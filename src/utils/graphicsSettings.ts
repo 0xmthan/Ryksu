@@ -33,7 +33,11 @@ export const SHADOW_QUALITIES: ShadowQuality[] = ['off', 'low', 'high', 'ultra']
 export const WATER_QUALITIES: WaterQuality[] = ['simple', 'fancy', 'realistic']
 export const UNLIMITED_FPS = -1
 export const FPS_LIMITS = [30, 60, 0, UNLIMITED_FPS] as const
-export const SHADOW_MAP_SIZE: Record<Exclude<ShadowQuality, 'off'>, number> = { low: 1024, high: 2048, ultra: 4096 }
+export const SHADOW_MAP_SIZE: Record<Exclude<ShadowQuality, 'off'>, number> = {
+  low: 1024,
+  high: 2048,
+  ultra: 4096,
+}
 
 // The look settings each quality preset sets; the frame rate options are left as they are.
 export type QualityPreset = 'low' | 'medium' | 'high' | 'ultra'
@@ -42,10 +46,38 @@ type LookSettings = Pick<
   'resolutionScale' | 'antialiasing' | 'shadows' | 'ambientOcclusion' | 'fog' | 'water'
 >
 export const QUALITY_PRESETS: Record<QualityPreset, LookSettings> = {
-  low: { resolutionScale: 0.5, antialiasing: false, shadows: 'off', ambientOcclusion: false, fog: false, water: 'simple' },
-  medium: { resolutionScale: 0.75, antialiasing: true, shadows: 'low', ambientOcclusion: true, fog: true, water: 'fancy' },
-  high: { resolutionScale: 1, antialiasing: true, shadows: 'high', ambientOcclusion: true, fog: true, water: 'realistic' },
-  ultra: { resolutionScale: 1, antialiasing: true, shadows: 'ultra', ambientOcclusion: true, fog: true, water: 'realistic' },
+  low: {
+    resolutionScale: 0.5,
+    antialiasing: false,
+    shadows: 'off',
+    ambientOcclusion: false,
+    fog: false,
+    water: 'simple',
+  },
+  medium: {
+    resolutionScale: 0.75,
+    antialiasing: true,
+    shadows: 'low',
+    ambientOcclusion: true,
+    fog: true,
+    water: 'fancy',
+  },
+  high: {
+    resolutionScale: 1,
+    antialiasing: true,
+    shadows: 'high',
+    ambientOcclusion: true,
+    fog: true,
+    water: 'realistic',
+  },
+  ultra: {
+    resolutionScale: 1,
+    antialiasing: true,
+    shadows: 'ultra',
+    ambientOcclusion: true,
+    fog: true,
+    water: 'realistic',
+  },
 }
 
 // The preset the settings match, or null when they've been changed from all of them.
@@ -89,7 +121,9 @@ export const loadGraphicsSettings = (): GraphicsSettings => {
         typeof stored.antialiasing === 'boolean' ? stored.antialiasing : DEFAULT_GRAPHICS.antialiasing,
       shadows: pick(stored.shadows, SHADOW_QUALITIES, DEFAULT_GRAPHICS.shadows),
       ambientOcclusion:
-        typeof stored.ambientOcclusion === 'boolean' ? stored.ambientOcclusion : DEFAULT_GRAPHICS.ambientOcclusion,
+        typeof stored.ambientOcclusion === 'boolean'
+          ? stored.ambientOcclusion
+          : DEFAULT_GRAPHICS.ambientOcclusion,
       fog: typeof stored.fog === 'boolean' ? stored.fog : DEFAULT_GRAPHICS.fog,
       water: pick(stored.water, WATER_QUALITIES, DEFAULT_GRAPHICS.water),
       renderDistance: pick(stored.renderDistance, RENDER_DISTANCES, DEFAULT_GRAPHICS.renderDistance),

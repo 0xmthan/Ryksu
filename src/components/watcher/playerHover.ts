@@ -4,7 +4,11 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
 import { OutlinePass } from 'three/examples/jsm/postprocessing/OutlinePass.js'
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js'
 
-export const createPlayerHover = (renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.PerspectiveCamera) => {
+export const createPlayerHover = (
+  renderer: THREE.WebGLRenderer,
+  scene: THREE.Scene,
+  camera: THREE.PerspectiveCamera
+) => {
   // With a stencil buffer, for the outlines of models seen through blocks (silhouette.ts).
   const size = renderer.getSize(new THREE.Vector2()).multiplyScalar(renderer.getPixelRatio())
   const composer = new EffectComposer(
@@ -12,7 +16,9 @@ export const createPlayerHover = (renderer: THREE.WebGLRenderer, scene: THREE.Sc
     new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType, stencilBuffer: true })
   )
   // Preserve the canvas antialiasing while the hover outline is active.
-  const samples = renderer.getContextAttributes()?.antialias ? Math.min(4, renderer.capabilities.maxSamples) : 0
+  const samples = renderer.getContextAttributes()?.antialias
+    ? Math.min(4, renderer.capabilities.maxSamples)
+    : 0
   composer.renderTarget1.samples = samples
   composer.renderTarget2.samples = samples
   const renderPass = new RenderPass(scene, camera)
@@ -30,14 +36,24 @@ export const createPlayerHover = (renderer: THREE.WebGLRenderer, scene: THREE.Sc
   return {
     render(object: THREE.Object3D | null, delta: number) {
       if (object) outline.selectedObjects = [object]
-      else if (outline.selectedObjects.some(selected => !scene.getObjectById(selected.id))) outline.selectedObjects = []
-      strength += ((object ? 3 : 0) - strength) * (1 - Math.exp(-Math.min(delta, .1) * 14))
+      else if (outline.selectedObjects.some((selected) => !scene.getObjectById(selected.id)))
+        outline.selectedObjects = []
+      strength += ((object ? 3 : 0) - strength) * (1 - Math.exp(-Math.min(delta, 0.1) * 14))
       outline.edgeStrength = strength
-      if (strength > .02 && outline.selectedObjects.length) composer.render(delta)
+      if (strength > 0.02 && outline.selectedObjects.length) composer.render(delta)
       else renderer.render(scene, camera)
     },
-    resize(width: number, height: number) { composer.setSize(width, height) },
-    setPixelRatio(ratio: number) { composer.setPixelRatio(ratio) },
-    dispose() { outline.dispose(); output.dispose(); renderPass.dispose(); composer.dispose() },
+    resize(width: number, height: number) {
+      composer.setSize(width, height)
+    },
+    setPixelRatio(ratio: number) {
+      composer.setPixelRatio(ratio)
+    },
+    dispose() {
+      outline.dispose()
+      output.dispose()
+      renderPass.dispose()
+      composer.dispose()
+    },
   }
 }

@@ -6,7 +6,8 @@ import './itemStack.css'
 
 type Item = NonNullable<InventoryItem>
 
-export const isEnchanted = (item: Item) => Boolean(item.enchantments?.length) || item.name === 'enchanted_book'
+export const isEnchanted = (item: Item) =>
+  Boolean(item.enchantments?.length) || item.name === 'enchanted_book'
 
 // Remaining durability, 0-1; null for items that don't wear out.
 export const durabilityLeft = (item: Item) =>
@@ -25,7 +26,10 @@ export const itemDetails = (item: Item) => [
 
 // The game's bar under a damaged item: black track, colored remaining part.
 const DurabilityBar: React.FC<{ left: number }> = ({ left }) => (
-  <span className="pointer-events-none absolute bottom-[3px] left-1/2 z-[1] h-[3px] w-[70%] -translate-x-1/2 bg-black">
+  <span
+    className="pointer-events-none absolute bottom-[3px] left-1/2 z-[1] h-[3px] w-[70%] -translate-x-1/2
+      bg-black"
+  >
     <span className="block h-[2px]" style={{ width: `${left * 100}%`, background: durabilityColor(left) }} />
   </span>
 )

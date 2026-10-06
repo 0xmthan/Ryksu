@@ -99,7 +99,12 @@ export class BreakProgress {
     const own = this.own
     if (own && Number.isFinite(own.total) && own.total > 0) {
       const progress = (performance.now() - own.start) / own.total
-      cracks.push({ x: own.x, y: own.y, z: own.z, stage: Math.min(STAGES - 1, Math.floor(progress * STAGES)) })
+      cracks.push({
+        x: own.x,
+        y: own.y,
+        z: own.z,
+        stage: Math.min(STAGES - 1, Math.floor(progress * STAGES)),
+      })
     }
     const key = JSON.stringify(cracks)
     if (key === this.lastSent && !broken) return

@@ -9,7 +9,11 @@ import { applyBlockEditing } from './blockEditing'
 
 type FollowOptions = Pick<PathfinderOptions, 'followEnabled' | 'followTarget'>
 type GoToLocation = NonNullable<PathfinderOptions['goToLocation']>
-type GoToRun = { target: { x: number; y: number; z: number }; goal: Goal | null; promise: Promise<unknown> | null }
+type GoToRun = {
+  target: { x: number; y: number; z: number }
+  goal: Goal | null
+  promise: Promise<unknown> | null
+}
 type DoorwayBlock = BlockInfo & { openDoorway?: boolean }
 
 // The movements patch below runs once per process; this marks it on the prototype.
@@ -18,10 +22,20 @@ const patchedPrototype = Movements.prototype as Movements & { _openDoorPatched?:
 // mineflayer-pathfinder treats open doors as solid obstacles because prismarine-block
 // assigns them boundingBox: 'block'. This patch marks open doors and open fence gates as safe and non-physical
 // so the pathfinder can walk right through them instead of seeing an impassable obstacle or trying to break them.
-const isOpenDoorway = (b: { name?: string; getProperties?: () => Record<string, unknown>; _properties?: Record<string, unknown> } | null | undefined) => {
+const isOpenDoorway = (
+  b:
+    | { name?: string; getProperties?: () => Record<string, unknown>; _properties?: Record<string, unknown> }
+    | null
+    | undefined
+) => {
   if (
     !b ||
-    !(b.name?.endsWith('_door') || b.name === 'door' || b.name === 'wooden_door' || b.name?.includes('gate')) ||
+    !(
+      b.name?.endsWith('_door') ||
+      b.name === 'door' ||
+      b.name === 'wooden_door' ||
+      b.name?.includes('gate')
+    ) ||
     b.name?.endsWith('trapdoor')
   ) {
     return false
@@ -48,7 +62,12 @@ if (!patchedPrototype._openDoorPatched) {
   // An open door still has its panel along one edge of the block, so only straight moves fit through.
   // Diagonals that start, end or cut a corner in a doorway clip the panel and leave the bot stuck on it.
   const originalGetMoveDiagonal = Movements.prototype.getMoveDiagonal
-  Movements.prototype.getMoveDiagonal = function (this: Movements, node: Move, dir: Direction, neighbors: Move[]) {
+  Movements.prototype.getMoveDiagonal = function (
+    this: Movements,
+    node: Move,
+    dir: Direction,
+    neighbors: Move[]
+  ) {
     for (const [dx, dz] of [
       [0, 0],
       [dir.x, dir.z],
@@ -77,7 +96,8 @@ const nearOpenDoorway = (bot: Bot) => {
       const block = bot.blockAt(feet.offset(dx, 0, dz))
       if (!block || !isOpenDoorway(block)) continue
       const center = block.position.offset(0.5, 0, 0.5)
-      if (Math.hypot(center.x - bot.entity.position.x, center.z - bot.entity.position.z) <= DOORWAY_REACH) return true
+      if (Math.hypot(center.x - bot.entity.position.x, center.z - bot.entity.position.z) <= DOORWAY_REACH)
+        return true
     }
   }
   return false

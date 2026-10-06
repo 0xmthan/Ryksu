@@ -128,14 +128,17 @@ export const boneGeometry = (
     }
     const origin = place(0, 0, 0)
     cubeFrames.push(...origin.toArray())
-    for (const edge of [place(1, 0, 0), place(0, 1, 0), place(0, 0, 1)]) cubeFrames.push(...edge.sub(origin).toArray())
+    for (const edge of [place(1, 0, 0), place(0, 1, 0), place(0, 0, 1)])
+      cubeFrames.push(...edge.sub(origin).toArray())
     for (const { dir, corners, u0, v0, u1, v1 } of FACES) {
       const base = positions.length / 3
       // Keep nearest-neighbor samples inside this face's atlas rectangle.
       // A tiny inset avoids neighboring (often white) texels at cube seams
       // without trimming half a pixel from Minecraft's small face textures.
-      const uStart = dot(u0, cube.size), uEnd = dot(u1, cube.size)
-      const vStart = dot(v0, cube.size), vEnd = dot(v1, cube.size)
+      const uStart = dot(u0, cube.size),
+        uEnd = dot(u1, cube.size)
+      const vStart = dot(v0, cube.size),
+        vEnd = dot(v1, cube.size)
       const uInset = Math.sign(uEnd - uStart) * Math.min(0.01, Math.abs(uEnd - uStart) / 2)
       const vInset = Math.sign(vEnd - vStart) * Math.min(0.01, Math.abs(vEnd - vStart) / 2)
       for (const corner of corners) {

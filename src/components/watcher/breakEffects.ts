@@ -84,7 +84,11 @@ export const createBreakEffects = (scene: THREE.Scene) => {
       group.add(mesh)
       bits.push({
         mesh,
-        velocity: new THREE.Vector3((Math.random() - 0.5) * 3, 2 + Math.random() * 3, (Math.random() - 0.5) * 3),
+        velocity: new THREE.Vector3(
+          (Math.random() - 0.5) * 3,
+          2 + Math.random() * 3,
+          (Math.random() - 0.5) * 3
+        ),
         age: 0,
         life: BIT_LIFE * (0.7 + Math.random() * 0.6),
       })

@@ -7,7 +7,11 @@ import { fake } from './fakes'
 test('alternating sideways movement keeps the view stable while actual sprint zoom still works', () => {
   const oldDocument = globalThis.document
   const oldWindow = globalThis.window
-  globalThis.document = fake<Document>({ addEventListener() {}, removeEventListener() {}, pointerLockElement: null })
+  globalThis.document = fake<Document>({
+    addEventListener() {},
+    removeEventListener() {},
+    pointerLockElement: null,
+  })
   globalThis.window = fake<Window & typeof globalThis>({ addEventListener() {}, removeEventListener() {} })
   const camera = new THREE.PerspectiveCamera()
   const view = createFirstPerson(camera, fake<HTMLElement>({}), () => {})

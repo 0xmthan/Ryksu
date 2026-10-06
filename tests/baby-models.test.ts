@@ -62,13 +62,24 @@ test('updated babies use dedicated geometry and textures at their native size', 
     assert.equal(sheep.materials[1].polygonOffset, true)
     for (const type of ['cat', 'wolf', 'horse', 'rabbit', 'llama', 'panda', 'pig', 'chicken', 'mooshroom']) {
       const entry = entityData.entities[type]
-      assert.deepEqual(Object.keys(entry.baby?.variants ?? {}).sort(), Object.keys(entry.variants ?? {}).sort(), type)
+      assert.deepEqual(
+        Object.keys(entry.baby?.variants ?? {}).sort(),
+        Object.keys(entry.variants ?? {}).sort(),
+        type
+      )
     }
     const fallback = build({ type: 'villager' })
     assert.equal(fallback.entry, entityData.entities.villager)
-    const armored = build({ type: 'zombie', baby: true,
-      equipment: { head: { name: 'diamond_helmet' }, chest: { name: 'diamond_chestplate' },
-        legs: { name: 'diamond_leggings' }, feet: { name: 'diamond_boots' } } })
+    const armored = build({
+      type: 'zombie',
+      baby: true,
+      equipment: {
+        head: { name: 'diamond_helmet' },
+        chest: { name: 'diamond_chestplate' },
+        legs: { name: 'diamond_leggings' },
+        feet: { name: 'diamond_boots' },
+      },
+    })
     assert.equal(armored.materials.length, 5)
     const babyArmor = entityData.armor.humanoid_baby.diamond
     assert.equal(armored.materials[1].map, armored.materials[4].map)
@@ -85,8 +96,13 @@ test('server sheep age metadata selects the new model and switches back on growt
     for (const version of ['26.1', '1.21.11']) {
       const registry = minecraftData(version)
       const keys = registry.entitiesByName.sheep.metadataKeys ?? []
-      const sheep = { id: 2, name: 'sheep', type: 'animal', position: new Vec3(1, 0, 0),
-        metadata: { [keys.indexOf('baby')]: true, [keys.indexOf('wool')]: 10 } as Record<number, unknown> }
+      const sheep = {
+        id: 2,
+        name: 'sheep',
+        type: 'animal',
+        position: new Vec3(1, 0, 0),
+        metadata: { [keys.indexOf('baby')]: true, [keys.indexOf('wool')]: 10 } as Record<number, unknown>,
+      }
       const self = { id: 1, name: 'player', position: new Vec3(0, 0, 0) }
       const bot = fake<Bot>({ registry, entity: self, entities: { 1: self, 2: sheep } })
       const baby = getMotion(bot)?.entities[0]

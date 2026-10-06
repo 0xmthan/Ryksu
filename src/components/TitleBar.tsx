@@ -38,7 +38,8 @@ const ArmorIcon = () => (
   </svg>
 )
 
-const fpsClass = (fps: number) => (fps >= 50 ? 'text-emerald-200' : fps >= 25 ? 'text-amber-200' : 'text-rose-300')
+const fpsClass = (fps: number) =>
+  fps >= 50 ? 'text-emerald-200' : fps >= 25 ? 'text-amber-200' : 'text-rose-300'
 
 const pingClass = (ping: number | null) => {
   if (ping == null) return 'bg-neutral-600'

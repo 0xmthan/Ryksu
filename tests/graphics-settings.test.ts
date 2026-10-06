@@ -19,7 +19,10 @@ globalThis.localStorage = {
 
 test('graphics settings fall back to defaults for missing or unknown values', () => {
   assert.deepEqual(loadGraphicsSettings(), DEFAULT_GRAPHICS)
-  store.set('ryksu:graphics', JSON.stringify({ resolutionScale: 3, antialiasing: 'yes', shadows: 'extreme', maxFps: 60 }))
+  store.set(
+    'ryksu:graphics',
+    JSON.stringify({ resolutionScale: 3, antialiasing: 'yes', shadows: 'extreme', maxFps: 60 })
+  )
   assert.deepEqual(loadGraphicsSettings(), { ...DEFAULT_GRAPHICS, maxFps: 60 })
   store.set('ryksu:graphics', 'not json')
   assert.deepEqual(loadGraphicsSettings(), DEFAULT_GRAPHICS)

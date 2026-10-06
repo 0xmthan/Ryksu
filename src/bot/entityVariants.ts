@@ -78,7 +78,10 @@ const asId = (value: unknown): unknown =>
   typeof value === 'object' && value
     ? ((value as { id?: unknown; value?: unknown }).id ?? (value as { value?: unknown }).value)
     : value
-const fromList = (list: readonly (string | null)[] | Record<number, string>, value: unknown): string | null => {
+const fromList = (
+  list: readonly (string | null)[] | Record<number, string>,
+  value: unknown
+): string | null => {
   const id = asId(value)
   if (typeof id === 'string') return id.replace(/^minecraft:/, '')
   return typeof id === 'number' ? ((list as Record<number, string | null>)[id] ?? null) : null

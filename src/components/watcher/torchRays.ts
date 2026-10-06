@@ -32,7 +32,8 @@ const uniforms = {
 }
 
 export const VERTEX_HEAD = 'varying vec3 vRayWorld;\nvarying vec3 vRayNormal;'
-export const VERTEX_BODY = '\n  vRayWorld = (modelMatrix * vec4(transformed, 1.0)).xyz;\n  vRayNormal = normal;'
+export const VERTEX_BODY =
+  '\n  vRayWorld = (modelMatrix * vec4(transformed, 1.0)).xyz;\n  vRayNormal = normal;'
 
 // rayBlockLight(spread): the block light (0-1) for this fragment, given the spread light it would get.
 export const FRAGMENT_HEAD = `
@@ -275,8 +276,13 @@ export const updateTorchRayCasters = (enabled: boolean, entities: THREE.Object3D
         world.multiplyMatrices(mesh.matrixWorld, frame)
         const e = world.elements
         // The box's center and how far its corners reach from it, for the entity's bounding sphere.
-        boxCenters[boxes].set(e[12] + (e[0] + e[4] + e[8]) / 2, e[13] + (e[1] + e[5] + e[9]) / 2, e[14] + (e[2] + e[6] + e[10]) / 2)
-        boxReach[boxes] = (Math.hypot(e[0], e[1], e[2]) + Math.hypot(e[4], e[5], e[6]) + Math.hypot(e[8], e[9], e[10])) / 2
+        boxCenters[boxes].set(
+          e[12] + (e[0] + e[4] + e[8]) / 2,
+          e[13] + (e[1] + e[5] + e[9]) / 2,
+          e[14] + (e[2] + e[6] + e[10]) / 2
+        )
+        boxReach[boxes] =
+          (Math.hypot(e[0], e[1], e[2]) + Math.hypot(e[4], e[5], e[6]) + Math.hypot(e[8], e[9], e[10])) / 2
         world.invert()
         const inverse = world.elements
         uniforms.uRayBoxes.value[boxes * 3].set(inverse[0], inverse[4], inverse[8], inverse[12])
@@ -291,7 +297,8 @@ export const updateTorchRayCasters = (enabled: boolean, entities: THREE.Object3D
     for (let i = first; i < boxes; i++) center.add(boxCenters[i])
     center.divideScalar(count)
     let radius = 0
-    for (let i = first; i < boxes; i++) radius = Math.max(radius, center.distanceTo(boxCenters[i]) + boxReach[i])
+    for (let i = first; i < boxes; i++)
+      radius = Math.max(radius, center.distanceTo(boxCenters[i]) + boxReach[i])
     uniforms.uRayCasters.value[casters].set(center.x, center.y, center.z, radius)
     uniforms.uRayCasterBoxes.value[casters].set(first, count)
     casters++

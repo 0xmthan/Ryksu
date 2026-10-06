@@ -51,7 +51,7 @@ export const dyeSheepPixels = (pixels: Uint8ClampedArray, width: number, color: 
     const channels = [pixels[i], pixels[i + 1], pixels[i + 2]]
     if (Math.min(...channels) < 180 || Math.max(...channels) - Math.min(...channels) > 12) continue
     for (let channel = 0; channel < 3; channel++) {
-      pixels[i + channel] = Math.round(pixels[i + channel] * rgb[channel] / 255)
+      pixels[i + channel] = Math.round((pixels[i + channel] * rgb[channel]) / 255)
     }
   }
 }

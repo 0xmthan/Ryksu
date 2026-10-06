@@ -14,7 +14,12 @@ module.exports = () => {
   const folder = path.join(assetsRoot, version, 'mob_effect')
   const icons = {}
   for (const file of fs.readdirSync(folder).filter((name) => name.endsWith('.png'))) {
-    icons[file.slice(0, -4)] = 'data:image/png;base64,' + fs.readFileSync(path.join(folder, file)).toString('base64')
+    icons[file.slice(0, -4)] =
+      'data:image/png;base64,' + fs.readFileSync(path.join(folder, file)).toString('base64')
   }
-  writeJson('effectIcons.json', { version, icons }, `${Object.keys(icons).length} effect icons from ${version}`)
+  writeJson(
+    'effectIcons.json',
+    { version, icons },
+    `${Object.keys(icons).length} effect icons from ${version}`
+  )
 }

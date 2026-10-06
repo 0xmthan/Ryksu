@@ -15,9 +15,9 @@ const stone = registry.blocksByName.stone.defaultState
 const chunk = { getBlockStateId: (local: Vec3) => (local.y < 64 ? stone : 0) }
 const fakeBot = () =>
   fake<Bot>({
-  registry,
-  entity: { position: new Vec3(0.5, 64, 0.5) },
-  world: { getColumn: () => chunk, getSkyLight: () => 15 },
+    registry,
+    entity: { position: new Vec3(0.5, 64, 0.5) },
+    world: { getColumn: () => chunk, getSkyLight: () => 15 },
   })
 
 // A first read always has a slice; later ones are null when nothing changed.

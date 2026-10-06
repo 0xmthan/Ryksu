@@ -55,7 +55,8 @@ const StatusPill: React.FC<StatusPillProps> = ({ status, lastError, isConnecting
     <div
       role="status"
       title={content.text}
-      className={`flex h-8 min-w-0 max-w-80 shrink items-center rounded-full border bg-neutral-900/70 ${content.className}`}
+      className={`flex h-8 min-w-0 max-w-80 shrink items-center rounded-full border bg-neutral-900/70
+        ${content.className}`}
     >
       <span className="flex h-8 w-8 shrink-0 items-center justify-center">{content.icon}</span>
       <span className="truncate pr-3 text-xs">{content.text}</span>

@@ -54,15 +54,16 @@ const PlayerCount = ({ players }: { players: { online: number; max: number; samp
     <span
       tabIndex={0}
       aria-describedby="server-player-list"
-      className="group relative inline-flex cursor-default items-center gap-1 rounded focus-visible:outline-sky-400"
+      className="group relative inline-flex cursor-default items-center gap-1 rounded
+        focus-visible:outline-sky-400"
     >
       {count}
       <span
         id="server-player-list"
         role="tooltip"
-        className="pointer-events-none absolute right-0 top-full z-30 mt-2 hidden min-w-max max-w-80 rounded-[3px]
-          border border-[#100010] bg-[#100010f0] px-2 py-1.5 font-mono text-xs leading-5 text-white
-          shadow-[inset_0_0_0_1px_#5000ff80] group-hover:block group-focus-visible:block"
+        className="pointer-events-none absolute right-0 top-full z-30 mt-2 hidden min-w-max max-w-80
+          rounded-[3px] border border-[#100010] bg-[#100010f0] px-2 py-1.5 font-mono text-xs leading-5
+          text-white shadow-[inset_0_0_0_1px_#5000ff80] group-hover:block group-focus-visible:block"
       >
         {players.sample.map((name, index) => (
           <FormattedLine key={index} value={name} />
@@ -150,7 +151,11 @@ export default function ServerPreview({ host, port }: ServerPreviewProps) {
             </button>
           </div>
         </div>
-        <div className="mt-1 font-mono text-xs leading-relaxed text-neutral-400" role="status" aria-live="polite">
+        <div
+          className="mt-1 font-mono text-xs leading-relaxed text-neutral-400"
+          role="status"
+          aria-live="polite"
+        >
           {online ? (
             <>
               {online.motd
@@ -161,7 +166,9 @@ export default function ServerPreview({ host, port }: ServerPreviewProps) {
                 ))}
               {online.version ? (
                 <span className="mt-0.5 block truncate text-neutral-600">
-                  {parseMotd(online.version).map((segment) => segment.text).join('')}
+                  {parseMotd(online.version)
+                    .map((segment) => segment.text)
+                    .join('')}
                 </span>
               ) : null}
             </>

@@ -30,7 +30,11 @@ const faceStyle = (src: string, tint: string | null): React.CSSProperties => ({
 })
 
 // `glint` adds the enchantment shimmer (see itemStack.css).
-const ItemIcon: React.FC<{ icon: ItemIconInfo; alt: string; glint?: boolean }> = ({ icon, alt, glint = false }) => {
+const ItemIcon: React.FC<{ icon: ItemIconInfo; alt: string; glint?: boolean }> = ({
+  icon,
+  alt,
+  glint = false,
+}) => {
   if (icon.kind === 'flat') {
     const image = (
       <img
@@ -66,7 +70,8 @@ const ItemIcon: React.FC<{ icon: ItemIconInfo; alt: string; glint?: boolean }> =
     <span
       role="img"
       aria-label={alt}
-      className={`pointer-events-none flex h-8 w-8 items-center justify-center ${glint ? 'item-glint-glow' : ''}`}
+      className={`pointer-events-none flex h-8 w-8 items-center justify-center
+        ${glint ? 'item-glint-glow' : ''}`}
     >
       <span
         className="relative"

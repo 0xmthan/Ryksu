@@ -2,7 +2,9 @@ import * as THREE from 'three'
 import type { MotionEntity } from '../../types'
 
 export const playerHealthText = (health?: number) =>
-  typeof health === 'number' && Number.isFinite(health) ? String(Math.round(Math.max(0, health) * 10) / 10) : '?'
+  typeof health === 'number' && Number.isFinite(health)
+    ? String(Math.round(Math.max(0, health) * 10) / 10)
+    : '?'
 
 // A shield with a check, in front of trusted players' names: 1 outline, 2 fill, 3 check.
 const SHIELD = [
@@ -19,7 +21,16 @@ const SHIELD = [
 const SHIELD_COLORS: Record<string, string> = { '1': '#064e3b', '2': '#34d399', '3': '#ecfdf5' }
 const SHIELD_WIDTH = 24
 
-const HEART = ['011101110', '122212221', '122222221', '122222221', '012222210', '001222100', '000121000', '000010000']
+const HEART = [
+  '011101110',
+  '122212221',
+  '122222221',
+  '122222221',
+  '012222210',
+  '001222100',
+  '000121000',
+  '000010000',
+]
 
 export const createPlayerNametag = (entity: MotionEntity) => {
   const canvas = document.createElement('canvas')
@@ -33,13 +44,21 @@ export const createPlayerNametag = (entity: MotionEntity) => {
     return made
   }
   let texture = makeTexture()
-  const material = new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: true, depthWrite: false })
+  const material = new THREE.SpriteMaterial({
+    map: texture,
+    transparent: true,
+    depthTest: true,
+    depthWrite: false,
+  })
   const sprite = new THREE.Sprite(material)
   // Labels do not intercept clicks on the player or the blocks behind them.
   sprite.userData.sharedGeometry = true
   sprite.raycast = () => {}
   sprite.renderOrder = 20
-  let signature = '', aspect = 1, hovered = false, current = entity
+  let signature = '',
+    aspect = 1,
+    hovered = false,
+    current = entity
   const update = (next: MotionEntity) => {
     current = next
     sprite.position.y = next.sleeping != null ? 1.1 : next.crouching ? 2.05 : 2.35
@@ -51,7 +70,9 @@ export const createPlayerNametag = (entity: MotionEntity) => {
     signature = key
     context.font = '600 16px monospace'
     const badge = trusted ? SHIELD_WIDTH : 0
-    const width = Math.ceil(badge + context.measureText(next.name).width + context.measureText(health).width + 50)
+    const width = Math.ceil(
+      badge + context.measureText(next.name).width + context.measureText(health).width + 50
+    )
     // A texture keeps the size it was first uploaded at, so a wider label (longer health, the trusted
     // badge) needs a new one.
     if (canvas.width !== width * 2 && texture.version > 0) {
@@ -67,7 +88,7 @@ export const createPlayerNametag = (entity: MotionEntity) => {
     context.fillRect(0, 0, width, 32)
     if (hovered) {
       context.strokeStyle = '#7dd3fc'
-      context.strokeRect(.5, .5, width - 1, 31)
+      context.strokeRect(0.5, 0.5, width - 1, 31)
     }
     context.font = '600 16px monospace'
     context.textBaseline = 'middle'
@@ -97,13 +118,19 @@ export const createPlayerNametag = (entity: MotionEntity) => {
     context.fillStyle = '#e5e5e5'
     context.fillText(health, heartX + 23, 16)
     aspect = width / 32
-    sprite.scale.set(.3 * aspect, .3, 1)
+    sprite.scale.set(0.3 * aspect, 0.3, 1)
     texture.needsUpdate = true
   }
   update(entity)
-  return { sprite, update,
-    setHovered(value: boolean) { if (value !== hovered) { hovered = value; update(current) } },
-
+  return {
+    sprite,
+    update,
+    setHovered(value: boolean) {
+      if (value !== hovered) {
+        hovered = value
+        update(current)
+      }
+    },
   }
 }
 export type PlayerNametag = ReturnType<typeof createPlayerNametag>

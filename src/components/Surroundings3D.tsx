@@ -8,7 +8,15 @@ import { loadBlockAtlas, type BlockAtlas } from '../utils/blockAtlas'
 import { modeFor, type ViewMode } from '../utils/viewMode'
 import { createTracked, stepTracked, syncTracked, type Tracked } from './watcher/entityObjects'
 import { createSelfMotion } from './watcher/selfMotion'
-import { groundTarget, isDoorBlock, isLiquid, pickAt, REPLACEABLE_BLOCKS, walkTarget, type Pick } from './watcher/picking'
+import {
+  groundTarget,
+  isDoorBlock,
+  isLiquid,
+  pickAt,
+  REPLACEABLE_BLOCKS,
+  walkTarget,
+  type Pick,
+} from './watcher/picking'
 import { disposeObject, makeLabel } from './watcher/sceneUtils'
 import { createSky } from './watcher/sky'
 import { applyBlockLight } from './watcher/blockLight'
@@ -153,7 +161,11 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
   movementEnabledRef.current = movementEnabled
   const cameraRigRef = useRef<ReturnType<typeof createCameraRig> | null>(null)
   // The camera is always on the bot, so walking with the keys needs nothing extra.
-  useManualMovement(movementEnabled, () => movementLook.current, () => {})
+  useManualMovement(
+    movementEnabled,
+    () => movementLook.current,
+    () => {}
+  )
   const onHotbarScrollRef = useRef(onHotbarScroll)
   onHotbarScrollRef.current = onHotbarScroll
   const onCloseChatRef = useRef(onCloseChat)
@@ -486,7 +498,12 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
       const blend = 1 - Math.exp(-delta * FOLLOW_RATE)
 
       sky.update(timeOfDay, state.mode, bot ? bot.object.position : controls.target, delta)
-      updateWater(now, scene.background as THREE.Color, sky.lightDirection(waterLight), sky.lightColor(waterLightColor))
+      updateWater(
+        now,
+        scene.background as THREE.Color,
+        sky.lightDirection(waterLight),
+        sky.lightColor(waterLightColor)
+      )
       updateEdgeFog(
         fogEnabled,
         bot ? bot.object.position : controls.target,
@@ -544,7 +561,10 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
         if (firstPerson.isLocked()) {
           // The bot turns its head with the view, so others see where it looks and hits land there.
           const { yaw, pitch } = movementLook.current
-          if (now - lastLookSent > LOOK_SEND_S && (Math.abs(yaw - sentYaw) > 0.005 || Math.abs(pitch! - sentPitch) > 0.005)) {
+          if (
+            now - lastLookSent > LOOK_SEND_S &&
+            (Math.abs(yaw - sentYaw) > 0.005 || Math.abs(pitch! - sentPitch) > 0.005)
+          ) {
             window.electronAPI.bot.firstPerson.look(yaw, pitch!)
             sentYaw = yaw
             sentPitch = pitch!
@@ -629,7 +649,10 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
             renderer.domElement,
             camera,
             // In first person the camera is inside the bot's (hidden) head, which would be hit first.
-            [...(bot && !firstPerson.isActive() ? [bot.object] : []), ...[...entities.values()].map((entry) => entry.object)],
+            [
+              ...(bot && !firstPerson.isActive() ? [bot.object] : []),
+              ...[...entities.values()].map((entry) => entry.object),
+            ],
             state.chunks?.pickable() ?? [],
             state.anchor,
             skipBlock,
@@ -669,11 +692,17 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
         const anchor = state.anchor
         const target = breakPick(event)
         const spot = placeSpot(picked)
-        buildPreview.show(target ? target.position.clone().sub(anchor) : null, spot ? spot.cell.sub(anchor) : null)
+        buildPreview.show(
+          target ? target.position.clone().sub(anchor) : null,
+          spot ? spot.cell.sub(anchor) : null
+        )
       } else {
         buildPreview.hide()
       }
-      hoveredPlayer = picked?.kind === 'entity' && picked.id !== null && entityInfo.get(picked.id)?.kind === 'player' ? picked.id : null
+      hoveredPlayer =
+        picked?.kind === 'entity' && picked.id !== null && entityInfo.get(picked.id)?.kind === 'player'
+          ? picked.id
+          : null
       describeHover(picked)
     }
 
@@ -740,7 +769,8 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
     // On the container in the capture phase, so it runs before the camera controls' own pointerdown.
     const handleBuildPointerDown = (event: PointerEvent) => {
       if (firstPerson.isActive()) return
-      if (!buildModeRef.current || onBlockPickRef.current || (event.button !== 0 && event.button !== 2)) return
+      if (!buildModeRef.current || onBlockPickRef.current || (event.button !== 0 && event.button !== 2))
+        return
       if (event.button === 2 && !heldBlockRef.current) return
       const mode: BuildLineMode = event.button === 2 ? 'place' : 'break'
       const picked = mode === 'place' ? pick(event) : breakPick(event)
@@ -756,7 +786,12 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
     let pressed: { x: number; y: number; button: number; dragged?: boolean } | null = null
     // Holding the left button on the ground keeps walking toward the pointer; the camera follows the bot,
     // so a long walk is just holding the mouse where you want to go.
-    let holdWalk: { event: PointerEvent; timer: number; interval: number | null; last: THREE.Vector3 | null } | null = null
+    let holdWalk: {
+      event: PointerEvent
+      timer: number
+      interval: number | null
+      last: THREE.Vector3 | null
+    } | null = null
     const stepHoldWalk = () => {
       if (!holdWalk || !state.anchor) return
       const picked = pick(holdWalk.event)
@@ -868,7 +903,8 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
           ? { x: event.clientX, y: event.clientY, button: event.button }
           : null
       stopHoldWalk()
-      if (event.button !== 0 || buildModeRef.current || onBlockPickRef.current || !movementEnabledRef.current) return
+      if (event.button !== 0 || buildModeRef.current || onBlockPickRef.current || !movementEnabledRef.current)
+        return
       if (pick(event)?.kind !== 'block') return
       holdWalk = {
         event,
@@ -984,7 +1020,12 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
       }
       walk()
     }
-    const handlePointerLeave = () => { stopHoldWalk(); hoveredPlayer = null; buildPreview.hide(); onHoverRef.current(null) }
+    const handlePointerLeave = () => {
+      stopHoldWalk()
+      hoveredPlayer = null
+      buildPreview.hide()
+      onHoverRef.current(null)
+    }
     const handleContextMenu = (event: MouseEvent) => event.preventDefault()
     const handleCameraKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') setGearOpen(false)
@@ -1011,9 +1052,13 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
         !document.activeElement?.closest('input, textarea, select, [contenteditable="true"]')
       ) {
         const next =
-          SEE_THROUGH_SHAPES[(SEE_THROUGH_SHAPES.indexOf(getSeeThroughShape()) + 1) % SEE_THROUGH_SHAPES.length]
+          SEE_THROUGH_SHAPES[
+            (SEE_THROUGH_SHAPES.indexOf(getSeeThroughShape()) + 1) % SEE_THROUGH_SHAPES.length
+          ]
         setSeeThroughShape(next)
-        onHoverRef.current(next === 'cutaway' ? 'Cutaway on: leaves and roofs over the bot are hidden' : 'Cutaway off')
+        onHoverRef.current(
+          next === 'cutaway' ? 'Cutaway on: leaves and roofs over the bot are hidden' : 'Cutaway off'
+        )
         return
       }
       if (
@@ -1154,12 +1199,18 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
       {firstPersonView.active ? (
         <>
           {/* The game's crosshair: a thin plus that inverts what's behind it. */}
-          <div className="pointer-events-none absolute left-1/2 top-1/2 z-10 h-[18px] w-[18px] -translate-x-1/2 -translate-y-1/2 mix-blend-difference">
+          <div
+            className="pointer-events-none absolute left-1/2 top-1/2 z-10 h-[18px] w-[18px] -translate-x-1/2
+              -translate-y-1/2 mix-blend-difference"
+          >
             <span className="absolute left-0 top-1/2 h-[2px] w-full -translate-y-1/2 bg-white" />
             <span className="absolute left-1/2 top-0 h-full w-[2px] -translate-x-1/2 bg-white" />
           </div>
           {firstPersonView.locked ? null : (
-            <div className="pointer-events-none absolute left-1/2 top-1/2 z-10 mt-8 -translate-x-1/2 rounded-md bg-neutral-950/80 px-3 py-1.5 text-xs text-neutral-300">
+            <div
+              className="pointer-events-none absolute left-1/2 top-1/2 z-10 mt-8 -translate-x-1/2 rounded-md
+                bg-neutral-950/80 px-3 py-1.5 text-xs text-neutral-300"
+            >
               Click to look around · Scroll out or F5 to leave
             </div>
           )}
@@ -1173,7 +1224,8 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
             <div key={label} ref={ref} className="group pointer-events-none absolute left-0 top-0 z-10">
               {/* The hand cards come first, then the armor. */}
               <div
-                className={`transition duration-200 ease-out ${gearOpen ? 'opacity-100' : 'scale-95 opacity-0'}`}
+                className={`transition duration-200 ease-out
+                  ${gearOpen ? 'opacity-100' : 'scale-95 opacity-0'}`}
               >
                 <HandCard label={label} item={item} />
               </div>
@@ -1187,9 +1239,10 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
             {['Helmet', 'Chestplate', 'Leggings', 'Boots'].map((label, index) => (
               <div
                 key={label}
-                className={`transition duration-200 ease-out ${index === 1 || index === 2 ? '-translate-y-3.5' : ''} ${
-                  gearOpen ? 'pointer-events-auto opacity-100' : 'scale-90 opacity-0'
-                }`}
+                className={`transition duration-200 ease-out
+                  ${index === 1 || index === 2 ? '-translate-y-3.5' : ''} ${
+                    gearOpen ? 'pointer-events-auto opacity-100' : 'scale-90 opacity-0'
+                  }`}
                 // One by one from the helmet, after the hand cards, when opening; all together when closing.
                 style={{ transitionDelay: gearOpen ? `${ARMOR_DELAY_MS + index * 70}ms` : '0ms' }}
               >

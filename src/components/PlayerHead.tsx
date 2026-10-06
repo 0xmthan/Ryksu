@@ -28,7 +28,11 @@ const skinFor = (name: string) => {
 const hue = (name: string) => [...name].reduce((sum, char) => (sum * 31 + char.charCodeAt(0)) % 360, 7)
 
 // A player's face (and hat layer) cut from their skin; their initial on a colored tile without one.
-const PlayerHead: React.FC<{ name: string; size?: number; className?: string }> = ({ name, size = 14, className = '' }) => {
+const PlayerHead: React.FC<{ name: string; size?: number; className?: string }> = ({
+  name,
+  size = 14,
+  className = '',
+}) => {
   const [skin, setSkin] = useState<string | null>(null)
   useEffect(() => {
     let cancelled = false
@@ -45,7 +49,8 @@ const PlayerHead: React.FC<{ name: string; size?: number; className?: string }> 
     return (
       <span
         aria-hidden="true"
-        className={`inline-flex shrink-0 items-center justify-center rounded-[3px] font-sans font-bold text-white/90 ${className}`}
+        className={`inline-flex shrink-0 items-center justify-center rounded-[3px] font-sans font-bold
+          text-white/90 ${className}`}
         style={{ ...box, fontSize: size * 0.62, background: `hsl(${hue(name)} 35% 38%)` }}
       >
         {name[0]?.toUpperCase()}
@@ -62,7 +67,11 @@ const PlayerHead: React.FC<{ name: string; size?: number; className?: string }> 
     imageRendering: 'pixelated',
   })
   return (
-    <span aria-hidden="true" className={`relative inline-block shrink-0 overflow-hidden rounded-[2px] ${className}`} style={box}>
+    <span
+      aria-hidden="true"
+      className={`relative inline-block shrink-0 overflow-hidden rounded-[2px] ${className}`}
+      style={box}
+    >
       <span style={layer(8)} />
       <span style={layer(40)} />
     </span>

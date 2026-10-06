@@ -35,9 +35,14 @@ export const runInventoryAction = async (bot: Bot | null, action: InventoryActio
       // Validate the entire gesture before sending any clicks to the server.
       for (const { slot, button, mode } of action.clicks) {
         if (slot !== -999) assertSlot(slot, window.slots.length - 1)
-        if (![0, 1, 2, 4].includes(mode) || !Number.isInteger(button) ||
-            button < 0 || button > (mode === 2 ? 8 : 1) ||
-            (slot === -999 && mode !== 0)) throw new Error('Invalid inventory click.')
+        if (
+          ![0, 1, 2, 4].includes(mode) ||
+          !Number.isInteger(button) ||
+          button < 0 ||
+          button > (mode === 2 ? 8 : 1) ||
+          (slot === -999 && mode !== 0)
+        )
+          throw new Error('Invalid inventory click.')
       }
       for (const { slot, button, mode } of action.clicks) await bot.clickWindow(slot, button, mode)
       return

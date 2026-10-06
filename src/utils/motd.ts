@@ -29,7 +29,14 @@ export const MOTD_COLORS: Record<string, string> = {
   f: '#ffffff',
 }
 
-const PLAIN = { color: null, bold: false, italic: false, underlined: false, strikethrough: false, obfuscated: false }
+const PLAIN = {
+  color: null,
+  bold: false,
+  italic: false,
+  underlined: false,
+  strikethrough: false,
+  obfuscated: false,
+}
 const TOKEN = /§#([0-9a-f]{6})|§x((?:§[0-9a-f]){6})|§([0-9a-fk-or])/gi
 
 export const parseMotd = (value: string): MotdSegment[] => {

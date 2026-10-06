@@ -26,7 +26,12 @@ const capeModel = (attachment: THREE.Group) =>
   fake<MobModel>({ bones: new Map([['cape', attachment]]), materials: [] })
 
 test('profile cape URLs accept Mojang textures and normalize HTTP', () => {
-  const player = { skinData: { url: 'http://textures.minecraft.net/texture/abc123', capeUrl: 'http://textures.minecraft.net/texture/deadbeef' } }
+  const player = {
+    skinData: {
+      url: 'http://textures.minecraft.net/texture/abc123',
+      capeUrl: 'http://textures.minecraft.net/texture/deadbeef',
+    },
+  }
   assert.equal(skinUrl(player), 'https://textures.minecraft.net/texture/abc123')
   assert.equal(capeUrl(player), 'https://textures.minecraft.net/texture/deadbeef')
   assert.equal(capeUrl(player, 126), null)
@@ -77,7 +82,10 @@ test('a cape texture finishing after disposal never revives the model', async ()
 
 test('cape sits close to the jacket and leaves additional clearance for chest armor', () => {
   fetchTexture = async () => null
-  for (const [armored, offset] of [[false, 2.4], [true, 2.65]] as const) {
+  for (const [armored, offset] of [
+    [false, 2.4],
+    [true, 2.65],
+  ] as const) {
     const attachment = new THREE.Group()
     attachment.position.z = 3
     const model = capeModel(attachment)

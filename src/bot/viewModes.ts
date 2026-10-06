@@ -56,7 +56,8 @@ export const analyzeView = ({
   skyLight,
 }: ViewAnalysisInput) => {
   const indexOf = (x: number, y: number, z: number) => (y * width + z) * width + x
-  const inside = (x: number, y: number, z: number) => x >= 0 && y >= 0 && z >= 0 && x < width && y < height && z < width
+  const inside = (x: number, y: number, z: number) =>
+    x >= 0 && y >= 0 && z >= 0 && x < width && y < height && z < width
   const total = width * width * height
 
   // Air the bot can reach, flooding from its feet and head.

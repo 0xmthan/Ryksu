@@ -2,7 +2,12 @@ import type { Bot } from 'mineflayer'
 import type { AutoEatOptions, AutoEatPriority } from '../../types'
 import { loader, type EatUtil } from './core/autoEat'
 
-export const PRIORITY_OPTIONS: AutoEatPriority[] = ['foodPoints', 'saturation', 'effectiveQuality', 'saturationRatio']
+export const PRIORITY_OPTIONS: AutoEatPriority[] = [
+  'foodPoints',
+  'saturation',
+  'effectiveQuality',
+  'saturationRatio',
+]
 
 export const DEFAULT_OPTIONS: AutoEatOptions = {
   priority: 'foodPoints',
@@ -16,7 +21,10 @@ export const DEFAULT_OPTIONS: AutoEatOptions = {
 }
 
 // `incoming` comes from the renderer (or saved settings), so every field is checked.
-export const sanitizeOptions = (incoming: unknown = {}, base: AutoEatOptions = DEFAULT_OPTIONS): AutoEatOptions => {
+export const sanitizeOptions = (
+  incoming: unknown = {},
+  base: AutoEatOptions = DEFAULT_OPTIONS
+): AutoEatOptions => {
   const result: AutoEatOptions = {
     ...base,
     bannedFood: Array.isArray(base.bannedFood) ? [...base.bannedFood] : [...DEFAULT_OPTIONS.bannedFood],
@@ -29,7 +37,9 @@ export const sanitizeOptions = (incoming: unknown = {}, base: AutoEatOptions = D
 
   if (typeof options.priority === 'string' && options.priority.trim().length > 0) {
     const trimmed = options.priority.trim()
-    result.priority = PRIORITY_OPTIONS.includes(trimmed as AutoEatPriority) ? (trimmed as AutoEatPriority) : result.priority
+    result.priority = PRIORITY_OPTIONS.includes(trimmed as AutoEatPriority)
+      ? (trimmed as AutoEatPriority)
+      : result.priority
   }
 
   if (Number.isFinite(Number(options.minHunger))) {
@@ -80,7 +90,10 @@ const loadAutoEatPlugin = (bot: Bot | null) => {
   return bot.autoEat
 }
 
-type EatListeners = Record<'eatStart' | 'eatFail' | 'eatFinish', (opts?: { food?: { name?: string; displayName?: string } }) => void>
+type EatListeners = Record<
+  'eatStart' | 'eatFail' | 'eatFinish',
+  (opts?: { food?: { name?: string; displayName?: string } }) => void
+>
 
 export class AutoEatController {
   private onEating: (food: string | null) => void
@@ -221,7 +234,8 @@ export class AutoEatController {
 
     // Eating takes a couple of seconds and the plugin finishes (even after a failure) with eatFinish.
     let failed = false
-    const foodName = (opts?: { food?: { name?: string; displayName?: string } }) => opts?.food?.displayName ?? opts?.food?.name ?? 'food'
+    const foodName = (opts?: { food?: { name?: string; displayName?: string } }) =>
+      opts?.food?.displayName ?? opts?.food?.name ?? 'food'
     this.eatListeners = {
       eatStart: (opts) => {
         failed = false
@@ -238,7 +252,8 @@ export class AutoEatController {
         this.onResult({ food, ok: !failed })
       },
     }
-    for (const [event, listener] of Object.entries(this.eatListeners)) autoEat.on(event as never, listener as never)
+    for (const [event, listener] of Object.entries(this.eatListeners))
+      autoEat.on(event as never, listener as never)
 
     this.enabled = true
   }

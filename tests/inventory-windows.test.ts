@@ -17,7 +17,11 @@ test('large chest keeps all 54 storage slots and renders nine columns', () => {
   assert.equal(window.result, null)
 })
 test('anvil, furnace and smithing results stay separate from inputs', () => {
-  for (const [type, start, result] of [['anvil', 3, 2], ['furnace', 3, 2], ['smithing', 4, 3]] as const) {
+  for (const [type, start, result] of [
+    ['anvil', 3, 2],
+    ['furnace', 3, 2],
+    ['smithing', 4, 3],
+  ] as const) {
     const window = layout(`minecraft:${type}`, start, result)
     assert.equal(window.inputs.length, start - 1)
     assert.equal(window.inputs.includes(result), false)

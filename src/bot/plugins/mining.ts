@@ -374,7 +374,9 @@ export class MiningController {
       }
     }
     throw new Error(
-      this.chests.length === 1 ? 'STOP: The chest is full or unreachable.' : 'STOP: All picked chests are full or unreachable.'
+      this.chests.length === 1
+        ? 'STOP: The chest is full or unreachable.'
+        : 'STOP: All picked chests are full or unreachable.'
     )
   }
 
@@ -484,7 +486,6 @@ export class MiningController {
     }
     return null
   }
-
 
   describeTargets() {
     const bot = this.bot

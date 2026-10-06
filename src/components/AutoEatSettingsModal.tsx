@@ -21,7 +21,11 @@ const AutoEatSettingsModal: React.FC<AutoEatSettingsModalProps> = ({ options, on
         { value: 'foodPoints', label: 'Food Points', hint: 'Maximizes hunger points restored.' },
         { value: 'saturation', label: 'Saturation', hint: 'Prefers food with higher saturation gain.' },
         { value: 'effectiveQuality', label: 'Effective Quality', hint: 'Balances hunger and saturation.' },
-        { value: 'saturationRatio', label: 'Saturation Ratio', hint: 'Optimizes saturation per hunger point.' },
+        {
+          value: 'saturationRatio',
+          label: 'Saturation Ratio',
+          hint: 'Optimizes saturation per hunger point.',
+        },
       ] satisfies Array<{ value: AutoEatOptions['priority']; label: string; hint: string }>,
     []
   )
@@ -77,8 +81,7 @@ const AutoEatSettingsModal: React.FC<AutoEatSettingsModalProps> = ({ options, on
       .map((entry) => entry.trim())
       .filter((entry) => entry.length > 0)
 
-    const sanitizedPriority =
-      priorityOptions.find((entry) => entry.value === priority)?.value ?? 'foodPoints'
+    const sanitizedPriority = priorityOptions.find((entry) => entry.value === priority)?.value ?? 'foodPoints'
 
     onSave({
       priority: sanitizedPriority,
@@ -110,9 +113,7 @@ const AutoEatSettingsModal: React.FC<AutoEatSettingsModalProps> = ({ options, on
             <h2 id="auto-eat-settings-title" className="text-lg font-semibold text-neutral-50">
               Auto Eat Settings
             </h2>
-            <p className="mt-1 text-sm text-neutral-400">
-              Tune how the bot picks food and when it eats.
-            </p>
+            <p className="mt-1 text-sm text-neutral-400">Tune how the bot picks food and when it eats.</p>
           </div>
           <button
             type="button"
@@ -136,8 +137,8 @@ const AutoEatSettingsModal: React.FC<AutoEatSettingsModalProps> = ({ options, on
                   priorityOptions.find((entry) => entry.value === event.target.value)?.value ?? 'foodPoints'
                 setPriority(nextValue)
               }}
-              className="rounded-md border border-neutral-800 bg-neutral-950/80 px-3 py-2 text-sm text-neutral-100
-                focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/40"
+              className="rounded-md border border-neutral-800 bg-neutral-950/80 px-3 py-2 text-sm
+                text-neutral-100 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/40"
             >
               {priorityOptions.map((entry) => (
                 <option key={entry.value} value={entry.value}>
@@ -181,7 +182,9 @@ const AutoEatSettingsModal: React.FC<AutoEatSettingsModalProps> = ({ options, on
                 className="rounded-md border border-neutral-800 bg-neutral-950/80 px-3 py-2 text-sm
                   text-neutral-100 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/40"
               />
-              <p className="text-xs text-neutral-500">Below this health, the bot favours food with better saturation.</p>
+              <p className="text-xs text-neutral-500">
+                Below this health, the bot favours food with better saturation.
+              </p>
             </label>
           </div>
 
@@ -194,10 +197,12 @@ const AutoEatSettingsModal: React.FC<AutoEatSettingsModalProps> = ({ options, on
               min={0}
               value={eatingTimeout}
               onChange={(event) => setEatingTimeout(event.target.value)}
-              className="rounded-md border border-neutral-800 bg-neutral-950/80 px-3 py-2 text-sm text-neutral-100
-                focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/40"
+              className="rounded-md border border-neutral-800 bg-neutral-950/80 px-3 py-2 text-sm
+                text-neutral-100 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/40"
             />
-            <p className="text-xs text-neutral-500">Abort eating if it takes longer than this many milliseconds.</p>
+            <p className="text-xs text-neutral-500">
+              Abort eating if it takes longer than this many milliseconds.
+            </p>
           </label>
 
           <label className="flex flex-col gap-2 text-sm text-neutral-200">
@@ -208,8 +213,8 @@ const AutoEatSettingsModal: React.FC<AutoEatSettingsModalProps> = ({ options, on
               rows={3}
               value={bannedFood}
               onChange={(event) => setBannedFood(event.target.value)}
-              className="rounded-md border border-neutral-800 bg-neutral-950/80 px-3 py-2 text-sm text-neutral-100
-                focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/40"
+              className="rounded-md border border-neutral-800 bg-neutral-950/80 px-3 py-2 text-sm
+                text-neutral-100 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/40"
             />
             <p className="text-xs text-neutral-500">
               Listed items are never eaten. Separate multiple entries with commas.
@@ -241,11 +246,11 @@ const AutoEatSettingsModal: React.FC<AutoEatSettingsModalProps> = ({ options, on
                 checked={strictErrors}
                 onChange={(event) => setStrictErrors(event.target.checked)}
                 className="h-4 w-4 accent-sky-500"
-            />
-            Strict Errors
-          </label>
+              />
+              Strict Errors
+            </label>
+          </div>
         </div>
-      </div>
 
         <footer className="mt-6 flex justify-end gap-3">
           <button
@@ -259,7 +264,8 @@ const AutoEatSettingsModal: React.FC<AutoEatSettingsModalProps> = ({ options, on
           <button
             type="submit"
             className="rounded-full bg-sky-500 px-5 py-2 text-sm font-semibold text-neutral-950 transition
-              hover:bg-sky-400 focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-sky-400"
+              hover:bg-sky-400 focus-visible:outline focus-visible:outline-offset-2
+              focus-visible:outline-sky-400"
           >
             Save
           </button>

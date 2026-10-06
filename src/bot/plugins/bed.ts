@@ -34,7 +34,10 @@ export const canSleepNow = (bot: Bot) => {
 const waitForSetSpawnMessage = (bot: Bot) =>
   new Promise<boolean>((resolve) => {
     const handleMessage = (message: { translate?: string; toString?: () => string } | null) => {
-      if (message?.translate === 'block.minecraft.set_spawn' || /respawn point set/i.test(message?.toString?.() ?? '')) {
+      if (
+        message?.translate === 'block.minecraft.set_spawn' ||
+        /respawn point set/i.test(message?.toString?.() ?? '')
+      ) {
         finish(true)
       }
     }
@@ -114,7 +117,9 @@ export class BedController {
       if (this._bedItem()) {
         return canSleepNow(bot) ? this._placeBedAndSleep() : this._placeBedAndSetSpawn()
       }
-      throw new Error(beds.length ? 'Every bed nearby is occupied.' : `No bed within ${BED_SEARCH_RADIUS} blocks.`)
+      throw new Error(
+        beds.length ? 'Every bed nearby is occupied.' : `No bed within ${BED_SEARCH_RADIUS} blocks.`
+      )
     }
 
     try {
@@ -128,7 +133,9 @@ export class BedController {
       const confirmed = await this._setSpawnAt(bed)
       return {
         sleeping: false,
-        message: confirmed ? 'Spawn point set.' : 'Used the bed, but the server did not confirm the spawn point.',
+        message: confirmed
+          ? 'Spawn point set.'
+          : 'Used the bed, but the server did not confirm the spawn point.',
       }
     }
 
@@ -356,12 +363,16 @@ export class BedController {
   }
 
   private _bedItem() {
-    return this._requireBot().inventory.items().find((item) => isBedName(item.name)) ?? null
+    return (
+      this._requireBot()
+        .inventory.items()
+        .find((item) => isBedName(item.name)) ?? null
+    )
   }
 
   private _countBeds() {
-    return this._requireBot().inventory
-      .items()
+    return this._requireBot()
+      .inventory.items()
       .filter((item) => isBedName(item.name))
       .reduce((total, item) => total + item.count, 0)
   }

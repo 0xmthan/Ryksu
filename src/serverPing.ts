@@ -22,7 +22,10 @@ const motdToText = (description: unknown) => {
 }
 
 // `target` comes from the renderer, so its fields are checked here.
-export const pingServer = async ({ host, port }: { host?: unknown; port?: unknown } = {}): Promise<ServerPing> => {
+export const pingServer = async ({
+  host,
+  port,
+}: { host?: unknown; port?: unknown } = {}): Promise<ServerPing> => {
   const trimmedHost = typeof host === 'string' ? host.trim() : ''
   if (!trimmedHost) {
     return { ok: false, message: 'No host set.' }

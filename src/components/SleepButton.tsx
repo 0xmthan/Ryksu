@@ -41,7 +41,9 @@ const SleepButton: React.FC<SleepButtonProps> = ({ isSleeping, canSleep, bedPick
 
   const handleAction = async (pickup = false) => {
     setIsBusy(true)
-    setBusyLabel(pickup ? 'Picking up…' : isSleeping ? 'Waking…' : canSleep ? 'Going to bed…' : 'Setting spawn…')
+    setBusyLabel(
+      pickup ? 'Picking up…' : isSleeping ? 'Waking…' : canSleep ? 'Going to bed…' : 'Setting spawn…'
+    )
     setFeedback(null)
     try {
       const response = pickup
@@ -59,15 +61,20 @@ const SleepButton: React.FC<SleepButtonProps> = ({ isSleeping, canSleep, bedPick
   }
 
   const label = isSleeping ? 'Wake Up' : canSleep ? 'Sleep' : 'Set Spawn'
-  const description = isSleeping ? 'Click to wake up.' : canSleep
-    ? 'Sleep in the nearest bed and set spawn.'
-    : 'Set spawn at a nearby bed, or place your own.'
+  const description = isSleeping
+    ? 'Click to wake up.'
+    : canSleep
+      ? 'Sleep in the nearest bed and set spawn.'
+      : 'Set spawn at a nearby bed, or place your own.'
   const Icon = isBusy ? LoaderCircle : isSleeping ? Sun : canSleep ? Bed : MapPin
   const offerPickup = bedPickupPending && !isBusy && !isSleeping
   const expanded = isBusy || Boolean(feedback) || offerPickup
 
   return (
-    <div className="group relative flex h-8 shrink-0 items-center rounded-full border border-neutral-700/60 bg-neutral-900/70 transition hover:border-sky-400/70">
+    <div
+      className="group relative flex h-8 shrink-0 items-center rounded-full border border-neutral-700/60
+        bg-neutral-900/70 transition hover:border-sky-400/70"
+    >
       <button
         type="button"
         onClick={() => handleAction()}
@@ -79,28 +86,54 @@ const SleepButton: React.FC<SleepButtonProps> = ({ isSleeping, canSleep, bedPick
           focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-sky-400
           disabled:cursor-wait ${isSleeping ? 'text-sky-300' : 'text-neutral-300'}`}
       >
-        <Icon aria-hidden="true" className={`h-[18px] w-[18px] ${isBusy ? 'animate-spin' : ''}`} strokeWidth={1.75} />
+        <Icon
+          aria-hidden="true"
+          className={`h-[18px] w-[18px] ${isBusy ? 'animate-spin' : ''}`}
+          strokeWidth={1.75}
+        />
       </button>
-      <div className={`overflow-hidden transition-[max-width,opacity] duration-200 motion-reduce:transition-none
-        ${expanded ? 'max-w-52 opacity-100' : 'max-w-0 opacity-0'}`}>
+      <div
+        className={`overflow-hidden transition-[max-width,opacity] duration-200 motion-reduce:transition-none
+          ${expanded ? 'max-w-52 opacity-100' : 'max-w-0 opacity-0'}`}
+      >
         <div className="flex items-center gap-2 whitespace-nowrap pr-3 text-xs">
           {offerPickup ? (
             <>
               <span className="text-neutral-300">Pick up bed?</span>
-              <button type="button" onClick={() => handleAction(true)} className="text-sky-300 hover:text-white">Yes</button>
-              <button type="button" onClick={() => window.electronAPI.bot.dismissBedPickup()} className="text-neutral-400 hover:text-white">Leave</button>
+              <button
+                type="button"
+                onClick={() => handleAction(true)}
+                className="text-sky-300 hover:text-white"
+              >
+                Yes
+              </button>
+              <button
+                type="button"
+                onClick={() => window.electronAPI.bot.dismissBedPickup()}
+                className="text-neutral-400 hover:text-white"
+              >
+                Leave
+              </button>
             </>
           ) : (
-            <span role="status" title={feedback?.text} className={`truncate ${feedback?.isError ? 'text-rose-300' : 'text-neutral-200'}`}>
+            <span
+              role="status"
+              title={feedback?.text}
+              className={`truncate ${feedback?.isError ? 'text-rose-300' : 'text-neutral-200'}`}
+            >
               {isBusy ? busyLabel : feedback?.text}
             </span>
           )}
         </div>
       </div>
       {!expanded ? (
-        <div id={tooltipId} role="tooltip" className="pointer-events-none absolute right-0 top-full z-50 mt-2 w-52
-          rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2.5 text-xs text-neutral-400 shadow-xl
-          opacity-0 transition group-hover:opacity-100 group-has-[:focus-visible]:opacity-100">
+        <div
+          id={tooltipId}
+          role="tooltip"
+          className="pointer-events-none absolute right-0 top-full z-50 mt-2 w-52 rounded-lg border
+            border-neutral-700 bg-neutral-900 px-3 py-2.5 text-xs text-neutral-400 shadow-xl opacity-0
+            transition group-hover:opacity-100 group-has-[:focus-visible]:opacity-100"
+        >
           <span className="mb-1 block font-semibold text-neutral-100">{label}</span>
           {description}
           {!canSleep && !isSleeping && timeOfDay !== null ? (

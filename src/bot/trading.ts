@@ -84,7 +84,8 @@ export const openTrader = async (bot: Bot, entity: Entity): Promise<TraderWindow
   if (bot.currentWindow) throw new Error('Close the current container first.')
   await walkTo(bot, entity)
   if (!entity.isValid) throw new Error('The trader is gone.')
-  if (bot.entity.position.distanceTo(entity.position) > REACH + 1) throw new Error('The trader is out of reach.')
+  if (bot.entity.position.distanceTo(entity.position) > REACH + 1)
+    throw new Error('The trader is out of reach.')
 
   const packetName = tradeListPacket(bot)
   let trades: TradeListPacket | null = null

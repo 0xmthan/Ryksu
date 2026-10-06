@@ -169,7 +169,14 @@ export const Hotbar: React.FC<{
             key={index}
             type="button"
             onClick={() => select(index)}
-            title={item ? [`${index + 1}: ${item.displayName}${item.count > 1 ? ` ×${item.count}` : ''}`, ...itemDetails(item)].join('\n') : `${index + 1}: Empty`}
+            title={
+              item
+                ? [
+                    `${index + 1}: ${item.displayName}${item.count > 1 ? ` ×${item.count}` : ''}`,
+                    ...itemDetails(item),
+                  ].join('\n')
+                : `${index + 1}: Empty`
+            }
             aria-label={`Hotbar slot ${index + 1}${item ? `: ${item.displayName}` : ': empty'}`}
             aria-pressed={active}
             className={`relative flex h-[34px] w-[34px] items-center justify-center rounded-md border
@@ -225,7 +232,9 @@ const VitalBars: React.FC<{
         label="Food"
         value={food}
         status={
-          eating ? { label: `Eating ${eating}…`, className: 'vitals-eating text-emerald-200' } : foodStatus(food)
+          eating
+            ? { label: `Eating ${eating}…`, className: 'vitals-eating text-emerald-200' }
+            : foodStatus(food)
         }
         fillClass={food <= 6 ? `vitals-fill-low ${food <= 3 ? 'vitals-blink' : ''}` : 'vitals-fill-normal'}
         lossClass="vitals-hunger"
@@ -251,7 +260,9 @@ const VitalBars: React.FC<{
           label="O2"
           value={oxygen}
           status={oxygenStatus(oxygen, underwater)}
-          fillClass={oxygen <= 6 ? `vitals-fill-low ${oxygen <= 3 ? 'vitals-blink' : ''}` : 'vitals-fill-oxygen'}
+          fillClass={
+            oxygen <= 6 ? `vitals-fill-low ${oxygen <= 3 ? 'vitals-blink' : ''}` : 'vitals-fill-oxygen'
+          }
           lossClass="vitals-air"
         />
       ) : null}

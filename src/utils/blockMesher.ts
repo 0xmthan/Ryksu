@@ -142,22 +142,24 @@ const modelsFor = (name: string, properties: Record<string, unknown>): Apply[][]
 const pickApplies = (parts: Apply[][], x: number, y: number, z: number): Apply[] => {
   let seed = 0
   // A part whose models were all missing at generation has no alternatives; it draws nothing.
-  return parts.filter((list) => list.length > 0).map((list, part) => {
-    if (list.length === 1) return list[0]
-    if (!seed) {
-      seed = Math.imul(x, 3129871) ^ Math.imul(z, 116129781) ^ y
-      seed = Math.imul(seed ^ (seed >>> 16), 0x45d9f3b)
-      seed = Math.imul(seed ^ (seed >>> 16), 0x45d9f3b)
-      seed = (seed ^ (seed >>> 16)) >>> 0 || 1
-    }
-    const total = list.reduce((sum, apply) => sum + (apply.w ?? 1), 0)
-    let roll = (((seed + Math.imul(part, 0x9e3779b9)) >>> 0) % 1000003) / 1000003 * total
-    for (const apply of list) {
-      roll -= apply.w ?? 1
-      if (roll < 0) return apply
-    }
-    return list[list.length - 1]
-  })
+  return parts
+    .filter((list) => list.length > 0)
+    .map((list, part) => {
+      if (list.length === 1) return list[0]
+      if (!seed) {
+        seed = Math.imul(x, 3129871) ^ Math.imul(z, 116129781) ^ y
+        seed = Math.imul(seed ^ (seed >>> 16), 0x45d9f3b)
+        seed = Math.imul(seed ^ (seed >>> 16), 0x45d9f3b)
+        seed = (seed ^ (seed >>> 16)) >>> 0 || 1
+      }
+      const total = list.reduce((sum, apply) => sum + (apply.w ?? 1), 0)
+      let roll = ((((seed + Math.imul(part, 0x9e3779b9)) >>> 0) % 1000003) / 1000003) * total
+      for (const apply of list) {
+        roll -= apply.w ?? 1
+        if (roll < 0) return apply
+      }
+      return list[list.length - 1]
+    })
 }
 
 const AXES = { x: new THREE.Vector3(1, 0, 0), y: new THREE.Vector3(0, 1, 0), z: new THREE.Vector3(0, 0, 1) }
@@ -441,7 +443,9 @@ export const buildBlockMeshes = (
           FACE_CORNERS[direction].forEach(([cx, cy, cz], k) => {
             corner.set(
               element.from[0] + cx * (element.to[0] - element.from[0]),
-              topHeights && cy ? topHeights[cx + cz * 2] : element.from[1] + cy * (element.to[1] - element.from[1]),
+              topHeights && cy
+                ? topHeights[cx + cz * 2]
+                : element.from[1] + cy * (element.to[1] - element.from[1]),
               element.from[2] + cz * (element.to[2] - element.from[2])
             )
             if (rotation) {
@@ -475,11 +479,17 @@ export const buildBlockMeshes = (
               const oy = by + fy
               const oz = bz + fz
               // Splits the tangent steps into the face's two axes.
-              const [ax, ay, az, bx2, by2, bz2] = fx ? [0, sy, 0, 0, 0, sz] : fy ? [sx, 0, 0, 0, 0, sz] : [sx, 0, 0, 0, sy, 0]
+              const [ax, ay, az, bx2, by2, bz2] = fx
+                ? [0, sy, 0, 0, 0, sz]
+                : fy
+                  ? [sx, 0, 0, 0, 0, sz]
+                  : [sx, 0, 0, 0, sy, 0]
               const sideA = (ax || ay || az) !== 0 && solidAt!(ox + ax, oy + ay, oz + az)
               const sideB = (bx2 || by2 || bz2) !== 0 && solidAt!(ox + bx2, oy + by2, oz + bz2)
               const cornerSolid =
-                (ax || ay || az) !== 0 && (bx2 || by2 || bz2) !== 0 && solidAt!(ox + ax + bx2, oy + ay + by2, oz + az + bz2)
+                (ax || ay || az) !== 0 &&
+                (bx2 || by2 || bz2) !== 0 &&
+                solidAt!(ox + ax + bx2, oy + ay + by2, oz + az + bz2)
               ao = AO_SHADE[sideA && sideB ? 3 : Number(sideA) + Number(sideB) + Number(cornerSolid)]
             }
             vertexAo[k] = ao
@@ -551,7 +561,9 @@ export const buildBlockMeshes = (
     const y = blocks.positions[index * 3 + 1]
     const z = blocks.positions[index * 3 + 2]
     const heightOf = (cell: number) =>
-      blocks.palette[blocks.blocks[cell]] === liquid ? levelHeight(blocks.properties?.[blocks.blocks[cell]]) : 8 / 9
+      blocks.palette[blocks.blocks[cell]] === liquid
+        ? levelHeight(blocks.properties?.[blocks.blocks[cell]])
+        : 8 / 9
     const corners = [0, 0, 0, 0]
     for (let corner = 0; corner < 4; corner++) {
       const dx = corner & 1 ? 1 : -1
@@ -627,8 +639,8 @@ export const buildBlockMeshes = (
       : name === 'water'
         ? water
         : entry?.translucent || TRANSLUCENT.test(name)
-        ? translucent
-        : opaque
+          ? translucent
+          : opaque
     const fallbackColor = applied ? null : new THREE.Color(blockColor(name))
 
     const isLiquid = name === 'water' || name === 'lava'
@@ -642,7 +654,21 @@ export const buildBlockMeshes = (
     if (name !== 'water' && isSubmerged(name, blocks.properties?.[paletteIndex])) {
       const waterBuffers = visible.ghost ? ghost : water
       const waterCorners = mask & 1 ? liquidCorners(i, 'water') : null
-      renderElements(waterBuffers, WATER_APPLIES, WATER_TINT_HEX, 16, mask, null, x, y, z, i, y, false, waterCorners)
+      renderElements(
+        waterBuffers,
+        WATER_APPLIES,
+        WATER_TINT_HEX,
+        16,
+        mask,
+        null,
+        x,
+        y,
+        z,
+        i,
+        y,
+        false,
+        waterCorners
+      )
     }
   }
 

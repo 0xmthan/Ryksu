@@ -55,7 +55,10 @@ const writeCustomClick = (client: Client, id: string, payload: nbt.Tags['compoun
     return
   }
 
-  const withPayload = client.serializer.createPacketBuffer({ name: 'custom_click_action', params: { id, nbt: payload } })
+  const withPayload = client.serializer.createPacketBuffer({
+    name: 'custom_click_action',
+    params: { id, nbt: payload },
+  })
   const withoutPayload = client.serializer.createPacketBuffer({ name: 'custom_click_action', params: { id } })
   // Both buffers share the packet id and action id; they differ only after the optional's boolean byte.
   const head = withoutPayload.subarray(0, withoutPayload.length - 1)
@@ -117,7 +120,9 @@ export const attachPreJoinLogin = (
     }
 
     writeCustomClick(client, action, nbt.comp(values))
-    onStatus(isRegister ? 'Registering on the server login screen…' : 'Logging in on the server login screen…')
+    onStatus(
+      isRegister ? 'Registering on the server login screen…' : 'Logging in on the server login screen…'
+    )
   }
 
   client.on('show_dialog', handleDialog)

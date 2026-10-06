@@ -25,22 +25,42 @@ const GEOMETRY = { sheep: 'sheared' }
 const BABY_MODELS = require('../vendor/baby-mob-models.json')
 const MODERN_MODELS = require('../vendor/modern-mob-models.json')
 const BABY_ALIASES = {
-  mule: 'donkey', skeleton_horse: 'horse', zombie_horse: 'horse', ocelot: 'cat',
-  mooshroom: 'cow', zoglin: 'hoglin', zombified_piglin: 'piglin', husk: 'zombie',
-  drowned: 'zombie', wandering_trader: 'villager',
+  mule: 'donkey',
+  skeleton_horse: 'horse',
+  zombie_horse: 'horse',
+  ocelot: 'cat',
+  mooshroom: 'cow',
+  zoglin: 'hoglin',
+  zombified_piglin: 'piglin',
+  husk: 'zombie',
+  drowned: 'zombie',
+  wandering_trader: 'villager',
   glow_squid: 'squid',
 }
 
 const addBabies = (out, textures) => {
   const files = listTextures().filter((file) => file.endsWith('_baby'))
   const special = {
-    cat: 'cat/cat_black', cow: 'cow/cow_temperate', chicken: 'chicken/chicken_temperate',
-    pig: 'pig/pig_temperate', horse: 'horse/horse_brown', donkey: 'horse/donkey',
-    mule: 'horse/mule', skeleton_horse: 'horse/horse_skeleton', zombie_horse: 'horse/horse_zombie',
-    ocelot: 'cat/ocelot', mooshroom: 'cow/mooshroom_red', polar_bear: 'bear/polarbear',
-    turtle: 'turtle/turtle', zombified_piglin: 'piglin/zombified_piglin',
-    zoglin: 'hoglin/zoglin', husk: 'zombie/husk', drowned: 'zombie/drowned',
-    rabbit: 'rabbit/rabbit_brown', axolotl: 'axolotl/axolotl_lucy', llama: 'llama/llama_creamy',
+    cat: 'cat/cat_black',
+    cow: 'cow/cow_temperate',
+    chicken: 'chicken/chicken_temperate',
+    pig: 'pig/pig_temperate',
+    horse: 'horse/horse_brown',
+    donkey: 'horse/donkey',
+    mule: 'horse/mule',
+    skeleton_horse: 'horse/horse_skeleton',
+    zombie_horse: 'horse/horse_zombie',
+    ocelot: 'cat/ocelot',
+    mooshroom: 'cow/mooshroom_red',
+    polar_bear: 'bear/polarbear',
+    turtle: 'turtle/turtle',
+    zombified_piglin: 'piglin/zombified_piglin',
+    zoglin: 'hoglin/zoglin',
+    husk: 'zombie/husk',
+    drowned: 'zombie/drowned',
+    rabbit: 'rabbit/rabbit_brown',
+    axolotl: 'axolotl/axolotl_lucy',
+    llama: 'llama/llama_creamy',
     glow_squid: 'squid/glow_squid',
   }
   const add = (ref) => textures.add(path.join(entityDir, `${ref}_baby.png`))
@@ -55,17 +75,28 @@ const addBabies = (out, textures) => {
     const baby = { texture: base, bones: geometry.bones, variants: {} }
     const names = type === 'cow' ? ['temperate', 'warm', 'cold'] : Object.keys(VARIANTS[type] ?? {})
     for (const name of names) {
-      const suffix = type === 'wolf' && name === 'pale' || type === 'panda' && name === 'normal'
-        || type === 'fox' && name === 'red' ? type : `${type}_${name}`
-      const candidates = [`${type}/${suffix}`, `${type}/${name}_${type}`,
-        type === 'mooshroom' ? `cow/mooshroom_${name}` : '']
+      const suffix =
+        (type === 'wolf' && name === 'pale') ||
+        (type === 'panda' && name === 'normal') ||
+        (type === 'fox' && name === 'red')
+          ? type
+          : `${type}_${name}`
+      const candidates = [
+        `${type}/${suffix}`,
+        `${type}/${name}_${type}`,
+        type === 'mooshroom' ? `cow/mooshroom_${name}` : '',
+      ]
       const ref = candidates.find((candidate) => files.includes(`${candidate}_baby`))
       if (ref) baby.variants[name] = add(ref)
     }
-    if (villager) baby.villagerTypes = VILLAGER_TYPES.map((name) =>
-      textures.add(path.join(entityDir, type, 'baby', `${name}.png`)))
-    if (type === 'horse') baby.markings = textures.addAll(HORSE_MARKINGS,
-      (ref) => path.join(entityDir, 'horse', `${path.basename(ref)}_baby.png`))
+    if (villager)
+      baby.villagerTypes = VILLAGER_TYPES.map((name) =>
+        textures.add(path.join(entityDir, type, 'baby', `${name}.png`))
+      )
+    if (type === 'horse')
+      baby.markings = textures.addAll(HORSE_MARKINGS, (ref) =>
+        path.join(entityDir, 'horse', `${path.basename(ref)}_baby.png`)
+      )
     if (type === 'sheep') {
       // Java 26.1 registers the same BabySheepModel layer for body and wool.
       // Inflating it like the adult fleece gives lambs the old bulky silhouette.
@@ -213,8 +244,11 @@ module.exports = () => {
   const horseMarkings = textures.addAll(HORSE_MARKINGS, fromAssets)
   const armor = armorTextures(textures)
   for (const [type, geometry] of Object.entries(MODERN_MODELS)) {
-    const file = findTexture(`textures/entity/${type}/${type}`) ??
-      geometry.external_textures?.map((ref) => findTexture(`textures/${ref.replace(/\.png$/, '')}`)).find(Boolean)
+    const file =
+      findTexture(`textures/entity/${type}/${type}`) ??
+      geometry.external_textures
+        ?.map((ref) => findTexture(`textures/${ref.replace(/\.png$/, '')}`))
+        .find(Boolean)
     if (file) out[type] = { texture: textures.add(file), bones: geometry.bones }
   }
   if (out.squid) {

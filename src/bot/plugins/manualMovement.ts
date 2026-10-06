@@ -32,7 +32,8 @@ export class ManualMovementController {
 
   // `raw` comes from the renderer as MovementControls, checked here before use.
   setControls(raw: unknown): { ok: boolean; message?: string } {
-    const input = raw as (Record<ControlState, boolean> & { yaw: number; pitch?: number; relative?: boolean }) | null
+    const input = raw as
+      (Record<ControlState, boolean> & { yaw: number; pitch?: number; relative?: boolean }) | null
     if (
       !input ||
       !CONTROLS.every((control) => typeof input[control] === 'boolean') ||
@@ -64,7 +65,9 @@ export class ManualMovementController {
       // First person keeps facing the view and strafes, like the game.
       const relative = input.relative === true
       if (relative) {
-        bot.look(input.yaw, Number.isFinite(input.pitch) ? input.pitch! : bot.entity.pitch, true).catch(() => {})
+        bot
+          .look(input.yaw, Number.isFinite(input.pitch) ? input.pitch! : bot.entity.pitch, true)
+          .catch(() => {})
       } else if (walking) {
         const heading = input.yaw + Math.atan2(left, forward)
         bot.look(heading, 0, true).catch(() => {})

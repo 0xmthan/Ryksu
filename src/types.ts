@@ -209,7 +209,11 @@ export type PlayerList = {
 // that was clicked (pointing out of the block it belongs to), so the first block goes against it.
 export type BuildAction =
   | { type: 'break'; cells: { x: number; y: number; z: number }[] }
-  | { type: 'place'; cells: { x: number; y: number; z: number }[]; face?: { x: number; y: number; z: number } }
+  | {
+      type: 'place'
+      cells: { x: number; y: number; z: number }[]
+      face?: { x: number; y: number; z: number }
+    }
 
 // Blocks being broken right now (stage 0-9, the game's crack textures), and one the bot just finished.
 export type BreakingState = {
@@ -218,7 +222,10 @@ export type BreakingState = {
 }
 
 // Blocks the bot still has to break and place (the line it's on and any queued after it).
-export type BuildCells = { break: { x: number; y: number; z: number }[]; place: { x: number; y: number; z: number }[] }
+export type BuildCells = {
+  break: { x: number; y: number; z: number }[]
+  place: { x: number; y: number; z: number }[]
+}
 
 // One offer from an open villager or wandering trader.
 export type TradeOffer = {

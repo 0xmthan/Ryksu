@@ -26,12 +26,17 @@ test('inventory clicks preserve crafting, split, shift transfer and hotbar swap 
     { slot: -999, button: 1, mode: 0 },
   ]
   await run(bot, { type: 'click', clicks })
-  assert.deepEqual(bot.calls, clicks.map(({ slot, button, mode }) => [slot, button, mode]))
+  assert.deepEqual(
+    bot.calls,
+    clicks.map(({ slot, button, mode }) => [slot, button, mode])
+  )
 })
 test('an invalid click rejects the entire gesture before any item moves', async () => {
   for (const bad of [
-    { slot: 46, button: 0, mode: 0 }, { slot: -999, button: 0, mode: 1 },
-    { slot: 9, button: 2, mode: 0 }, { slot: 9, button: 0, mode: 5 },
+    { slot: 46, button: 0, mode: 0 },
+    { slot: -999, button: 0, mode: 1 },
+    { slot: 9, button: 2, mode: 0 },
+    { slot: 9, button: 0, mode: 5 },
   ]) {
     const bot = makeBot()
     await assert.rejects(run(bot, { type: 'click', clicks: [{ slot: 9, button: 0, mode: 0 }, bad] }))
@@ -48,13 +53,19 @@ test('container clicks accept its own slot range and close its own window', asyn
   bot.currentWindow = { id: 7, type: 'minecraft:generic_9x6', slots: Array(90).fill(null) }
   await run(bot, { type: 'click', windowId: 7, clicks: [{ slot: 89, button: 0, mode: 0 }] })
   await run(bot, { type: 'close', windowId: 7 })
-  assert.deepEqual(bot.calls, [[89, 0, 0], ['close', bot.currentWindow]])
+  assert.deepEqual(bot.calls, [
+    [89, 0, 0],
+    ['close', bot.currentWindow],
+  ])
   await assert.rejects(run(bot, { type: 'click', windowId: 7, clicks: [{ slot: 90, button: 0, mode: 0 }] }))
 })
 test('stale player or container gestures cannot touch a different window', async () => {
   const bot = makeBot()
   bot.currentWindow = { id: 7, slots: Array(63).fill(null) }
-  await assert.rejects(run(bot, { type: 'click', windowId: 0, clicks: [{ slot: 9, button: 0, mode: 0 }] }), /no longer open/)
+  await assert.rejects(
+    run(bot, { type: 'click', windowId: 0, clicks: [{ slot: 9, button: 0, mode: 0 }] }),
+    /no longer open/
+  )
   await assert.rejects(run(bot, { type: 'close', windowId: 6 }), /no longer open/)
   assert.deepEqual(bot.calls, [])
 })

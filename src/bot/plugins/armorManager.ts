@@ -55,8 +55,7 @@ export class ArmorManagerController {
       return
     }
 
-    const hasInventory =
-      this.bot.inventory && typeof this.bot.inventory.items === 'function'
+    const hasInventory = this.bot.inventory && typeof this.bot.inventory.items === 'function'
 
     if (!hasInventory) {
       return
@@ -85,9 +84,7 @@ export class ArmorManagerController {
     }
 
     const currentListeners = bot.listeners('playerCollect') as Listener[]
-    this.playerCollectListener = currentListeners.find(
-      (listener) => !previousListeners.includes(listener)
-    )
+    this.playerCollectListener = currentListeners.find((listener) => !previousListeners.includes(listener))
 
     this.spawnListener = () => {
       if (!this.desiredEnabled) {

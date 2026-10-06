@@ -48,7 +48,11 @@ export const createFirstPerson = (
   const aim = new THREE.Vector3()
 
   const direction = (target: THREE.Vector3, withPitch = pitch) =>
-    target.set(-Math.sin(yaw) * Math.cos(withPitch), Math.sin(withPitch), -Math.cos(yaw) * Math.cos(withPitch))
+    target.set(
+      -Math.sin(yaw) * Math.cos(withPitch),
+      Math.sin(withPitch),
+      -Math.cos(yaw) * Math.cos(withPitch)
+    )
   const locked = () => document.pointerLockElement === element
   const notify = () => onChange({ active, locked: locked() })
 
@@ -84,7 +88,8 @@ export const createFirstPerson = (
     yaw -= event.movementX * turn
     pitch = THREE.MathUtils.clamp(pitch - event.movementY * turn, -MAX_PITCH, MAX_PITCH)
   }
-  const typing = () => Boolean(document.activeElement?.closest('input, textarea, select, [contenteditable="true"]'))
+  const typing = () =>
+    Boolean(document.activeElement?.closest('input, textarea, select, [contenteditable="true"]'))
   const handleKeyDown = (event: KeyboardEvent) => {
     if (event.code !== 'KeyC' || !active || event.repeat || event.ctrlKey || event.metaKey || typing()) return
     event.preventDefault()
@@ -146,7 +151,8 @@ export const createFirstPerson = (
         camera.fov += (fov - camera.fov) * (1 - Math.exp(-step * ZOOM_EASE))
         camera.updateProjectionMatrix()
       }
-      eyeHeight += ((crouching ? SNEAK_EYE_HEIGHT : EYE_HEIGHT) - eyeHeight) * (1 - Math.exp(-step * EYE_EASE))
+      eyeHeight +=
+        ((crouching ? SNEAK_EYE_HEIGHT : EYE_HEIGHT) - eyeHeight) * (1 - Math.exp(-step * EYE_EASE))
       camera.position.copy(feet)
       camera.position.y += eyeHeight
       camera.lookAt(aim.copy(camera.position).add(direction(look)))

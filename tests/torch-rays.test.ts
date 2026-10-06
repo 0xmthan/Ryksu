@@ -14,7 +14,13 @@ const near = (actual: number[], expected: number[]) =>
 
 test('a model cube becomes a shadow box that follows the entity', () => {
   // One 2×4×2 cube with its corner at the origin, in an entity standing at (10, 0, 5) turned 90°.
-  const geometry = boneGeometry([{ origin: [0, 0, 0], size: [2, 4, 2], uv: [0, 0] }], new THREE.Vector3(), null, 1, 1)
+  const geometry = boneGeometry(
+    [{ origin: [0, 0, 0], size: [2, 4, 2], uv: [0, 0] }],
+    new THREE.Vector3(),
+    null,
+    1,
+    1
+  )
   const entity = new THREE.Group()
   entity.add(new THREE.Mesh(geometry, new THREE.MeshBasicMaterial()))
   entity.position.set(10, 0, 5)
@@ -37,7 +43,13 @@ test('a model cube becomes a shadow box that follows the entity', () => {
 })
 
 test('hidden parts and outline twins cast no shadow, but a hidden bot still does', () => {
-  const geometry = boneGeometry([{ origin: [0, 0, 0], size: [1, 1, 1], uv: [0, 0] }], new THREE.Vector3(), null, 1, 1)
+  const geometry = boneGeometry(
+    [{ origin: [0, 0, 0], size: [1, 1, 1], uv: [0, 0] }],
+    new THREE.Vector3(),
+    null,
+    1,
+    1
+  )
   const bot = new THREE.Group()
   const body = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial())
   const hiddenPart = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial())

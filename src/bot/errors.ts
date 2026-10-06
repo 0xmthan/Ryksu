@@ -10,7 +10,10 @@ export const kickReasonToText = (reason: unknown, registry: Registry | null | un
   }
 
   try {
-    return chatFor(registry).fromNotch(reason as string).toString().trim()
+    return chatFor(registry)
+      .fromNotch(reason as string)
+      .toString()
+      .trim()
   } catch {
     return typeof reason === 'string' ? reason : ''
   }

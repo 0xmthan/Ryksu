@@ -90,7 +90,12 @@ export const setWaterQuality = (quality: WaterQuality) => {
 
 // Each frame: the time the waves run on, the sky's color and the sun or moon (direction toward it, and its
 // color times its strength).
-export const updateWater = (time: number, sky: THREE.Color, lightDirection: THREE.Vector3, lightColor: THREE.Color) => {
+export const updateWater = (
+  time: number,
+  sky: THREE.Color,
+  lightDirection: THREE.Vector3,
+  lightColor: THREE.Color
+) => {
   uniforms.uWaterTime.value = time
   uniforms.uWaterSky.value.copy(sky)
   uniforms.uWaterLightDirection.value.copy(lightDirection)

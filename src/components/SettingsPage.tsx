@@ -19,13 +19,23 @@ import {
 } from '../utils/graphicsSettings'
 
 const SHADOW_LABELS: Record<ShadowQuality, string> = { off: 'Off', low: 'Low', high: 'High', ultra: 'Ultra' }
-const WATER_LABELS: Record<WaterQuality, string> = { simple: 'Simple', fancy: 'Fancy', realistic: 'Realistic' }
+const WATER_LABELS: Record<WaterQuality, string> = {
+  simple: 'Simple',
+  fancy: 'Fancy',
+  realistic: 'Realistic',
+}
 const WATER_HINTS: Record<WaterQuality, string> = {
   simple: "The game's water texture, see-through.",
   fancy: 'Ripples run across the surface and catch the light.',
-  realistic: 'Ripples that reflect the sky, glint in the sun and moon, and turn clear when you look straight down.',
+  realistic:
+    'Ripples that reflect the sky, glint in the sun and moon, and turn clear when you look straight down.',
 }
-const PRESET_LABELS: Record<QualityPreset, string> = { low: 'Low', medium: 'Medium', high: 'High', ultra: 'Ultra' }
+const PRESET_LABELS: Record<QualityPreset, string> = {
+  low: 'Low',
+  medium: 'Medium',
+  high: 'High',
+  ultra: 'Ultra',
+}
 const PRESET_HINTS: Record<QualityPreset, string> = {
   low: 'Fastest: lower resolution, no shadows or effects.',
   medium: 'Balanced: softer shadows, rippling water and a slightly lower resolution.',
@@ -48,7 +58,11 @@ function Segmented<T extends string | number | boolean>({
   onChange: (value: T) => void
 }) {
   return (
-    <div role="radiogroup" aria-label={label} className="flex shrink-0 rounded-lg border border-neutral-800 bg-neutral-900 p-0.5">
+    <div
+      role="radiogroup"
+      aria-label={label}
+      className="flex shrink-0 rounded-lg border border-neutral-800 bg-neutral-900 p-0.5"
+    >
       {options.map((option) => {
         const selected = option.value === value
         return (
@@ -59,9 +73,9 @@ function Segmented<T extends string | number | boolean>({
             aria-checked={selected}
             onClick={() => onChange(option.value)}
             className={`rounded-md px-3 py-1 text-xs font-medium transition focus-visible:outline
-              focus-visible:outline-sky-400 ${
-                selected ? 'bg-sky-500/20 text-sky-100' : 'text-neutral-400 hover:text-neutral-200'
-              }`}
+            focus-visible:outline-sky-400 ${
+              selected ? 'bg-sky-500/20 text-sky-100' : 'text-neutral-400 hover:text-neutral-200'
+            }`}
           >
             {option.label}
           </button>
@@ -97,7 +111,8 @@ export default function SettingsPage({ onClose }: { onClose?: () => void }) {
     const next = { ...graphics, ...changes }
     setGraphics(next)
     saveGraphicsSettings(next)
-    if (next.maxFps !== graphics.maxFps) void window.electronAPI.setUnlimitedFps(next.maxFps === UNLIMITED_FPS)
+    if (next.maxFps !== graphics.maxFps)
+      void window.electronAPI.setUnlimitedFps(next.maxFps === UNLIMITED_FPS)
   }
 
   // 30 and 60 apply straight away either way; Unlimited and Max only once the cap matches at launch.
@@ -121,7 +136,10 @@ export default function SettingsPage({ onClose }: { onClose?: () => void }) {
   )
 
   const page = (
-    <section className="mx-auto w-full max-w-xl px-6 py-8 text-neutral-200" aria-labelledby="settings-heading">
+    <section
+      className="mx-auto w-full max-w-xl px-6 py-8 text-neutral-200"
+      aria-labelledby="settings-heading"
+    >
       <div className="flex items-center justify-between gap-4">
         <h1 id="settings-heading" className="text-2xl font-bold uppercase tracking-tight text-neutral-100">
           Settings
@@ -152,9 +170,9 @@ export default function SettingsPage({ onClose }: { onClose?: () => void }) {
             type="button"
             onClick={() => update(DEFAULT_GRAPHICS)}
             disabled={isDefault}
-            className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-neutral-500 transition
-              hover:bg-neutral-800 hover:text-sky-200 focus-visible:outline-sky-400 disabled:pointer-events-none
-              disabled:opacity-0"
+            className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-neutral-500
+              transition hover:bg-neutral-800 hover:text-sky-200 focus-visible:outline-sky-400
+              disabled:pointer-events-none disabled:opacity-0"
           >
             <RotateCcw size={12} aria-hidden="true" />
             Reset
@@ -197,7 +215,10 @@ export default function SettingsPage({ onClose }: { onClose?: () => void }) {
               onChange={(resolutionScale) => update({ resolutionScale })}
             />
           </Row>
-          <Row title="Antialiasing" hint="Smooths the jagged edges of blocks. Applies the next time you connect.">
+          <Row
+            title="Antialiasing"
+            hint="Smooths the jagged edges of blocks. Applies the next time you connect."
+          >
             <Segmented
               label="Antialiasing"
               options={[
@@ -250,7 +271,10 @@ export default function SettingsPage({ onClose }: { onClose?: () => void }) {
             title={
               <>
                 Ray-traced torches
-                <span className="rounded border border-amber-400/40 px-1.5 py-px text-[10px] font-medium uppercase tracking-wide text-amber-300">
+                <span
+                  className="rounded border border-amber-400/40 px-1.5 py-px text-[10px] font-medium uppercase
+                    tracking-wide text-amber-300"
+                >
                   Experimental
                 </span>
               </>

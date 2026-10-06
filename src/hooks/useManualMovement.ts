@@ -19,7 +19,11 @@ const SPRINT_TAP_MS = 300
 // the keys are turned into a heading around the camera and the bot faces where it walks.
 export type MovementLook = { yaw: number; pitch?: number; relative?: boolean }
 
-export default function useManualMovement(enabled: boolean, getLook: () => MovementLook, onStart: () => void) {
+export default function useManualMovement(
+  enabled: boolean,
+  getLook: () => MovementLook,
+  onStart: () => void
+) {
   const lookRef = useRef(getLook)
   lookRef.current = getLook
   const startRef = useRef(onStart)

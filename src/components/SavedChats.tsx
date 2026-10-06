@@ -85,8 +85,8 @@ const SavedChats: React.FC<SavedChatsProps> = ({ transcripts, onDelete }) => {
                   type="button"
                   onClick={() => onDelete(selectedTranscript.key)}
                   className="inline-flex h-9 w-9 items-center justify-center rounded-full border
-                    border-rose-500/60 text-rose-200 transition hover:bg-rose-500/10
-                    focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-rose-400"
+                    border-rose-500/60 text-rose-200 transition hover:bg-rose-500/10 focus-visible:outline
+                    focus-visible:outline-offset-2 focus-visible:outline-rose-400"
                   aria-label="Delete transcript"
                   title="Delete transcript"
                 >

@@ -88,7 +88,10 @@ export type InvokeChannels = {
   'bot:useBed': { args: []; result: Result<{ sleeping?: boolean }> }
   'bot:pickUpBed': { args: []; result: Result }
   'bot:dismissBedPickup': { args: []; result: { ok: boolean } }
-  'bot:startMining': { args: [options: { ores: string[]; blocks: string[] }]; result: Result<{ state?: MiningState }> }
+  'bot:startMining': {
+    args: [options: { ores: string[]; blocks: string[] }]
+    result: Result<{ state?: MiningState }>
+  }
   'bot:stopMining': { args: []; result: { ok: boolean; state: MiningState } }
   // Every block the connected bot's version can break, sorted by display name.
   'bot:getMineableBlocks': { args: []; result: { name: string; displayName: string }[] }
@@ -137,7 +140,10 @@ export type InvokeChannels = {
   'bot:setAutoEatEnabled': { args: [enabled: boolean]; result: { ok: boolean; enabled: boolean } }
   'bot:setAutoToolEnabled': { args: [enabled: boolean]; result: { ok: boolean; enabled: boolean } }
   'bot:setAutoShieldEnabled': { args: [enabled: boolean]; result: { ok: boolean; enabled: boolean } }
-  'bot:setAutoEatOptions': { args: [options: Partial<AutoEatOptions>]; result: { ok: boolean; options: AutoEatOptions } }
+  'bot:setAutoEatOptions': {
+    args: [options: Partial<AutoEatOptions>]
+    result: { ok: boolean; options: AutoEatOptions }
+  }
   'bot:getAutoEatOptions': { args: []; result: AutoEatOptions }
   'bot:setPathfinderOptions': {
     args: [options: Partial<PathfinderOptions>]

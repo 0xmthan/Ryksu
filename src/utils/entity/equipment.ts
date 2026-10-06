@@ -72,10 +72,14 @@ const armorBones = (model: MobModel, parts: [string, number[], number][], extra 
     if (!bone || !cube) return []
     // Armor sleeves retain the standard four-pixel arm and atlas layout on
     // Alex skins. Copying a three-pixel skin arm shifts the sleeve face UVs.
-    const armorCube = /^(left|right)arm$/.test(name) && cube.size[0] === 3
-      ? { ...cube, size: [4, cube.size[1], cube.size[2]],
-          origin: [cube.origin[0] - (name === 'rightarm' ? 1 : 0), cube.origin[1], cube.origin[2]] }
-      : cube
+    const armorCube =
+      /^(left|right)arm$/.test(name) && cube.size[0] === 3
+        ? {
+            ...cube,
+            size: [4, cube.size[1], cube.size[2]],
+            origin: [cube.origin[0] - (name === 'rightarm' ? 1 : 0), cube.origin[1], cube.origin[2]],
+          }
+        : cube
     return [
       {
         name: bone.name,
@@ -94,25 +98,27 @@ const addArmorPiece = (model: MobModel, slot: keyof typeof PIECES, item: WornIte
   if (texture === undefined) return false
   const size = textureSize(texture)
   const leather = material === 'leather'
-  const babyUvs: Record<string, number[]> = slot === 'chest'
-    ? { body: [0, 17], rightarm: [30, 25], leftarm: [30, 17] }
-    : slot === 'legs' ? { body: [0, 33], rightleg: [18, 17], leftleg: [18, 24] }
-    : slot === 'feet' ? { rightleg: [0, 25], leftleg: [0, 29] } : { head: [0, 0] }
+  const babyUvs: Record<string, number[]> =
+    slot === 'chest'
+      ? { body: [0, 17], rightarm: [30, 25], leftarm: [30, 17] }
+      : slot === 'legs'
+        ? { body: [0, 33], rightleg: [18, 17], leftleg: [18, 24] }
+        : slot === 'feet'
+          ? { rightleg: [0, 25], leftleg: [0, 29] }
+          : { head: [0, 0] }
   const bones = (extra = 0) => {
-    const result = armorBones(model, baby
-      ? piece.parts.map(([name]) => [name, babyUvs[name], slot === 'feet' ? 0.5 : 0.3])
-      : piece.parts, extra)
+    const result = armorBones(
+      model,
+      baby ? piece.parts.map(([name]) => [name, babyUvs[name], slot === 'feet' ? 0.5 : 0.3]) : piece.parts,
+      extra
+    )
     if (baby && slot === 'feet') {
-      for (const bone of result) for (const cube of bone.cubes ?? []) cube.size = [cube.size[0], 1, cube.size[2]]
+      for (const bone of result)
+        for (const cube of bone.cubes ?? []) cube.size = [cube.size[0], 1, cube.size[2]]
     }
     return result
   }
-  addLayer(
-    model,
-    bones(),
-    mobMaterial(loadTexture(texture), leather ? (item.color ?? LEATHER) : null),
-    size
-  )
+  addLayer(model, bones(), mobMaterial(loadTexture(texture), leather ? (item.color ?? LEATHER) : null), size)
   // Leather's undyed trim sits just over the dyed layer.
   const overlay = leather ? textures.leather_overlay : undefined
   if (overlay !== undefined) {
@@ -151,7 +157,7 @@ const holdItem = (model: MobModel, arm: string, name: string) => {
   if (name === 'shield') {
     const holder = buildHeldShield(arm === 'leftarm' ? 1 : -1)
     holder.position.add(hand)
-    holder.traverse(object => {
+    holder.traverse((object) => {
       const material = (object as THREE.Mesh).material
       if (material && !Array.isArray(material)) model.materials.push(material as THREE.MeshLambertMaterial)
     })

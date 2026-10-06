@@ -12,7 +12,10 @@ import { nameForUuid } from './playerNames'
 import { skinUrl, capeUrl } from './profileTextures'
 
 type Equipment = Partial<Record<EquipmentSlot, WornItem>>
-type Appearance = Pick<MotionEntity, 'variant' | 'markings' | 'wool' | 'shearedColor' | 'baby' | 'villager' | 'skin' | 'cape' | 'slim'>
+type Appearance = Pick<
+  MotionEntity,
+  'variant' | 'markings' | 'wool' | 'shearedColor' | 'baby' | 'villager' | 'skin' | 'cape' | 'slim'
+>
 type Posture = Partial<Pick<EntityPose, 'crouching' | 'sitting' | 'sleeping' | 'x' | 'y' | 'z'>>
 
 const ENTITY_RANGE = 80
@@ -25,7 +28,8 @@ const entityKind = (entity: Entity): EntityKind | null => {
   if (entity.type === 'player') return 'player'
   if (entity.name === 'item') return 'item'
   if (entity.type === 'hostile') return 'hostile'
-  if (['mob', 'animal', 'passive', 'water_creature', 'ambient'].includes(entity.type as string)) return 'passive'
+  if (['mob', 'animal', 'passive', 'water_creature', 'ambient'].includes(entity.type as string))
+    return 'passive'
   return null
 }
 
@@ -113,7 +117,16 @@ const appearance = (bot: Bot, entity: Entity, kind: EntityKind) => {
 // Cats, wolves and parrots told to sit keep it in bit 0 of their tameable flags.
 const TAMEABLE = new Set(['cat', 'wolf', 'parrot'])
 // Horse-family mobs keep "tamed" in bit 1 of their flags, but no longer say who tamed them.
-const HORSES = new Set(['horse', 'donkey', 'mule', 'llama', 'trader_llama', 'skeleton_horse', 'zombie_horse', 'camel'])
+const HORSES = new Set([
+  'horse',
+  'donkey',
+  'mule',
+  'llama',
+  'trader_llama',
+  'skeleton_horse',
+  'zombie_horse',
+  'camel',
+])
 
 const plainUuid = (uuid: unknown) => String(uuid).replace(/-/g, '').toLowerCase()
 
@@ -140,10 +153,8 @@ const FACING_YAW: Record<string, number> = { north: 0, west: Math.PI / 2, south:
 const MATTRESS_Y = 0.6875
 
 const bedHead = (bot: Bot, entity: Entity): Block | null => {
-  const saved = (entityEvents(bot, entity).typed.sleeping_pos ?? metadataReader(bot, entity)('sleeping_pos')) as
-    | { x: number; y: number; z: number }
-    | null
-    | undefined
+  const saved = (entityEvents(bot, entity).typed.sleeping_pos ??
+    metadataReader(bot, entity)('sleeping_pos')) as { x: number; y: number; z: number } | null | undefined
   const at = (x: number, y: number, z: number) => bot.blockAt(new Vec3(x, y, z))
   if (saved && Number.isFinite(saved.x)) {
     const block = at(saved.x, saved.y, saved.z)
@@ -188,10 +199,11 @@ const posture = (bot: Bot, entity: Entity) => {
   const crouching =
     entity === bot.entity
       ? bot.getControlState?.('sneak')
-      : (entity as Entity & { crouching?: boolean }).crouching || pose === CROUCHING_POSE || pose === 'crouching'
+      : (entity as Entity & { crouching?: boolean }).crouching ||
+        pose === CROUCHING_POSE ||
+        pose === 'crouching'
   if (crouching) result.crouching = true
-  const sleeping =
-    entity === bot.entity ? bot.isSleeping : pose === SLEEPING_POSE || pose === 'sleeping'
+  const sleeping = entity === bot.entity ? bot.isSleeping : pose === SLEEPING_POSE || pose === 'sleeping'
   if (sleeping) {
     const place = sleepingPlace(bot, entity)
     for (const key of ['x', 'y', 'z', 'sleeping'] as const) {
@@ -199,7 +211,8 @@ const posture = (bot: Bot, entity: Entity) => {
       if (value !== undefined) result[key] = round(value)
     }
   }
-  if (TAMEABLE.has(entity.name ?? '') && Number(metadataReader(bot, entity)('flags')) & 1) result.sitting = true
+  if (TAMEABLE.has(entity.name ?? '') && Number(metadataReader(bot, entity)('flags')) & 1)
+    result.sitting = true
   return result
 }
 
@@ -221,7 +234,11 @@ const pose = (bot: Bot, entity: Entity, yaw: number, headYaw: number): EntityPos
   }
 }
 
-const describeEntity = (bot: Bot, entity: Entity, trustedPlayers: ReadonlySet<string>): MotionEntity | null => {
+const describeEntity = (
+  bot: Bot,
+  entity: Entity,
+  trustedPlayers: ReadonlySet<string>
+): MotionEntity | null => {
   const kind = entityKind(entity)
   if (!kind) {
     return null
@@ -242,12 +259,19 @@ const describeEntity = (bot: Bot, entity: Entity, trustedPlayers: ReadonlySet<st
     kind,
     ...(typeof health === 'number' && Number.isFinite(health) ? { health } : {}),
     ...(typeof ping === 'number' && Number.isFinite(ping) ? { ping } : {}),
-    ...(kind === 'player' && trustedPlayers.has(entity.username?.toLowerCase() ?? '') ? { trusted: true } : {}),
+    ...(kind === 'player' && trustedPlayers.has(entity.username?.toLowerCase() ?? '')
+      ? { trusted: true }
+      : {}),
     // Mob type (zombie, cow, …) for picking its model, and what a dropped item is.
     type: entity.name ?? null,
     item,
     name: entity.username ?? entity.displayName ?? entity.name ?? kind,
-    ...pose(bot, entity, entity.yaw ?? 0, (entity as Entity & { headYaw?: number }).headYaw ?? entity.yaw ?? 0),
+    ...pose(
+      bot,
+      entity,
+      entity.yaw ?? 0,
+      (entity as Entity & { headYaw?: number }).headYaw ?? entity.yaw ?? 0
+    ),
     ...(equipment ? { equipment } : {}),
     ...appearance(bot, entity, kind),
     ...tameness(bot, entity),
@@ -255,7 +279,10 @@ const describeEntity = (bot: Bot, entity: Entity, trustedPlayers: ReadonlySet<st
 }
 
 // `trustedPlayers`: lowercase names badged on their nametags.
-export const getMotion = (bot: Bot | null, trustedPlayers: ReadonlySet<string> = new Set()): Motion | null => {
+export const getMotion = (
+  bot: Bot | null,
+  trustedPlayers: ReadonlySet<string> = new Set()
+): Motion | null => {
   if (!bot?.entity) {
     return null
   }

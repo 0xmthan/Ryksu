@@ -21,7 +21,7 @@ test('saved history keeps older messages beyond the previous 2000 message limit'
 })
 test('merged history deduplicates ids and sorts old and new batches by time', () => {
   const history = mergeChatHistory([entry(3), entry(1)], [entry(2), entry(3)])
-  assert.equal(history.map(message => message.id).join(','), '1,2,3')
+  assert.equal(history.map((message) => message.id).join(','), '1,2,3')
 })
 test('backend history retains all session messages beyond its previous 200 message limit', () => {
   const bridge = new ChatBridge(null)

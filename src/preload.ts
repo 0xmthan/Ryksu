@@ -4,9 +4,13 @@ import type { EventChannels, InvokeArgs, InvokeChannel, InvokeResult, SendChanne
 const invoke = <C extends InvokeChannel>(channel: C, ...args: InvokeArgs<C>) =>
   ipcRenderer.invoke(channel, ...args) as Promise<InvokeResult<C>>
 
-const send = <C extends keyof SendChannels>(channel: C, ...args: SendChannels[C]) => ipcRenderer.send(channel, ...args)
+const send = <C extends keyof SendChannels>(channel: C, ...args: SendChannels[C]) =>
+  ipcRenderer.send(channel, ...args)
 
-const registerListener = <C extends keyof EventChannels>(channel: C, callback: (data: EventChannels[C]) => void) => {
+const registerListener = <C extends keyof EventChannels>(
+  channel: C,
+  callback: (data: EventChannels[C]) => void
+) => {
   const listener = (_event: Electron.IpcRendererEvent, data: EventChannels[C]) => {
     callback(data)
   }
@@ -35,13 +39,16 @@ const electronAPI = {
     disconnect: () => invoke('bot:disconnect'),
     getSnapshot: () => invoke('bot:getSnapshot'),
     subscribe: () => send('bot:subscribe'),
-    onStatus: (callback: (status: EventChannels['bot:status']) => void) => registerListener('bot:status', callback),
-    onState: (callback: (state: EventChannels['bot:state']) => void) => registerListener('bot:state', callback),
+    onStatus: (callback: (status: EventChannels['bot:status']) => void) =>
+      registerListener('bot:status', callback),
+    onState: (callback: (state: EventChannels['bot:state']) => void) =>
+      registerListener('bot:state', callback),
     getSupportedVersions: () => invoke('bot:getSupportedVersions'),
     onChat: (callback: (entry: EventChannels['bot:chat']) => void) => registerListener('bot:chat', callback),
     onPathfinderOptions: (callback: (options: EventChannels['bot:pathfinderOptions']) => void) =>
       registerListener('bot:pathfinderOptions', callback),
-    onNotice: (callback: (text: EventChannels['bot:notice']) => void) => registerListener('bot:notice', callback),
+    onNotice: (callback: (text: EventChannels['bot:notice']) => void) =>
+      registerListener('bot:notice', callback),
     onBuildCells: (callback: (cells: EventChannels['bot:buildCells']) => void) =>
       registerListener('bot:buildCells', callback),
     onBreaking: (callback: (state: EventChannels['bot:breaking']) => void) =>
@@ -74,7 +81,8 @@ const electronAPI = {
       stopDig: () => send('bot:firstPersonStopDig'),
       place: (...args: Args<'bot:firstPersonPlace'>) => invoke('bot:firstPersonPlace', ...args),
     },
-    setMovementControls: (...args: Args<'bot:setMovementControls'>) => invoke('bot:setMovementControls', ...args),
+    setMovementControls: (...args: Args<'bot:setMovementControls'>) =>
+      invoke('bot:setMovementControls', ...args),
     openDoor: (...args: Args<'bot:openDoor'>) => invoke('bot:openDoor', ...args),
     interactBlock: (...args: Args<'bot:interactBlock'>) => invoke('bot:interactBlock', ...args),
     inventoryAction: (...args: Args<'bot:inventoryAction'>) => invoke('bot:inventoryAction', ...args),
@@ -83,18 +91,23 @@ const electronAPI = {
     openTrader: (...args: Args<'bot:openTrader'>) => invoke('bot:openTrader', ...args),
     trade: (...args: Args<'bot:trade'>) => invoke('bot:trade', ...args),
     closeTrader: () => invoke('bot:closeTrader'),
-    onWorld: (callback: (view: EventChannels['bot:world']) => void) => registerListener('bot:world', callback),
-    onMotion: (callback: (motion: EventChannels['bot:motion']) => void) => registerListener('bot:motion', callback),
+    onWorld: (callback: (view: EventChannels['bot:world']) => void) =>
+      registerListener('bot:world', callback),
+    onMotion: (callback: (motion: EventChannels['bot:motion']) => void) =>
+      registerListener('bot:motion', callback),
     onSelfMotion: (callback: (motion: EventChannels['bot:selfMotion']) => void) =>
       registerListener('bot:selfMotion', callback),
     setArmorManagerEnabled: (...args: Args<'bot:setArmorManagerEnabled'>) =>
       invoke('bot:setArmorManagerEnabled', ...args),
     setAutoEatEnabled: (...args: Args<'bot:setAutoEatEnabled'>) => invoke('bot:setAutoEatEnabled', ...args),
-    setAutoToolEnabled: (...args: Args<'bot:setAutoToolEnabled'>) => invoke('bot:setAutoToolEnabled', ...args),
-    setAutoShieldEnabled: (...args: Args<'bot:setAutoShieldEnabled'>) => invoke('bot:setAutoShieldEnabled', ...args),
+    setAutoToolEnabled: (...args: Args<'bot:setAutoToolEnabled'>) =>
+      invoke('bot:setAutoToolEnabled', ...args),
+    setAutoShieldEnabled: (...args: Args<'bot:setAutoShieldEnabled'>) =>
+      invoke('bot:setAutoShieldEnabled', ...args),
     setAutoEatOptions: (...args: Args<'bot:setAutoEatOptions'>) => invoke('bot:setAutoEatOptions', ...args),
     getAutoEatOptions: () => invoke('bot:getAutoEatOptions'),
-    setPathfinderOptions: (...args: Args<'bot:setPathfinderOptions'>) => invoke('bot:setPathfinderOptions', ...args),
+    setPathfinderOptions: (...args: Args<'bot:setPathfinderOptions'>) =>
+      invoke('bot:setPathfinderOptions', ...args),
     getPathfinderOptions: () => invoke('bot:getPathfinderOptions'),
     setPvpOptions: (...args: Args<'bot:setPvpOptions'>) => invoke('bot:setPvpOptions', ...args),
     getPvpOptions: () => invoke('bot:getPvpOptions'),

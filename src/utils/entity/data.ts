@@ -40,7 +40,11 @@ export const entityData = generated as unknown as {
   layers: Record<string, { types: (number | null)[]; professions: (number | null)[] }>
   horseMarkings: Record<string, number>
   // Armor textures by material for the 64×32 humanoid layers.
-  armor: { humanoid: Record<string, number>; humanoid_leggings: Record<string, number>; humanoid_baby: Record<string, number> }
+  armor: {
+    humanoid: Record<string, number>
+    humanoid_leggings: Record<string, number>
+    humanoid_baby: Record<string, number>
+  }
 }
 
 // Mobs drawn with another mob's model and textures.

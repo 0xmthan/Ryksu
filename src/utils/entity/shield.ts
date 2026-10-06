@@ -5,9 +5,8 @@ import { mobMaterial } from './model'
 import { textureFromUrl } from './textures'
 
 // Native shield dimensions in model pixels, rather than a scaled inventory sprite.
-export const createShieldGeometry = () => boneGeometry(
-  shield.cubes, new THREE.Vector3(), null, 1 / shield.width, 1 / shield.height
-)
+export const createShieldGeometry = () =>
+  boneGeometry(shield.cubes, new THREE.Vector3(), null, 1 / shield.width, 1 / shield.height)
 
 export const buildHeldShield = (side: 1 | -1) => {
   const holder = new THREE.Group()

@@ -16,10 +16,7 @@ export const registerMinecraftIpc = (ipcMain: IpcMain) => {
   // Arguments come from the window as typed in src/ipc.ts, but handlers still check the ones they act on.
   const handle = <C extends InvokeChannel>(
     channel: C,
-    handler: (
-      event: IpcMainInvokeEvent,
-      ...args: InvokeArgs<C>
-    ) => InvokeResult<C> | Promise<InvokeResult<C>>
+    handler: (event: IpcMainInvokeEvent, ...args: InvokeArgs<C>) => InvokeResult<C> | Promise<InvokeResult<C>>
   ) => ipcMain.handle(channel, handler as (event: IpcMainInvokeEvent, ...args: unknown[]) => unknown)
 
   const on = <C extends keyof SendChannels>(
@@ -257,7 +254,12 @@ export const registerMinecraftIpc = (ipcMain: IpcMain) => {
   handle('bot:setMovementControls', (_event, controls) => botManager.manualMovement.setControls(controls))
 
   handle('bot:openDoor', (_event, location, standLocation) => {
-    if (!location || !Number.isFinite(location.x) || !Number.isFinite(location.y) || !Number.isFinite(location.z)) {
+    if (
+      !location ||
+      !Number.isFinite(location.x) ||
+      !Number.isFinite(location.y) ||
+      !Number.isFinite(location.z)
+    ) {
       return { ok: false, message: 'Invalid location.' }
     }
     botManager.openDoor(location, standLocation)
@@ -297,7 +299,9 @@ export const registerMinecraftIpc = (ipcMain: IpcMain) => {
         uuid,
         fetch(`https://sessionserver.mojang.com/session/minecraft/profile/${uuid}`)
           .then((response) => (response.ok && response.status !== 204 ? response.json() : null))
-          .then((profile: { name?: unknown } | null) => (typeof profile?.name === 'string' ? profile.name : null))
+          .then((profile: { name?: unknown } | null) =>
+            typeof profile?.name === 'string' ? profile.name : null
+          )
           .catch(() => {
             playerNameCache.delete(uuid)
             return null
@@ -309,7 +313,9 @@ export const registerMinecraftIpc = (ipcMain: IpcMain) => {
 
   handle('bot:getPlayerList', () => botManager.getPlayerList())
 
-  handle('bot:getPlayerSkin', (_event, name) => (typeof name === 'string' ? botManager.playerSkin(name) : null))
+  handle('bot:getPlayerSkin', (_event, name) =>
+    typeof name === 'string' ? botManager.playerSkin(name) : null
+  )
 
   handle('bot:getWorldView', () => {
     return botManager.getWorldView()

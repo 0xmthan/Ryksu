@@ -11,8 +11,8 @@ const HandCard: React.FC<{ label: string; item: InventoryItem }> = ({ label, ite
   const left = item ? durabilityLeft(item) : null
   return (
     <div
-      className="flex items-center gap-2.5 rounded-xl border border-white/10 bg-neutral-950/70 py-1.5 pl-1.5 pr-3.5
-        shadow-[0_8px_24px_#0008] backdrop-blur-xl group-data-[side=left]:flex-row-reverse
+      className="flex items-center gap-2.5 rounded-xl border border-white/10 bg-neutral-950/70 py-1.5 pl-1.5
+        pr-3.5 shadow-[0_8px_24px_#0008] backdrop-blur-xl group-data-[side=left]:flex-row-reverse
         group-data-[side=left]:pl-3.5 group-data-[side=left]:pr-1.5 group-data-[side=left]:text-right"
     >
       <span
@@ -31,13 +31,18 @@ const HandCard: React.FC<{ label: string; item: InventoryItem }> = ({ label, ite
           <span className="h-3 w-3 rounded-sm border border-dashed border-neutral-600" />
         )}
         {item && item.count > 1 ? (
-          <span className="absolute bottom-0.5 right-1 font-mono text-[0.65rem] font-bold text-white [text-shadow:0_1px_2px_#000]">
+          <span
+            className="absolute bottom-0.5 right-1 font-mono text-[0.65rem] font-bold text-white
+              [text-shadow:0_1px_2px_#000]"
+          >
             {item.count}
           </span>
         ) : null}
       </span>
       <span className="min-w-0 max-w-40">
-        <span className="block text-[0.55rem] font-semibold uppercase tracking-[0.18em] text-neutral-500">{label}</span>
+        <span className="block text-[0.55rem] font-semibold uppercase tracking-[0.18em] text-neutral-500">
+          {label}
+        </span>
         <span
           className={`block truncate text-[0.8rem] ${
             !item ? 'text-neutral-500' : isEnchanted(item) ? 'text-cyan-200' : 'text-neutral-100'

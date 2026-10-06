@@ -3,7 +3,12 @@
 import type { Bot } from 'mineflayer'
 import type { Entity } from 'prismarine-entity'
 
-type JumpState = { wasOnGround: boolean | null; lastY: number | null; jumpTimes: number[]; cooldownUntil: number }
+type JumpState = {
+  wasOnGround: boolean | null
+  lastY: number | null
+  jumpTimes: number[]
+  cooldownUntil: number
+}
 
 const GESTURE_JUMPS = 3
 const GESTURE_WINDOW_MS = 3000
@@ -58,7 +63,12 @@ export class GestureController {
   }
 
   private _handleSyncPosition(packet: { entityId: number; onGround: boolean; y: number }) {
-    this._handleMovement(packet.entityId, packet.onGround, (state) => state.lastY !== null && packet.y > state.lastY, packet.y)
+    this._handleMovement(
+      packet.entityId,
+      packet.onGround,
+      (state) => state.lastY !== null && packet.y > state.lastY,
+      packet.y
+    )
   }
 
   private _handleMovement(
@@ -68,7 +78,12 @@ export class GestureController {
     y: number | null = null
   ) {
     const entity = this.bot?.entities?.[entityId]
-    if (!entity || entity.type !== 'player' || entity === this.bot?.entity || !this.isTrusted(entity.username)) {
+    if (
+      !entity ||
+      entity.type !== 'player' ||
+      entity === this.bot?.entity ||
+      !this.isTrusted(entity.username)
+    ) {
       return
     }
 

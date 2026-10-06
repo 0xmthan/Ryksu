@@ -146,7 +146,8 @@ export class BotManager extends EventEmitter<BotManagerEvents> {
         if (food) this.emit('notice', `Eating ${food}…`)
         this._emitState()
       },
-      onResult: ({ food, ok }) => this.emit('notice', ok ? `Ate ${food}.` : `Couldn't finish eating ${food}.`),
+      onResult: ({ food, ok }) =>
+        this.emit('notice', ok ? `Ate ${food}.` : `Couldn't finish eating ${food}.`),
     })
     this.autoTool = new AutoToolController()
     this.autoShield = new AutoShieldController({
@@ -549,7 +550,8 @@ export class BotManager extends EventEmitter<BotManagerEvents> {
   async trade(index: number, count: number) {
     const bot = this.bot
     const window = this.trader
-    if (!bot || !window || bot.currentWindow !== (window as unknown)) throw new Error('The trade window is closed.')
+    if (!bot || !window || bot.currentWindow !== (window as unknown))
+      throw new Error('The trade window is closed.')
     try {
       await runTrade(bot, window, index, count)
     } finally {
@@ -749,7 +751,9 @@ export class BotManager extends EventEmitter<BotManagerEvents> {
       this.emit('pathfinderOptions', this.behavior.setPathfinderOptions({ followEnabled: false }))
     }
     this.pvp.attackEntity(entity)
-    this.chat.pushSystemMessage(`Attacking ${entity.username ?? entity.displayName ?? entity.name ?? 'entity'}.`)
+    this.chat.pushSystemMessage(
+      `Attacking ${entity.username ?? entity.displayName ?? entity.name ?? 'entity'}.`
+    )
     return { ok: true }
   }
 
@@ -775,7 +779,10 @@ export class BotManager extends EventEmitter<BotManagerEvents> {
     this.mining.stop(miningReason)
     this.pvp.stopAttacking()
     this.pvp.clearTarget()
-    this.emit('pathfinderOptions', this.behavior.setPathfinderOptions({ followEnabled: false, cancelGoTo: true }))
+    this.emit(
+      'pathfinderOptions',
+      this.behavior.setPathfinderOptions({ followEnabled: false, cancelGoTo: true })
+    )
   }
 
   // A trusted player's gesture: follow them, or stop if the bot already is.

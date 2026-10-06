@@ -15,9 +15,21 @@ export const createBuildPreview = (scene: THREE.Scene) => {
   const box = new THREE.BoxGeometry(1, 1, 1)
   const outlineGeometry = new THREE.EdgesGeometry(new THREE.BoxGeometry(1.004, 1.004, 1.004))
   const ghostEdges = new THREE.EdgesGeometry(box)
-  const outlineMaterial = new THREE.LineBasicMaterial({ color: OUTLINE_COLOR, transparent: true, opacity: 0.9 })
-  const breakMaterial = new THREE.LineBasicMaterial({ color: BREAK_LINE_COLOR, transparent: true, opacity: 0.95 })
-  const ghostEdgeMaterial = new THREE.LineBasicMaterial({ color: GHOST_EDGE_COLOR, transparent: true, opacity: 0.9 })
+  const outlineMaterial = new THREE.LineBasicMaterial({
+    color: OUTLINE_COLOR,
+    transparent: true,
+    opacity: 0.9,
+  })
+  const breakMaterial = new THREE.LineBasicMaterial({
+    color: BREAK_LINE_COLOR,
+    transparent: true,
+    opacity: 0.95,
+  })
+  const ghostEdgeMaterial = new THREE.LineBasicMaterial({
+    color: GHOST_EDGE_COLOR,
+    transparent: true,
+    opacity: 0.9,
+  })
 
   const root = new THREE.Group()
   scene.add(root)
@@ -33,7 +45,11 @@ export const createBuildPreview = (scene: THREE.Scene) => {
     opacity: 0.16,
     depthWrite: false,
   })
-  const queuedPlaceMaterial = new THREE.LineBasicMaterial({ color: GHOST_EDGE_COLOR, transparent: true, opacity: 0.5 })
+  const queuedPlaceMaterial = new THREE.LineBasicMaterial({
+    color: GHOST_EDGE_COLOR,
+    transparent: true,
+    opacity: 0.5,
+  })
   const queuedBreak: THREE.Group[] = []
   const queuedPlace: THREE.LineSegments[] = []
   const queuedBreakItem = (index: number) => {
@@ -155,7 +171,8 @@ export const createBuildPreview = (scene: THREE.Scene) => {
     // The bot's remaining work, as block corners in scene coordinates.
     setQueued(breaking: THREE.Vector3[], placing: THREE.Vector3[]) {
       breaking.forEach((corner, index) => placeAt(queuedBreakItem(index), corner))
-      for (let index = breaking.length; index < queuedBreak.length; index++) queuedBreak[index].visible = false
+      for (let index = breaking.length; index < queuedBreak.length; index++)
+        queuedBreak[index].visible = false
       placing.forEach((corner, index) => placeAt(queuedPlaceItem(index), corner))
       for (let index = placing.length; index < queuedPlace.length; index++) queuedPlace[index].visible = false
     },
@@ -172,8 +189,8 @@ export const createBuildPreview = (scene: THREE.Scene) => {
     },
     dispose() {
       materials.forEach((entry) => entry.dispose())
-      ;[outlineMaterial, breakMaterial, ghostEdgeMaterial, queuedPlaceMaterial, glowMaterial].forEach((entry) =>
-        entry.dispose()
+      ;[outlineMaterial, breakMaterial, ghostEdgeMaterial, queuedPlaceMaterial, glowMaterial].forEach(
+        (entry) => entry.dispose()
       )
       ;[box, outlineGeometry, ghostEdges, glowGeometry].forEach((entry) => entry.dispose())
     },

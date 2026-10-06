@@ -10,7 +10,9 @@ export default defineConfig({
   build: {
     lib: { entry: 'src/main.ts', formats: ['cjs'], fileName: () => 'main.cjs' },
     rollupOptions: {
-      external: externalPackages.map((name) => new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:/|$)`)),
+      external: externalPackages.map(
+        (name) => new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:/|$)`)
+      ),
     },
   },
 })

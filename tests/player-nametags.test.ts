@@ -54,7 +54,7 @@ test('nametags stay at a small world size and draw a pixel heart', () => {
   assert.ok(fills.some((rect) => rect[2] === 2 && rect[3] === 2))
   const scene = new THREE.Scene()
   scene.add(tag.sprite)
-  assert.equal(tag.sprite.scale.y, .3)
+  assert.equal(tag.sprite.scale.y, 0.3)
   const map = tag.sprite.material.map!
   const version = map.version
   tag.setHovered(true)

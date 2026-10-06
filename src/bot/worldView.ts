@@ -69,7 +69,9 @@ const enchantmentsOf = (bot: Bot, item: ComponentItem) => {
   let list: { name: unknown; level: number }[] | null = null
   for (const key of ['enchantments', 'stored_enchantments']) {
     const data = item.componentMap?.get?.(key)?.data
-    const entries = Array.isArray(data) ? data : (data as { enchantments?: unknown } | undefined)?.enchantments
+    const entries = Array.isArray(data)
+      ? data
+      : (data as { enchantments?: unknown } | undefined)?.enchantments
     if (Array.isArray(entries) && entries.length) {
       const order = registryOrder(bot, 'enchantment')
       list = (entries as { name?: string; id: number; level?: number; lvl?: number }[]).map((entry) => {
@@ -112,7 +114,11 @@ const durabilityOf = (item: ComponentItem) => {
 
 export const describeItem = (bot: Bot, item: Item | null | undefined): InventoryItem => {
   if (!item) return null
-  const result: Description = { name: item.name, displayName: item.displayName ?? item.name, count: item.count }
+  const result: Description = {
+    name: item.name,
+    displayName: item.displayName ?? item.name,
+    count: item.count,
+  }
   const durability = durabilityOf(item)
   if (durability) result.durability = durability
   const enchantments = enchantmentsOf(bot, item)
@@ -133,14 +139,16 @@ export const getInventory = (bot: Bot): WorldView['inventory'] => {
     crafting: slots.slice(1, 5).map(toItem),
     craftingResult: toItem(slots[0]),
     cursor: toItem((bot.currentWindow ?? bot.inventory)?.selectedItem),
-    window: bot.currentWindow ? {
-      id: bot.currentWindow.id,
-      type: String(bot.currentWindow.type),
-      title: windowTitle(bot, bot.currentWindow.title),
-      slots: bot.currentWindow.slots.map(toItem),
-      inventoryStart: bot.currentWindow.inventoryStart,
-      resultSlot: bot.currentWindow.craftingResultSlot,
-    } : null,
+    window: bot.currentWindow
+      ? {
+          id: bot.currentWindow.id,
+          type: String(bot.currentWindow.type),
+          title: windowTitle(bot, bot.currentWindow.title),
+          slots: bot.currentWindow.slots.map(toItem),
+          inventoryStart: bot.currentWindow.inventoryStart,
+          resultSlot: bot.currentWindow.craftingResultSlot,
+        }
+      : null,
     main: slots.slice(9, HOTBAR_START).map(toItem),
     hotbar: slots.slice(HOTBAR_START, HOTBAR_START + 9).map(toItem),
     armor,
@@ -152,7 +160,15 @@ export const getInventory = (bot: Bot): WorldView['inventory'] => {
 
 // FNV-1a over the block data, so the renderer can skip rebuilding when nothing changed.
 // Light by state for blocks that only glow when lit; the block data gives one value for every state.
-const LIT_LIGHT: Record<string, number> = { furnace: 13, blast_furnace: 13, smoker: 13, redstone_ore: 9, deepslate_redstone_ore: 9, campfire: 15, soul_campfire: 10 }
+const LIT_LIGHT: Record<string, number> = {
+  furnace: 13,
+  blast_furnace: 13,
+  smoker: 13,
+  redstone_ore: 9,
+  deepslate_redstone_ore: 9,
+  campfire: 15,
+  soul_campfire: 10,
+}
 const emittedLight = (block: { name: string; emitLight?: number }, properties: Properties) => {
   if (properties.lit === false || properties.lit === 'false') return 0
   if (block.name.endsWith('candle') && properties.candles !== undefined) return 3 * Number(properties.candles)
@@ -205,7 +221,9 @@ const stateInfo = (registry: Registry, stateId: number) => {
 // Sky light at a spot, or null when the server hasn't sent light data.
 const skyLightAt = (bot: Bot, position: Vec3) => {
   try {
-    const light = (bot.world as unknown as { getSkyLight?: (position: Vec3) => unknown }).getSkyLight?.(position)
+    const light = (bot.world as unknown as { getSkyLight?: (position: Vec3) => unknown }).getSkyLight?.(
+      position
+    )
     return typeof light === 'number' ? light : null
   } catch {
     return null
@@ -417,7 +435,8 @@ export const readSlice = (bot: Bot, tracker: WorldTracker): Slice | null => {
   const cached = tracker.cached
   const near =
     cached &&
-    (botPos.x - cached.origin.x) ** 2 + (botPos.z - cached.origin.z) ** 2 < RECENTER_DISTANCE * RECENTER_DISTANCE &&
+    (botPos.x - cached.origin.x) ** 2 + (botPos.z - cached.origin.z) ** 2 <
+      RECENTER_DISTANCE * RECENTER_DISTANCE &&
     Math.abs(botPos.y - cached.origin.y) < 6
   if (near && !tracker.dirty) return null
 
@@ -491,4 +510,3 @@ export const getWorldView = (
     blocks: cachedBlocks ? (tracker.cached?.data ?? null) : getBlocks(bot, tracker),
   }
 }
-

@@ -77,7 +77,10 @@ export const applySeeThrough = (material: THREE.Material, role: 'solid' | 'cap')
     Object.assign(shader.uniforms, uniforms)
     shader.vertexShader =
       VERTEX_HEAD +
-      shader.vertexShader.replace('#include <project_vertex>', `#include <project_vertex>${role === 'cap' ? CAP_BODY : VERTEX_BODY}`)
+      shader.vertexShader.replace(
+        '#include <project_vertex>',
+        `#include <project_vertex>${role === 'cap' ? CAP_BODY : VERTEX_BODY}`
+      )
     shader.fragmentShader =
       'varying float vSeeHidden;\n' +
       shader.fragmentShader.replace(

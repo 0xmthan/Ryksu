@@ -74,15 +74,11 @@ const EffectSlot: React.FC<{ effect: StatusEffect; now: number }> = ({ effect, n
     ? { border: 'border-emerald-400/25', bar: 'bg-emerald-300/80', text: 'text-emerald-300' }
     : { border: 'border-rose-400/30', bar: 'bg-rose-300/80', text: 'text-rose-300' }
   return (
-    <div
-      className="relative"
-      onPointerEnter={() => setHover(true)}
-      onPointerLeave={() => setHover(false)}
-    >
+    <div className="relative" onPointerEnter={() => setHover(true)} onPointerLeave={() => setHover(false)}>
       <div
         aria-label={`${effect.label} ${level}, ${clock(left)} left`}
-        className={`relative flex h-8 w-8 items-center justify-center overflow-hidden rounded-lg border bg-black/40
-          ${tone.border} ${ending ? 'vitals-blink' : ''}`}
+        className={`relative flex h-8 w-8 items-center justify-center overflow-hidden rounded-lg border
+          bg-black/40 ${tone.border} ${ending ? 'vitals-blink' : ''}`}
       >
         {icons[effect.name] ? (
           <img
@@ -95,7 +91,10 @@ const EffectSlot: React.FC<{ effect: StatusEffect; now: number }> = ({ effect, n
           <span className="text-[0.6rem] text-neutral-300">{effect.label.slice(0, 2)}</span>
         )}
         {effect.level > 1 ? (
-          <span className="absolute right-0.5 top-0 font-mono text-[0.5rem] font-bold text-white [text-shadow:0_1px_1px_#000]">
+          <span
+            className="absolute right-0.5 top-0 font-mono text-[0.5rem] font-bold text-white
+              [text-shadow:0_1px_1px_#000]"
+          >
             {level}
           </span>
         ) : null}
@@ -106,8 +105,8 @@ const EffectSlot: React.FC<{ effect: StatusEffect; now: number }> = ({ effect, n
       {hover ? (
         <div
           role="tooltip"
-          className="absolute left-0 top-full z-50 mt-1.5 w-52 rounded-lg border border-white/10 bg-neutral-950/90 p-2.5
-            text-xs shadow-xl backdrop-blur-xl"
+          className="absolute left-0 top-full z-50 mt-1.5 w-52 rounded-lg border border-white/10
+            bg-neutral-950/90 p-2.5 text-xs shadow-xl backdrop-blur-xl"
         >
           <div className="flex items-center gap-2">
             {icons[effect.name] ? (
@@ -139,7 +138,9 @@ const EffectSlots: React.FC<{ effects: StatusEffect[] }> = ({ effects }) => {
     return () => clearInterval(timer)
   }, [effects.length])
   if (!effects.length) return null
-  const sorted = [...effects].sort((a, b) => Number(b.good) - Number(a.good) || a.label.localeCompare(b.label))
+  const sorted = [...effects].sort(
+    (a, b) => Number(b.good) - Number(a.good) || a.label.localeCompare(b.label)
+  )
   return (
     <div className="flex flex-wrap gap-1.5 pt-0.5">
       {sorted.map((effect) => (

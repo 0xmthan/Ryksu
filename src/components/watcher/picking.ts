@@ -116,7 +116,10 @@ const cellIndex = (blocks: Blocks) => {
     index = new Map()
     for (let i = 0; i < blocks.blocks.length; i++) {
       const p = i * 3
-      index.set(`${blocks.positions[p]},${blocks.positions[p + 1]},${blocks.positions[p + 2]}`, blocks.palette[blocks.blocks[i]])
+      index.set(
+        `${blocks.positions[p]},${blocks.positions[p + 1]},${blocks.positions[p + 2]}`,
+        blocks.palette[blocks.blocks[i]]
+      )
     }
     cellIndexes.set(blocks, index)
   }

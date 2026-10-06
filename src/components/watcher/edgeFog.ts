@@ -59,7 +59,12 @@ export const fogObject = (object: THREE.Object3D) => {
 
 // Each frame: centered on the bot (scene coordinates), in the sky's color, ending just inside the edge of
 // the blocks (`radius` blocks from the bot).
-export const updateEdgeFog = (enabled: boolean, center: THREE.Vector3, color: THREE.Color, radius: number) => {
+export const updateEdgeFog = (
+  enabled: boolean,
+  center: THREE.Vector3,
+  color: THREE.Color,
+  radius: number
+) => {
   uniforms.uFogStrength.value = enabled ? 1 : 0
   uniforms.uFogCenter.value.copy(center)
   uniforms.uFogColor.value.copy(color)

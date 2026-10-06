@@ -92,10 +92,7 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
 
   return (
     <div className="mx-auto flex w-full max-w-xl flex-col px-6 py-5">
-      <form
-        onSubmit={onSubmit}
-        className="flex flex-col gap-4"
-      >
+      <form onSubmit={onSubmit} className="flex flex-col gap-4">
         {microsoftAuth ? (
           <section className="rounded-xl border border-sky-500/30 bg-sky-500/10 p-4 text-sm text-sky-50">
             <div className="flex flex-col gap-3">
@@ -120,9 +117,8 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
                     )
                   }
                   className="rounded-full border border-sky-300/40 bg-sky-300/15 px-4 py-2 text-xs
-                    font-semibold uppercase tracking-[0.18em] text-sky-50 transition
-                    hover:bg-sky-300/25 focus-visible:outline focus-visible:outline-offset-2
-                    focus-visible:outline-sky-300"
+                    font-semibold uppercase tracking-[0.18em] text-sky-50 transition hover:bg-sky-300/25
+                    focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-sky-300"
                 >
                   Open Microsoft Login
                 </button>
@@ -141,10 +137,16 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
 
         <ServerPreview host={host} port={port} />
 
-        <section className="overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-900/50 shadow-lg shadow-black/10">
+        <section
+          className="overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-900/50 shadow-lg
+            shadow-black/10"
+        >
           <div className="flex items-center justify-between gap-4 border-b border-neutral-800/80 px-5 py-3">
             <div className="flex items-center gap-3">
-              <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-neutral-700/60 bg-neutral-800/60 text-neutral-400">
+              <span
+                className="flex h-9 w-9 items-center justify-center rounded-xl border border-neutral-700/60
+                  bg-neutral-800/60 text-neutral-400"
+              >
                 <Server size={17} aria-hidden="true" />
               </span>
               <div>
@@ -155,7 +157,10 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
             <button
               type="button"
               onClick={handleToggleEditing}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-700/70 bg-neutral-800/60 px-3 py-1.5 text-xs font-medium text-neutral-200 transition hover:border-neutral-600 hover:bg-neutral-800 focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-sky-400"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-700/70
+                bg-neutral-800/60 px-3 py-1.5 text-xs font-medium text-neutral-200 transition
+                hover:border-neutral-600 hover:bg-neutral-800 focus-visible:outline
+                focus-visible:outline-offset-2 focus-visible:outline-sky-400"
             >
               {isEditing ? <Check size={13} aria-hidden="true" /> : <Pencil size={13} aria-hidden="true" />}
               {isEditing ? 'Done' : 'Edit'}
@@ -167,17 +172,20 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
               <fieldset className="min-w-0">
                 <legend className="mb-2 text-xs font-medium text-neutral-400">Account type</legend>
                 <div className="grid grid-cols-2 gap-2">
-                  {([
-                    ['offline', 'Offline', 'Use a bot username'],
-                    ['online', 'Microsoft', 'Sign in with your account'],
-                  ] as const).map(([type, title, description]) => (
+                  {(
+                    [
+                      ['offline', 'Offline', 'Use a bot username'],
+                      ['online', 'Microsoft', 'Sign in with your account'],
+                    ] as const
+                  ).map(([type, title, description]) => (
                     <label
                       key={type}
-                      className={`flex cursor-pointer items-center gap-2.5 rounded-xl border px-3 py-2.5 transition ${
-                        accountType === type
-                          ? 'border-sky-500/40 bg-sky-500/5'
-                          : 'border-neutral-800 bg-neutral-950/40 hover:border-neutral-700'
-                      }`}
+                      className={`flex cursor-pointer items-center gap-2.5 rounded-xl border px-3 py-2.5
+                        transition ${
+                          accountType === type
+                            ? 'border-sky-500/40 bg-sky-500/5'
+                            : 'border-neutral-800 bg-neutral-950/40 hover:border-neutral-700'
+                        }`}
                     >
                       <input
                         type="radio"
@@ -185,7 +193,8 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
                         value={type}
                         checked={accountType === type}
                         onChange={() => onAccountTypeChange(type)}
-                        className="h-3.5 w-3.5 shrink-0 accent-sky-500 focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-sky-400"
+                        className="h-3.5 w-3.5 shrink-0 accent-sky-500 focus-visible:outline
+                          focus-visible:outline-offset-2 focus-visible:outline-sky-400"
                       />
                       <span className="min-w-0">
                         <span className="block text-sm font-medium text-neutral-200">{title}</span>
@@ -198,46 +207,40 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
 
               <div className="grid grid-cols-[minmax(0,1fr)_110px] gap-3">
                 <label className="flex min-w-0 flex-col gap-2 text-sm text-neutral-200">
-                  <span className="text-xs font-medium text-neutral-400">
-                    Host
-                  </span>
+                  <span className="text-xs font-medium text-neutral-400">Host</span>
                   <input
                     value={host}
                     onChange={(event) => onHostChange(event.target.value)}
                     placeholder="play.example.com"
-                    className="w-full rounded-lg border border-neutral-700/60 bg-neutral-950/70 px-3 py-2 text-sm
-                      text-neutral-100 transition focus:border-sky-500 focus:outline-none focus:ring-2
+                    className="w-full rounded-lg border border-neutral-700/60 bg-neutral-950/70 px-3 py-2
+                      text-sm text-neutral-100 transition focus:border-sky-500 focus:outline-none focus:ring-2
                       focus:ring-sky-500/15"
                     required
                   />
                 </label>
 
                 <label className="flex min-w-0 flex-col gap-2 text-sm text-neutral-200">
-                  <span className="text-xs font-medium text-neutral-400">
-                    Port
-                  </span>
+                  <span className="text-xs font-medium text-neutral-400">Port</span>
                   <input
                     value={port}
                     onChange={(event) => onPortChange(event.target.value)}
                     placeholder="25565"
                     inputMode="numeric"
-                    className="w-full rounded-lg border border-neutral-700/60 bg-neutral-950/70 px-3 py-2 text-sm
-                      text-neutral-100 transition focus:border-sky-500 focus:outline-none focus:ring-2
+                    className="w-full rounded-lg border border-neutral-700/60 bg-neutral-950/70 px-3 py-2
+                      text-sm text-neutral-100 transition focus:border-sky-500 focus:outline-none focus:ring-2
                       focus:ring-sky-500/15"
                   />
                 </label>
               </div>
 
               <label className="flex flex-col gap-2 text-sm text-neutral-200">
-                <span className="text-xs font-medium text-neutral-400">
-                  Username
-                </span>
+                <span className="text-xs font-medium text-neutral-400">Username</span>
                 <input
                   value={username}
                   onChange={(event) => onUsernameChange(event.target.value)}
                   placeholder={accountType === 'online' ? 'email@example.com' : 'BotDisplayName'}
-                  className="w-full rounded-lg border border-neutral-700/60 bg-neutral-950/70 px-3 py-2 text-sm
-                    text-neutral-100 transition focus:border-sky-500 focus:outline-none focus:ring-2
+                  className="w-full rounded-lg border border-neutral-700/60 bg-neutral-950/70 px-3 py-2
+                    text-sm text-neutral-100 transition focus:border-sky-500 focus:outline-none focus:ring-2
                     focus:ring-sky-500/15"
                   required
                 />
@@ -245,16 +248,14 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
 
               {accountType === 'online' ? (
                 <label className="flex flex-col gap-2 text-sm text-neutral-200">
-                  <span className="text-xs font-medium text-neutral-400">
-                    Microsoft password (optional)
-                  </span>
+                  <span className="text-xs font-medium text-neutral-400">Microsoft password (optional)</span>
                   <input
                     type="password"
                     value={onlinePassword}
                     onChange={(event) => onOnlinePasswordChange(event.target.value)}
                     placeholder="Leave blank to use device login"
-                    className="w-full rounded-lg border border-neutral-700/60 bg-neutral-950/70 px-3 py-2 text-sm
-                      text-neutral-100 transition focus:border-sky-500 focus:outline-none focus:ring-2
+                    className="w-full rounded-lg border border-neutral-700/60 bg-neutral-950/70 px-3 py-2
+                      text-sm text-neutral-100 transition focus:border-sky-500 focus:outline-none focus:ring-2
                       focus:ring-sky-500/15"
                   />
                 </label>
@@ -263,19 +264,19 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
               {accountType === 'offline' ? (
                 <div className="grid gap-3">
                   <label className="flex flex-col gap-2 text-sm text-neutral-200">
-                    <span className="text-xs font-medium text-neutral-400">
-                      Server password (optional)
-                    </span>
+                    <span className="text-xs font-medium text-neutral-400">Server password (optional)</span>
                     <input
                       type="password"
                       value={offlinePassword}
                       onChange={(event) => onOfflinePasswordChange(event.target.value)}
                       placeholder="Server login password"
-                      className="w-full rounded-lg border border-neutral-700/60 bg-neutral-950/70 px-3 py-2 text-sm
-                        text-neutral-100 transition focus:border-sky-500 focus:outline-none focus:ring-2
-                        focus:ring-sky-500/15"
+                      className="w-full rounded-lg border border-neutral-700/60 bg-neutral-950/70 px-3 py-2
+                        text-sm text-neutral-100 transition focus:border-sky-500 focus:outline-none
+                        focus:ring-2 focus:ring-sky-500/15"
                     />
-                    <span className="text-xs text-neutral-500">Used for automatic /register and /login commands.</span>
+                    <span className="text-xs text-neutral-500">
+                      Used for automatic /register and /login commands.
+                    </span>
                   </label>
                   <div className="rounded-lg border border-neutral-800/70 bg-neutral-950/30 px-3 py-2.5">
                     <label className="flex cursor-pointer items-center gap-2.5 text-xs text-neutral-300">
@@ -295,14 +296,12 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
               ) : null}
 
               <label className="flex flex-col gap-2 text-sm text-neutral-200">
-                <span className="text-xs font-medium text-neutral-400">
-                  Server version
-                </span>
+                <span className="text-xs font-medium text-neutral-400">Server version</span>
                 <select
                   value={version}
                   onChange={(event) => onVersionChange(event.target.value)}
-                  className="w-full rounded-lg border border-neutral-700/60 bg-neutral-950/70 px-3 py-2 text-sm
-                    text-neutral-100 transition focus:border-sky-500 focus:outline-none focus:ring-2
+                  className="w-full rounded-lg border border-neutral-700/60 bg-neutral-950/70 px-3 py-2
+                    text-sm text-neutral-100 transition focus:border-sky-500 focus:outline-none focus:ring-2
                     focus:ring-sky-500/15"
                 >
                   <option value="auto">Auto (detect server version)</option>
@@ -321,7 +320,9 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
             <dl className="grid gap-5 px-5 py-5 text-sm text-neutral-300">
               <div className="flex items-center justify-between gap-4">
                 <dt className="shrink-0 text-xs text-neutral-500">Account</dt>
-                <dd className="min-w-0 break-words text-right font-medium text-neutral-200">{accountLabel}</dd>
+                <dd className="min-w-0 break-words text-right font-medium text-neutral-200">
+                  {accountLabel}
+                </dd>
               </div>
               {/* The server card above shows the host and port once one is set. */}
               {host.trim() ? null : (
@@ -332,11 +333,15 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
               )}
               <div className="flex items-center justify-between gap-4">
                 <dt className="shrink-0 text-xs text-neutral-500">Username</dt>
-                <dd className="min-w-0 break-words text-right font-medium text-neutral-200">{username || 'Not set'}</dd>
+                <dd className="min-w-0 break-words text-right font-medium text-neutral-200">
+                  {username || 'Not set'}
+                </dd>
               </div>
               <div className="flex items-center justify-between gap-4">
                 <dt className="shrink-0 text-xs text-neutral-500">Version</dt>
-                <dd className="min-w-0 break-words text-right font-medium text-neutral-200">{versionLabel}</dd>
+                <dd className="min-w-0 break-words text-right font-medium text-neutral-200">
+                  {versionLabel}
+                </dd>
               </div>
               {accountType === 'offline' && preJoinLoginEnabled ? (
                 <div className="flex items-center justify-between gap-4">

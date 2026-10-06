@@ -37,7 +37,8 @@ const EntityPopover: React.FC<Props> = ({ entity: initialEntity, position, onClo
   // Owners the bot couldn't name are looked up through Mojang, which only knows online-mode UUIDs
   // (version 4; offline-mode ones are version 3).
   const [ownerName, setOwnerName] = useState<string | null>(null)
-  const ownerUuid = entity.owner && !entity.owner.name && entity.owner.uuid[12] === '4' ? entity.owner.uuid : null
+  const ownerUuid =
+    entity.owner && !entity.owner.name && entity.owner.uuid[12] === '4' ? entity.owner.uuid : null
   useEffect(() => {
     if (!ownerUuid) return
     let cancelled = false
@@ -87,32 +88,37 @@ const EntityPopover: React.FC<Props> = ({ entity: initialEntity, position, onClo
   }, [onClose])
 
   const trader = TRADERS.has(entity.type ?? '')
-  const act = useCallback(async (action: 'fight' | 'follow' | 'trade') => {
-    if (pending.current || gone || entity.dead || entity.kind === 'item') return
-    if (action === 'trade' && !trader) return
-    pending.current = true
-    setBusy(true)
-    setFeedback(action === 'trade' ? 'Walking to the trader…' : null)
-    try {
-      if (action === 'trade') {
-        const response = await window.electronAPI.bot.openTrader(entity.id)
-        if (response.ok && response.trades) onTrade(response.trades)
-        else setFeedback(response.message ?? 'Could not open the trades.')
-        return
+  const act = useCallback(
+    async (action: 'fight' | 'follow' | 'trade') => {
+      if (pending.current || gone || entity.dead || entity.kind === 'item') return
+      if (action === 'trade' && !trader) return
+      pending.current = true
+      setBusy(true)
+      setFeedback(action === 'trade' ? 'Walking to the trader…' : null)
+      try {
+        if (action === 'trade') {
+          const response = await window.electronAPI.bot.openTrader(entity.id)
+          if (response.ok && response.trades) onTrade(response.trades)
+          else setFeedback(response.message ?? 'Could not open the trades.')
+          return
+        }
+        const response = await (action === 'fight'
+          ? window.electronAPI.bot.attackEntity(entity.id)
+          : window.electronAPI.bot.followEntity(entity.id))
+        if (response.ok) onClose()
+        else setFeedback(response.message ?? 'Could not perform that action.')
+      } catch {
+        setFeedback('Action failed. Try again.')
+      } finally {
+        pending.current = false
+        setBusy(false)
       }
-      const response = await (action === 'fight'
-        ? window.electronAPI.bot.attackEntity(entity.id)
-        : window.electronAPI.bot.followEntity(entity.id))
-      if (response.ok) onClose()
-      else setFeedback(response.message ?? 'Could not perform that action.')
-    } catch {
-      setFeedback('Action failed. Try again.')
-    } finally {
-      pending.current = false
-      setBusy(false)
-    }
-  }, [entity.id, entity.kind, entity.dead, gone, onClose, onTrade, trader])
-  useEffect(() => { panel.current?.focus() }, [])
+    },
+    [entity.id, entity.kind, entity.dead, gone, onClose, onTrade, trader]
+  )
+  useEffect(() => {
+    panel.current?.focus()
+  }, [])
   useEffect(() => {
     const key = (event: KeyboardEvent) => {
       if (event.repeat || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return
@@ -275,12 +281,16 @@ const EntityPopover: React.FC<Props> = ({ entity: initialEntity, position, onClo
               type="button"
               onClick={toggleTrust}
               aria-pressed={trusted}
-              title={trusted ? 'Stop taking gestures from this player' : 'Let this player sneak-jump 3 times to be followed'}
+              title={
+                trusted
+                  ? 'Stop taking gestures from this player'
+                  : 'Let this player sneak-jump 3 times to be followed'
+              }
               className={`col-span-2 flex items-center justify-center gap-2 rounded-lg border py-2 ${
                 trusted
                   ? 'border-emerald-400/50 bg-emerald-500/20 text-emerald-100 hover:bg-emerald-500/30'
                   : 'border-emerald-400/30 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/20'
-              }`}
+                }`}
             >
               <ShieldCheck className="h-4 w-4" />
               {trusted ? 'Trusted' : 'Trust'}
@@ -292,8 +302,9 @@ const EntityPopover: React.FC<Props> = ({ entity: initialEntity, position, onClo
               disabled={!actionable}
               onClick={() => act('trade')}
               aria-keyshortcuts="T"
-              className="col-span-2 flex items-center justify-center gap-2 rounded-lg border border-emerald-400/30
-                bg-emerald-500/10 py-2 text-emerald-200 hover:bg-emerald-500/20 disabled:opacity-40"
+              className="col-span-2 flex items-center justify-center gap-2 rounded-lg border
+                border-emerald-400/30 bg-emerald-500/10 py-2 text-emerald-200 hover:bg-emerald-500/20
+                disabled:opacity-40"
             >
               <Store className="h-4 w-4" />
               Trade <kbd className="rounded border border-white/15 px-1 text-[10px] opacity-60">T</kbd>

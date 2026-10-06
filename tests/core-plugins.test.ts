@@ -117,7 +117,9 @@ test('auto-eat cancellation rejects, restores the item, and disables cleanly', a
 test('auto-eat catches completion during activation and releases item use', async () => {
   const { bot } = eatingBot()
   let using = false
-  bot.deactivateItem = () => { using = false }
+  bot.deactivateItem = () => {
+    using = false
+  }
   bot.activateItem = () => {
     using = true
     bot._client.emit('entity_status', { entityId: 7, entityStatus: 9 })
@@ -168,7 +170,9 @@ test('auto-eat times out cleanly and disabling cancels an active bite', async ()
 test('auto-eat releases its lock after selection errors and skips full hunger retries', async () => {
   const { bot } = eatingBot()
   const eat = new EatUtil(asBot(bot))
-  bot.inventory.items = () => { throw new Error('Inventory unavailable') }
+  bot.inventory.items = () => {
+    throw new Error('Inventory unavailable')
+  }
   await assert.rejects(eat.eat(), /Inventory unavailable/)
   assert.equal(eat.isEating, false)
   let attempts = 0
@@ -190,7 +194,11 @@ test('auto-eat releases its lock after selection errors and skips full hunger re
 test('tool chooses the fastest harvestable item without re-equipping an equivalent tool', async () => {
   const slow = item({ name: 'wooden_pickaxe', type: 1 })
   const fast = item({ name: 'diamond_pickaxe', type: 2 })
-  const inventory = { slots: Array<Item | null>(46).fill(null), items: () => [slow, fast], emptySlotCount: () => 1 }
+  const inventory = {
+    slots: Array<Item | null>(46).fill(null),
+    items: () => [slow, fast],
+    emptySlotCount: () => 1,
+  }
   inventory.slots[36] = slow
   const calls: number[] = []
   const bot = fake<Bot>({
@@ -211,9 +219,12 @@ test('tool chooses the fastest harvestable item without re-equipping an equivale
   await tool.equipForBlock(block, { requireHarvest: true })
   await tool.equipForBlock(block, { requireHarvest: true })
   assert.deepEqual(calls, [2])
-  await assert.rejects(tool.equipForBlock(fake<Block>({ ...block, canHarvest: () => false }), { requireHarvest: true }), {
-    name: 'NoItem',
-  })
+  await assert.rejects(
+    tool.equipForBlock(fake<Block>({ ...block, canHarvest: () => false }), { requireHarvest: true }),
+    {
+      name: 'NoItem',
+    }
+  )
 })
 
 test('task queues preserve order and stop after a failed task', async () => {

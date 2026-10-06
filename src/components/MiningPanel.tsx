@@ -272,8 +272,8 @@ const MiningPanel: React.FC<MiningPanelProps> = ({ mining }) => {
                       {blocks.map((name) => (
                         <li
                           key={name}
-                          className="flex items-center gap-1 rounded-full border border-sky-600 bg-sky-900/50 py-0.5
-                            pl-2 pr-1 text-[0.7rem] text-sky-100"
+                          className="flex items-center gap-1 rounded-full border border-sky-600 bg-sky-900/50
+                            py-0.5 pl-2 pr-1 text-[0.7rem] text-sky-100"
                         >
                           {displayNames.get(name) ?? name}
                           <button
@@ -281,7 +281,8 @@ const MiningPanel: React.FC<MiningPanelProps> = ({ mining }) => {
                             onClick={() => removeBlock(name)}
                             disabled={active}
                             aria-label={`Remove ${displayNames.get(name) ?? name}`}
-                            className="rounded-full p-0.5 text-sky-300 hover:text-white disabled:cursor-not-allowed"
+                            className="rounded-full p-0.5 text-sky-300 hover:text-white
+                              disabled:cursor-not-allowed"
                           >
                             <X className="h-3 w-3" />
                           </button>
@@ -302,19 +303,22 @@ const MiningPanel: React.FC<MiningPanelProps> = ({ mining }) => {
                     }}
                     disabled={active}
                     placeholder={mineableBlocks.length ? 'Search blocks, e.g. dirt' : 'Loading blocks…'}
-                    className="mt-1 w-full rounded-md border border-neutral-700 bg-neutral-950/60 px-2 py-1 text-xs
-                      text-neutral-100 placeholder:text-neutral-600 focus:border-sky-600 focus:outline-none
-                      disabled:cursor-not-allowed disabled:opacity-50"
+                    className="mt-1 w-full rounded-md border border-neutral-700 bg-neutral-950/60 px-2 py-1
+                      text-xs text-neutral-100 placeholder:text-neutral-600 focus:border-sky-600
+                      focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
                   />
                   {suggestions.length > 0 ? (
-                    <ul className="mt-1 max-h-40 overflow-y-auto rounded-md border border-neutral-800 bg-neutral-950">
+                    <ul
+                      className="mt-1 max-h-40 overflow-y-auto rounded-md border border-neutral-800
+                        bg-neutral-950"
+                    >
                       {suggestions.map((block) => (
                         <li key={block.name}>
                           <button
                             type="button"
                             onClick={() => addBlock(block.name)}
-                            className="flex w-full items-center justify-between gap-2 px-2 py-1 text-left text-xs
-                              text-neutral-300 hover:bg-neutral-800 hover:text-white"
+                            className="flex w-full items-center justify-between gap-2 px-2 py-1 text-left
+                              text-xs text-neutral-300 hover:bg-neutral-800 hover:text-white"
                           >
                             {block.displayName}
                             <Plus className="h-3 w-3 text-neutral-500" aria-hidden="true" />
@@ -343,8 +347,8 @@ const MiningPanel: React.FC<MiningPanelProps> = ({ mining }) => {
                       {chests.map((chest) => (
                         <li
                           key={`${chest.x},${chest.y},${chest.z}`}
-                          className="flex items-center gap-1 rounded-full border border-amber-500/50 bg-amber-900/30
-                            py-0.5 pl-2 pr-1 font-mono text-[0.68rem] text-amber-100"
+                          className="flex items-center gap-1 rounded-full border border-amber-500/50
+                            bg-amber-900/30 py-0.5 pl-2 pr-1 font-mono text-[0.68rem] text-amber-100"
                         >
                           {chest.x} {chest.y} {chest.z}
                           <button
@@ -364,8 +368,8 @@ const MiningPanel: React.FC<MiningPanelProps> = ({ mining }) => {
                 </div>
 
                 <p className="mt-2 text-[0.68rem] leading-snug text-neutral-500">
-                  Stores loot in the picked chests, nearest first. With none picked, it mines until the inventory is
-                  full and sends a notification. Keeps tools, armor, food and a stack of blocks.
+                  Stores loot in the picked chests, nearest first. With none picked, it mines until the
+                  inventory is full and sends a notification. Keeps tools, armor, food and a stack of blocks.
                 </p>
 
                 <dl className="mt-2 space-y-1 text-xs">

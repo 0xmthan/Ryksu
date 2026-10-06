@@ -13,7 +13,11 @@ export const loadModule = <T>(file: string, fakes: Record<string, unknown> = {},
   const requireNext = createRequire(absolute)
   const exportsObject = {}
   const { outputText } = ts.transpileModule(fs.readFileSync(absolute, 'utf8'), {
-    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2021, esModuleInterop: true },
+    compilerOptions: {
+      module: ts.ModuleKind.CommonJS,
+      target: ts.ScriptTarget.ES2021,
+      esModuleInterop: true,
+    },
   })
   vm.runInNewContext(outputText, {
     exports: exportsObject,

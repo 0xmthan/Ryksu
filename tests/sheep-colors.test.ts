@@ -37,8 +37,12 @@ test('all sheep dyes survive shearing and wool regrowth', () => {
 
 test('sheared dye colors stubble while preserving face, skin and hooves', () => {
   const pixels = new Uint8ClampedArray(64 * 32 * 4)
-  const samples: [number, number, number[]][] = [[8, 8, [255, 255, 255, 255]], [32, 16, [220, 220, 220, 255]],
-    [33, 16, [150, 120, 100, 255]], [8, 28, [80, 75, 70, 255]]]
+  const samples: [number, number, number[]][] = [
+    [8, 8, [255, 255, 255, 255]],
+    [32, 16, [220, 220, 220, 255]],
+    [33, 16, [150, 120, 100, 255]],
+    [8, 28, [80, 75, 70, 255]],
+  ]
   for (const [x, y, rgba] of samples) pixels.set(rgba, (y * 64 + x) * 4)
   dyeSheepPixels(pixels, 64, '#8932b8')
   for (const [x, y, rgba] of samples) {

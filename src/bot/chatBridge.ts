@@ -81,7 +81,8 @@ export class ChatBridge {
         return
       }
 
-      const senderName = sender && typeof sender === 'object' ? (sender as { username?: unknown }).username : undefined
+      const senderName =
+        sender && typeof sender === 'object' ? (sender as { username?: unknown }).username : undefined
       const entry: ChatMessage = {
         id: createEntryId(),
         text,
@@ -222,8 +223,11 @@ export class ChatBridge {
     }
 
     const lower = text.toLowerCase()
-    const needsRegister = !registerSent && (lower.includes('/register') || lower.includes(' register') || lower.startsWith('register'))
-    const needsLogin = !loginSent && (lower.includes('/login') || lower.includes(' login') || lower.startsWith('login'))
+    const needsRegister =
+      !registerSent &&
+      (lower.includes('/register') || lower.includes(' register') || lower.startsWith('register'))
+    const needsLogin =
+      !loginSent && (lower.includes('/login') || lower.includes(' login') || lower.startsWith('login'))
 
     if (!needsRegister && !needsLogin) {
       return

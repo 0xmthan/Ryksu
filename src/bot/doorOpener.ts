@@ -47,7 +47,9 @@ export class DoorOpener {
 
     const pos = new Vec3(Math.floor(doorLocation.x), Math.floor(doorLocation.y), Math.floor(doorLocation.z))
     const initialBlock = this.getBot()?.blockAt(pos)
-    const wasOpen = isOpen(typeof initialBlock?.getProperties === 'function' ? initialBlock.getProperties() : {})
+    const wasOpen = isOpen(
+      typeof initialBlock?.getProperties === 'function' ? initialBlock.getProperties() : {}
+    )
 
     const op: Operation = { aborted: false, interval: null, timeout: null }
     this.operation = op

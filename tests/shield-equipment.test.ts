@@ -16,14 +16,18 @@ const shield = loadModule<typeof import('../src/utils/entity/shield')>('src/util
   './model': modelTools,
   './textures': { textureFromUrl: () => new THREE.Texture() },
 })
-const equipment = loadModule<typeof import('../src/utils/entity/equipment')>('src/utils/entity/equipment.ts', {
-  './shield': shield,
-  './data': { entityData: { armor: { humanoid: { iron: 0 } } } },
-  './model': modelTools,
-  './textures': { loadTexture: () => new THREE.Texture() },
-  './itemMesh': { buildItemMesh: () => assert.fail('a held shield must not use its inventory sprite') },
-})
-const meshAt = (group: THREE.Object3D, index = 0) => group.children[index] as THREE.Mesh<THREE.BufferGeometry, THREE.Material>
+const equipment = loadModule<typeof import('../src/utils/entity/equipment')>(
+  'src/utils/entity/equipment.ts',
+  {
+    './shield': shield,
+    './data': { entityData: { armor: { humanoid: { iron: 0 } } } },
+    './model': modelTools,
+    './textures': { loadTexture: () => new THREE.Texture() },
+    './itemMesh': { buildItemMesh: () => assert.fail('a held shield must not use its inventory sprite') },
+  }
+)
+const meshAt = (group: THREE.Object3D, index = 0) =>
+  group.children[index] as THREE.Mesh<THREE.BufferGeometry, THREE.Material>
 
 test('shield has a native plate and a handle behind it', () => {
   const mesh = shield.createShieldGeometry()
@@ -69,9 +73,18 @@ test('chestplate sleeves use standard armor UV dimensions on slim skins', () => 
   const boneData = new Map<string, Bone>(
     ['head', 'body', 'rightarm', 'leftarm', 'rightleg', 'leftleg'].map((name) => [name, fake<Bone>({ name })])
   )
-  boneData.set('body', fake<Bone>({ name: 'body', pivot: [0, 24, 0], cubes: [{ origin: [-4, 12, -2], size: [8, 12, 4] }] }))
-  boneData.set('leftarm', fake<Bone>({ name: 'leftArm', pivot: [5, 22, 0], cubes: [{ origin: [4, 12, -2], size: [3, 12, 4] }] }))
-  boneData.set('rightarm', fake<Bone>({ name: 'rightArm', pivot: [-5, 22, 0], cubes: [{ origin: [-7, 12, -2], size: [3, 12, 4] }] }))
+  boneData.set(
+    'body',
+    fake<Bone>({ name: 'body', pivot: [0, 24, 0], cubes: [{ origin: [-4, 12, -2], size: [8, 12, 4] }] })
+  )
+  boneData.set(
+    'leftarm',
+    fake<Bone>({ name: 'leftArm', pivot: [5, 22, 0], cubes: [{ origin: [4, 12, -2], size: [3, 12, 4] }] })
+  )
+  boneData.set(
+    'rightarm',
+    fake<Bone>({ name: 'rightArm', pivot: [-5, 22, 0], cubes: [{ origin: [-7, 12, -2], size: [3, 12, 4] }] })
+  )
   equipment.addEquipment(fake<MobModel>({ boneData, bones: new Map(), materials: [] }), {
     chest: { name: 'iron_chestplate' },
   })

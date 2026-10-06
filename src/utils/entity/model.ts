@@ -94,7 +94,10 @@ const slimArms = (bones: Bone[]): Bone[] =>
   })
 
 // `texture` picks another texture for the body (a variant); it must share the base texture's layout.
-export const buildMobModel = (type: string, options: { slim?: boolean; texture?: number; baby?: boolean } = {}): MobModel => {
+export const buildMobModel = (
+  type: string,
+  options: { slim?: boolean; texture?: number; baby?: boolean } = {}
+): MobModel => {
   const adult = entityData.entities[type]
   const entry = options.baby && adult.baby ? adult.baby : adult
   const bones = options.slim ? slimArms(entry.bones) : entry.bones

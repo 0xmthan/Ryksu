@@ -53,7 +53,11 @@ const makeDisc = (color: string, size: number) => {
   return sprite
 }
 
-export const createSky = (scene: THREE.Scene, renderer: THREE.WebGLRenderer, quality: ShadowQuality = 'high') => {
+export const createSky = (
+  scene: THREE.Scene,
+  renderer: THREE.WebGLRenderer,
+  quality: ShadowQuality = 'high'
+) => {
   // Always on: turning shadows off just stops the light casting them, so it can change while the view is open.
   renderer.shadowMap.enabled = true
   let shadows = quality
@@ -153,7 +157,8 @@ export const createSky = (scene: THREE.Scene, renderer: THREE.WebGLRenderer, qua
 
   // For glints on water: the direction toward the sun or moon (whichever lights the scene) and its color,
   // scaled by how strongly it shines (none in caves).
-  const lightDirection = (target: THREE.Vector3) => target.subVectors(light.position, light.target.position).normalize()
+  const lightDirection = (target: THREE.Vector3) =>
+    target.subVectors(light.position, light.target.position).normalize()
   const lightColor = (target: THREE.Color) => target.copy(light.color).multiplyScalar(light.intensity)
 
   return { update, setShadows, lightDirection, lightColor }

@@ -79,7 +79,11 @@ const lightChanges = (before: Uint8Array, after: Uint8Array, width: number) => {
   return keys
 }
 
-export const createChunkMeshes = (scene: THREE.Scene, materials: Materials, initialOptions: MeshOptions = {}) => {
+export const createChunkMeshes = (
+  scene: THREE.Scene,
+  materials: Materials,
+  initialOptions: MeshOptions = {}
+) => {
   let options = { ...initialOptions }
   // What the current meshes were built for; a change of any of these builds a new set.
   let context = ''
@@ -107,7 +111,12 @@ export const createChunkMeshes = (scene: THREE.Scene, materials: Materials, init
     const { blocks, atlas, mode } = latest!
     const meshes = buildBlockMeshes(blocks, atlas, mode, indices, options)
     const chunk: Chunk = { signature, meshes: [], pickable: [] }
-    const add = (geometry: THREE.BufferGeometry, material: THREE.Material, setup: (mesh: THREE.Mesh) => void, quads?: number[]) => {
+    const add = (
+      geometry: THREE.BufferGeometry,
+      material: THREE.Material,
+      setup: (mesh: THREE.Mesh) => void,
+      quads?: number[]
+    ) => {
       if (!geometry.getAttribute('position')?.count) {
         geometry.dispose()
         return
@@ -118,25 +127,45 @@ export const createChunkMeshes = (scene: THREE.Scene, materials: Materials, init
       chunk.meshes.push(mesh)
       if (quads) chunk.pickable.push({ mesh, quads, blocks })
     }
-    add(meshes.opaque, materials.opaque, (mesh) => {
-      mesh.castShadow = true
-      mesh.receiveShadow = true
-    }, meshes.opaqueQuads)
+    add(
+      meshes.opaque,
+      materials.opaque,
+      (mesh) => {
+        mesh.castShadow = true
+        mesh.receiveShadow = true
+      },
+      meshes.opaqueQuads
+    )
     // Water draws after the solid blocks so they show through it.
-    add(meshes.translucent, materials.translucent, (mesh) => {
-      mesh.renderOrder = 1
-      mesh.receiveShadow = true
-    }, meshes.translucentQuads)
-    add(meshes.water, materials.water, (mesh) => {
-      mesh.renderOrder = 1
-      mesh.receiveShadow = true
-    }, meshes.waterQuads)
+    add(
+      meshes.translucent,
+      materials.translucent,
+      (mesh) => {
+        mesh.renderOrder = 1
+        mesh.receiveShadow = true
+      },
+      meshes.translucentQuads
+    )
+    add(
+      meshes.water,
+      materials.water,
+      (mesh) => {
+        mesh.renderOrder = 1
+        mesh.receiveShadow = true
+      },
+      meshes.waterQuads
+    )
     add(meshes.ghost, materials.ghost, (mesh) => {
       mesh.renderOrder = 2
     })
-    add(meshes.caps, materials.cap, (mesh) => {
-      mesh.receiveShadow = true
-    }, meshes.capQuads)
+    add(
+      meshes.caps,
+      materials.cap,
+      (mesh) => {
+        mesh.receiveShadow = true
+      },
+      meshes.capQuads
+    )
     const old = chunks.get(key)
     if (old) disposeChunk(old)
     chunks.set(key, chunk)
