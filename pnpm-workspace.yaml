@@ -5,6 +5,8 @@ allowBuilds:
   electron-winstaller: true
   fs-xattr: true
   macos-alias: true
+  # Its postinstall would install the git hooks; the prepare script does that instead.
+  simple-git-hooks: false
 
 overrides:
   minecraft-data: file:../minecraft-data-26.2

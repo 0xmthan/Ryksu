@@ -14,7 +14,18 @@
     "publish": "electron-forge publish",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "prepare": "simple-git-hooks"
+  },
+  "simple-git-hooks": {
+    "pre-commit": "pnpm exec lint-staged"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,cjs,mjs}": [
+      "eslint --fix --no-warn-ignored",
+      "prettier --write"
+    ],
+    "*.{json,css,html,md,yml,yaml}": "prettier --write --ignore-unknown"
   },
   "keywords": [],
   "author": {
@@ -47,11 +58,13 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "globals": "^17.13.0",
     "json-schema-to-typescript": "16.0.0",
+    "lint-staged": "^17.6.0",
     "minecraft-assets": "^1.19.0",
     "postcss": "^8.5.28",
     "prettier": "^3.9.9",
     "prettier-plugin-classnames": "^0.10.4",
     "prettier-plugin-tailwindcss": "^0.8.1",
+    "simple-git-hooks": "^2.14.0",
     "tailwindcss": "^4.3.3",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.71.0",

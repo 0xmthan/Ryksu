@@ -3,7 +3,9 @@ dist-electron
 .DS_Store
 release
 dist
-.vscode
+# Personal editor settings; the shared ones are tracked.
+.vscode/*
+!.vscode/settings.json
 
 out/
 .webpack/

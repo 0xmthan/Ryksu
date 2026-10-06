@@ -22,10 +22,15 @@ pnpm make
 
 Build output lives in `.vite/`, and distributables are written to `out/make/`.
 
+`pnpm install` also sets up a pre-commit hook that runs ESLint (with `--fix`)
+and Prettier on the staged files, and stops the commit on lint errors. Skip it
+for one commit with `SKIP_SIMPLE_GIT_HOOKS=1 git commit …`.
+
 ## CI and releases
 
-CI runs dependency auditing, a frozen-lockfile install, type checking, and tests
-on every push and pull request. Regular commits skip Electron packaging.
+CI runs dependency auditing, a frozen-lockfile install, type checking, lint,
+formatting checks, and tests on every push and pull request. Regular commits
+skip Electron packaging.
 
 The run's Summary page includes a CI report with a results table, vulnerability
 counts by severity, and a release ZIP download link when a build succeeds.
