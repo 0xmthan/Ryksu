@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { Vec3 } from 'vec3'
-import { openInteractiveBlock } from '../src/bot/blockInteraction'
+import { openInteractiveBlock } from '../src/main/bot/actions/blockInteraction'
 import { asBot, fakeBot } from './fakes'
 const makeBot = (name = 'chest') => {
   const bot = fakeBot()

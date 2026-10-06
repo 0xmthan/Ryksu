@@ -1,13 +1,13 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import * as THREE from 'three'
-import { entityData } from '../src/utils/entity/data'
-import { buildEntityModel } from '../src/utils/entity/appearance'
-import { getMotion } from '../src/bot/entityView'
+import { entityData } from '../src/renderer/features/watcher/entity/data'
+import { buildEntityModel } from '../src/renderer/features/watcher/entity/appearance'
+import { getMotion } from '../src/main/bot/entities/entityView'
 import { Vec3 } from 'vec3'
 import minecraftData from 'minecraft-data'
 import type { Bot } from 'mineflayer'
-import type { MotionEntity } from '../src/types'
+import type { MotionEntity } from '../src/shared/types'
 import { fake, mob } from './fakes'
 
 const build = (fields: Partial<MotionEntity>) => {

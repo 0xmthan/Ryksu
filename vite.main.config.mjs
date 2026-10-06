@@ -8,7 +8,7 @@ const externalPackages = ['electron', ...Object.keys(pkg.dependencies)]
 
 export default defineConfig({
   build: {
-    lib: { entry: 'src/main.ts', formats: ['cjs'], fileName: () => 'main.cjs' },
+    lib: { entry: 'src/main/index.ts', formats: ['cjs'], fileName: () => 'main.cjs' },
     rollupOptions: {
       external: externalPackages.map(
         (name) => new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:/|$)`)

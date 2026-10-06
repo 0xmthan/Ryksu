@@ -1,6 +1,6 @@
 import { EventEmitter } from 'node:events'
 import type { Bot } from 'mineflayer'
-import type { MotionEntity } from '../src/types'
+import type { MotionEntity } from '../src/shared/types'
 
 // Test doubles only fill in what the code under test reads; this gives one the type it stands in for.
 export const fake = <T>(value: object): T => value as T

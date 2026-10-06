@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { parseMotd } from '../src/utils/motd'
+import { parseMotd } from '../src/renderer/features/connection/motd'
 
 type Segment = ReturnType<typeof parseMotd>[number]
 

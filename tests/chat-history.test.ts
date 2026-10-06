@@ -1,8 +1,8 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { ChatBridge } from '../src/bot/chatBridge'
-import type { ChatMessage } from '../src/types'
-import { mergeChatHistory } from '../src/utils/chat'
+import { ChatBridge } from '../src/main/bot/chatBridge'
+import type { ChatMessage } from '../src/shared/types'
+import { mergeChatHistory } from '../src/renderer/features/chat/chat'
 
 const entry = (index: number): ChatMessage => ({
   id: String(index),

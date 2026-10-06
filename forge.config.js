@@ -31,9 +31,9 @@ module.exports = {
       name: '@electron-forge/plugin-vite',
       config: {
         build: [
-          { entry: 'src/main.ts', config: 'vite.main.config.mjs', target: 'main' },
-          { entry: 'src/preload.ts', config: 'vite.preload.config.mjs', target: 'preload' },
-          { entry: 'src/worldWorker.ts', config: 'vite.worker.config.mjs', target: 'main' },
+          { entry: 'src/main/index.ts', config: 'vite.main.config.mjs', target: 'main' },
+          { entry: 'src/preload/index.ts', config: 'vite.preload.config.mjs', target: 'preload' },
+          { entry: 'src/main/bot/world/worker.ts', config: 'vite.worker.config.mjs', target: 'main' },
         ],
         renderer: [{ name: 'main_window', config: 'vite.renderer.config.mjs' }],
       },

@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import * as THREE from 'three'
-import { boneGeometry } from '../src/utils/entity/geometry'
+import { boneGeometry } from '../src/renderer/features/watcher/entity/geometry'
 test('skin UVs stay inside each face while cube corners remain watertight', () => {
   const geometry = boneGeometry(
     [{ origin: [0, 0, 0], size: [8, 8, 8], uv: [0, 0] }],

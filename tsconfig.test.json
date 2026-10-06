@@ -10,7 +10,7 @@
     "tests/**/*",
     "src/**/*.d.ts",
     // Module augmentations for mineflayer and prismarine (Bot and Entity fields).
-    "src/bot/types.ts",
-    "src/bot/plugins/core/types.ts"
+    "src/main/bot/types.ts",
+    "src/main/bot/vendor/types.ts"
   ]
 }

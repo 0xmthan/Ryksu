@@ -8,7 +8,7 @@ import {
   QUALITY_PRESETS,
   saveGraphicsSettings,
   type GraphicsSettings,
-} from '../src/utils/graphicsSettings'
+} from '../src/renderer/lib/graphicsSettings'
 
 // The settings are read from localStorage when loaded, so a stand-in installed here is in place in time.
 const store = new Map<string, string>()

@@ -1,8 +1,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import * as THREE from 'three'
-import { rayUniforms, updateTorchRayCasters } from '../src/components/watcher/torchRays'
-import { boneGeometry } from '../src/utils/entity/geometry'
+import { rayUniforms, updateTorchRayCasters } from '../src/renderer/features/watcher/scene/torchRays'
+import { boneGeometry } from '../src/renderer/features/watcher/entity/geometry'
 
 // Where a scene point lands in a caster box's own 0-1 cube.
 const toBox = (box: number, point: THREE.Vector3) => {

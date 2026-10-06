@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { inventoryWindowLayout } from '../src/utils/inventoryWindows'
+import { inventoryWindowLayout } from '../src/renderer/features/inventory/inventoryWindows'
 
 const layout = (type: string, inventoryStart: number, resultSlot: number, title = '') =>
   inventoryWindowLayout({ id: 1, slots: [], type, inventoryStart, resultSlot, title })

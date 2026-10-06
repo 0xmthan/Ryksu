@@ -36,7 +36,7 @@ Severity: 🔴 bug or real risk · 🟠 should fix soon · 🟡 cleanup or nice 
 
 ## 2. Architecture and code quality
 
-### 2.1 🔴 `src/botManager.js` is a god object (1,230 lines)
+### 2.1 🔴 `src/main/bot/botManager.ts` is a god object (1,230 lines)
 
 It owns the connection lifecycle, 15 plugin instances, world streaming and the worker pool, the build queue, door operations, trading, mining, trusted players, snapshots and effects. Specific problems:
 
@@ -65,7 +65,7 @@ main/bot/
 
 ### 2.2 🔴 The IPC contract is defined in three places, and they disagree
 
-- `src/preload.js` (channel names), `src/mcBridge.js` + `src/main.js` (handlers) and `src/global.d.ts` (types) are all written by hand.
+- `src/preload/index.ts` (channel names), `src/main/ipc/registerBotIpc.ts` + `src/main/index.ts` (handlers) and `src/renderer/global.d.ts` (types) are all written by hand.
 - **Mismatch:** `global.d.ts` types `openDoor` as returning `{ ok, message? }`, but `botManager.openDoor` returns `PathfinderOptions`.
 - **Dead endpoints:** these exist in all three files but are never called from the renderer: `openDoor`, `getSnapshot`, `clearMiningChests`, `getAutoEatOptions`, `getPathfinderOptions`, `getPvpOptions`.
 - **Two error conventions are mixed.** Some handlers return `{ ok: false, message }` and others throw. The renderer wraps calls in `try/catch` that never fires for `ok: false`.
@@ -80,7 +80,7 @@ main/bot/
 
 **Fix:** put them in a `WorldTracker` object owned by the session, and pass it into `readSlice`/`getWorldView`. Pass trusted players explicitly to `getMotion`.
 
-### 2.4 🟠 `src/components/Surroundings3D.tsx` (1,206 lines)
+### 2.4 🟠 `src/renderer/features/watcher/Surroundings3D.tsx` (1,206 lines)
 
 - **The main `useEffect` runs from line 199 to line 1085: 886 lines in one closure.**
   - It creates the renderer, camera, controls, materials, input handlers, the render loop, settings listeners and teardown.
@@ -153,7 +153,7 @@ Problems this causes:
 | `HOTBAR_START = 36` | `Dashboard.tsx:17`, `bot/inventoryActions.js:5`, `bot/worldView.js:38` |
 | "Plugin sent a packet Ryksu could not parse" | `botManager.js:44` and `utils/chat.ts` (`normalizeProtocolError`) |
 | `{ x: number; y: number; z: number }` | written inline 24 times in types |
-| Interactive block lists | `src/shared/interactiveBlocks.json` and `core/pathfinder/lib/interactable.json` |
+| Interactive block lists | `src/shared/data/interactiveBlocks.json` and `core/pathfinder/lib/interactable.json` |
 | Eye height | `1.62` (`botManager.js:509`) vs `1.6` (`:1173`) |
 
 **Fix:** `src/shared/blocks.ts` (door, liquid and interactive checks, `isTrue`), `src/shared/inventory.ts` (slot constants) and `src/shared/geometry.ts` (`Vec3Like`).
@@ -162,7 +162,7 @@ Problems this causes:
 
 `this.pvp._clearTarget()` (4 times), `this.mining._targetLabel()`, `this.autoTool._ensurePlugin()` and `this.creeperWatch.pvp = this.pvp` (assigned after construction to avoid a circular dependency). These should be public methods, or the dependency should be passed in properly.
 
-### 2.12 🟡 Main-process hygiene (`src/main.js`)
+### 2.12 🟡 Main-process hygiene (`src/main/index.ts`)
 
 - It patches `process.emitWarning` and `console.log` globally to hide two specific messages. Keep the patches, but move them to `main/silenceKnownWarnings.ts` with a test, so they don't hide other output.
 - `window:grabPointer` calls `executeJavaScript('window.__ryksuGrabPointer?.()')`, so the main process runs code in the page. Consider exposing a preload callback instead.
@@ -315,7 +315,7 @@ See §3.3. Remove it, along with the `password` connect option sent to mineflaye
 
 ### 5.3 🟠 Renderer hardening
 
-- No Content-Security-Policy in `src/index.html`. Add one, e.g. `default-src 'self'; img-src 'self' data:; connect-src 'self'` (plus the Vite dev-server origin in dev).
+- No Content-Security-Policy in `src/renderer/index.html`. Add one, e.g. `default-src 'self'; img-src 'self' data:; connect-src 'self'` (plus the Vite dev-server origin in dev).
 - No `setWindowOpenHandler` / `will-navigate` guard. Add both, denying everything by default.
 - Set `sandbox: true` explicitly in `webPreferences` (it's the default today, but stating it protects against regressions).
 - Some IPC handlers don't validate their input (`interactBlock`, `inventoryAction`, `buildAction`, `setTrustedPlayers`, `firstPerson.*`). Add validation (see the migration doc §2.4 C).
@@ -400,7 +400,7 @@ That's fine for now, but loading it lazily (`fetch` of a static asset) would mak
 2. **Security quick wins:** remove the Microsoft password, `safeStorage` for the server password, CSP, navigation guards (§5). *1 day*
 3. **Chat storage bound** (§2.7) and **saved locations per server** (§3.8). *1 day*
 4. ✅ **IPC contract + TS migration** (done). Includes the `BotManager` split (§2.1), the plugin base class (§2.8) and dedupe (§2.10). *2–3 weeks*
-5. **Folder restructure** with `git mv` only (§4), after the migration. *½ day*
+5. ✅ **Folder restructure** with `git mv` only (§4) (done; the settings store, `BotSession` and `window.ts` from the proposal are still open). *½ day*
 6. **Settings single source of truth** (§2.5) + context instead of prop drilling (§2.6). *2–3 days*
 7. **UI:** Automation popover (§3.1), resizable window (§3.2), shared Dialog (§3.5), toasts (§3.4), design tokens (§3.6). *1 week*
 8. **Watcher refactor** (§2.4). *3–4 days*

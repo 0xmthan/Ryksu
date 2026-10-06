@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import * as THREE from 'three'
-import type { MotionEntity } from '../src/types'
+import type { MotionEntity } from '../src/shared/types'
 import { mob } from './fakes'
 import { loadModule } from './loadModule'
 
@@ -17,8 +17,8 @@ const context = {
   strokeRect() {},
 }
 const canvas = { width: 0, height: 0, getContext: () => context }
-const nametags = loadModule<typeof import('../src/components/watcher/playerNametag')>(
-  'src/components/watcher/playerNametag.ts',
+const nametags = loadModule<typeof import('../src/renderer/features/watcher/entity/playerNametag')>(
+  'src/renderer/features/watcher/entity/playerNametag.ts',
   {},
   { document: { createElement: () => canvas } }
 )
@@ -67,17 +67,17 @@ test('nametags stay at a small world size and draw a pixel heart', () => {
 })
 
 test('the bot has no nametag while other players do', () => {
-  const tracked = loadModule<typeof import('../src/components/watcher/entityObjects')>(
-    'src/components/watcher/entityObjects.ts',
+  const tracked = loadModule<typeof import('../src/renderer/features/watcher/entity/entityObjects')>(
+    'src/renderer/features/watcher/entity/entityObjects.ts',
     {
       './playerNametag': nametags,
-      '../../utils/entity/appearance': {
+      './appearance': {
         buildEntityModel: () => null,
         lookOf: (entity: MotionEntity) => entity.name,
       },
-      '../../utils/entity/animation': {},
-      '../../utils/entity/itemMesh': {},
-      './sceneUtils': {},
+      './animation': {},
+      './itemMesh': {},
+      '../sceneUtils': {},
     }
   )
   const player = tracked.createTracked(entity, new THREE.Vector3(), undefined)

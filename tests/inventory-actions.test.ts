@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { runInventoryAction } from '../src/bot/inventoryActions'
-import type { InventoryAction, InventoryClick } from '../src/types'
+import { runInventoryAction } from '../src/main/bot/actions/inventoryActions'
+import type { InventoryAction, InventoryClick } from '../src/shared/types'
 import { asBot, fake, fakeBot, type FakeBot } from './fakes'
 
 const makeBot = () => {

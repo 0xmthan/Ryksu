@@ -3,9 +3,14 @@ import assert from 'node:assert/strict'
 import { Vec3 } from 'vec3'
 import type { Bot } from 'mineflayer'
 import loadRegistry from 'prismarine-registry'
-import { readSlice, computeInput, createWorldTracker, type WorldTracker } from '../src/bot/worldView'
-import { computeBlocks } from '../src/bot/worldCompute'
-import type { BlockView } from '../src/types'
+import {
+  readSlice,
+  computeInput,
+  createWorldTracker,
+  type WorldTracker,
+} from '../src/main/bot/world/worldView'
+import { computeBlocks } from '../src/main/bot/world/worldCompute'
+import type { BlockView } from '../src/shared/types'
 import { fake } from './fakes'
 
 const registry = loadRegistry('1.20.4')

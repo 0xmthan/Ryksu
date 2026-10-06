@@ -1,9 +1,9 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import * as THREE from 'three'
-import { entityVariant } from '../src/bot/entityVariants'
-import { buildEntityModel, lookOf } from '../src/utils/entity/appearance'
-import { dyeSheepPixels } from '../src/utils/entity/textures'
+import { entityVariant } from '../src/main/bot/entities/entityVariants'
+import { buildEntityModel, lookOf } from '../src/renderer/features/watcher/entity/appearance'
+import { dyeSheepPixels } from '../src/renderer/features/watcher/entity/textures'
 import type { Bot } from 'mineflayer'
 import { fake, mob } from './fakes'
 

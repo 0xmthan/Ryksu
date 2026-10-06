@@ -1,4 +1,4 @@
-// Texture variants for mobs, by the variant names the bot side sends (see src/bot/entityVariants.js).
+// Texture variants for mobs, by the variant names the bot side sends (see src/main/bot/entities/entityVariants.ts).
 // Paths are relative to the minecraft-assets data folder. Each must fit the same old geometry as the
 // mob's base texture, which is why some come from older versions (cats, rabbits and llamas were
 // redrawn in 26.1; warm and cold cows got a new model in 1.21.5, so cows have no variants here).

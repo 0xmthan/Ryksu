@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { spreadLight } from '../src/bot/worldView'
+import { spreadLight } from '../src/main/bot/world/worldView'
 
 // A 5×1×5 floor slice: palette 0 = torch, 1 = stone, 2 = leaves; -1 = air.
 const emits = [14, 0, 0]

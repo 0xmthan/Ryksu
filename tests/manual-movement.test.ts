@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { ManualMovementController } from '../src/bot/plugins/manualMovement'
-import type { MovementControls } from '../src/types'
+import { ManualMovementController } from '../src/main/bot/plugins/manualMovement'
+import type { MovementControls } from '../src/shared/types'
 import { asBot, fakeBot } from './fakes'
 
 // The controller's private state, checked after a disconnect.

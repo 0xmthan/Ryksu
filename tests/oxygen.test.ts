@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import type { Bot } from 'mineflayer'
-import { readOxygen } from '../src/bot/oxygen'
+import { readOxygen } from '../src/main/bot/oxygen'
 import { fake } from './fakes'
 
 const registry = { entitiesByName: { player: { metadataKeys: ['shared_flags', 'air_supply'] } } }

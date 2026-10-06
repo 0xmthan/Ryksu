@@ -2,8 +2,8 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import type { Entity } from 'prismarine-entity'
 import { Vec3 } from 'vec3'
-import type { AutoToolController } from '../src/bot/plugins/autoTool'
-import { PvpController } from '../src/bot/plugins/pvp'
+import type { AutoToolController } from '../src/main/bot/plugins/autoTool'
+import { PvpController } from '../src/main/bot/plugins/pvp'
 import { fake, fakeBot, type FakeBot } from './fakes'
 
 // The controller's private state these tests set up and check.

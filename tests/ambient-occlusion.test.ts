@@ -1,8 +1,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import type { BlockView } from '../src/types'
-import type { BlockAtlas } from '../src/utils/blockAtlas'
-import { buildBlockMeshes } from '../src/utils/blockMesher'
+import type { BlockView } from '../src/shared/types'
+import type { BlockAtlas } from '../src/renderer/features/watcher/meshing/blockAtlas'
+import { buildBlockMeshes } from '../src/renderer/features/watcher/meshing/blockMesher'
 import { fake } from './fakes'
 
 // A 5×5×5 view: stone at the center with its top open, and a stone block up and to the east of it, sitting

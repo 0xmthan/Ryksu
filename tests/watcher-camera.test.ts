@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import * as THREE from 'three'
 import type { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
-import { createCameraRig, DEFAULT_DISTANCE } from '../src/components/watcher/cameraRig'
+import { createCameraRig, DEFAULT_DISTANCE } from '../src/renderer/features/watcher/cameraRig'
 
 // Just what the rig uses of the orbit controls: the point they circle and their start/end events.
 type FakeControls = THREE.EventDispatcher<{ start: object; end: object; change: object }> & {

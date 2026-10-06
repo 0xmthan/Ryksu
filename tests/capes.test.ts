@@ -1,14 +1,14 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import * as THREE from 'three'
-import { skinUrl, capeUrl } from '../src/bot/profileTextures'
-import type { MobModel } from '../src/utils/entity/model'
+import { skinUrl, capeUrl } from '../src/main/bot/entities/profileTextures'
+import type { MobModel } from '../src/renderer/features/watcher/entity/model'
 import { fake } from './fakes'
 import { loadModule } from './loadModule'
 
 let fetchTexture: (url: string) => Promise<string | null> = async () => 'data:image/png;base64,test'
-const cape = loadModule<typeof import('../src/utils/entity/cape')>(
-  'src/utils/entity/cape.ts',
+const cape = loadModule<typeof import('../src/renderer/features/watcher/entity/cape')>(
+  'src/renderer/features/watcher/entity/cape.ts',
   {
     './model': {
       mobMaterial: (map: THREE.Texture) => {

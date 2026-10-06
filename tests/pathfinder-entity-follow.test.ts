@@ -2,8 +2,8 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { Vec3 } from 'vec3'
 import type { Entity } from 'prismarine-entity'
-import { PathfinderController } from '../src/bot/plugins/pathfinder'
-import type { GoalFollow } from '../src/bot/plugins/core/pathfinder/lib/goals'
+import { PathfinderController } from '../src/main/bot/plugins/pathfinder'
+import type { GoalFollow } from '../src/main/bot/vendor/pathfinder/lib/goals'
 import { fake, fakeBot, type FakeBot } from './fakes'
 
 // The controller's private state, which these tests set up directly instead of loading the real plugin.

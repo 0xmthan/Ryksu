@@ -1,9 +1,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import type { IpcMain } from 'electron'
-import { registerAppIpc } from '../src/appIpc'
-import { checkForUpdates } from '../src/appUpdates'
-import type { UpdateCheck } from '../src/ipc'
+import { registerAppIpc } from '../src/main/ipc/registerAppIpc'
+import { checkForUpdates } from '../src/main/services/updates'
+import type { UpdateCheck } from '../src/shared/ipc'
 import { fake } from './fakes'
 
 // A stand-in for fetch that answers with `response` (only the fields checkForUpdates reads).

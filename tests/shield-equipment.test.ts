@@ -1,8 +1,8 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import * as THREE from 'three'
-import type { Bone } from '../src/utils/entity/data'
-import type { MobModel } from '../src/utils/entity/model'
+import type { Bone } from '../src/renderer/features/watcher/entity/data'
+import type { MobModel } from '../src/renderer/features/watcher/entity/model'
 import { fake } from './fakes'
 import { loadModule } from './loadModule'
 
@@ -12,12 +12,15 @@ const modelTools = {
   textureSize: () => ({ width: 64, height: 32 }),
   mobMaterial: (map: THREE.Texture) => new THREE.MeshLambertMaterial({ map }),
 }
-const shield = loadModule<typeof import('../src/utils/entity/shield')>('src/utils/entity/shield.ts', {
-  './model': modelTools,
-  './textures': { textureFromUrl: () => new THREE.Texture() },
-})
-const equipment = loadModule<typeof import('../src/utils/entity/equipment')>(
-  'src/utils/entity/equipment.ts',
+const shield = loadModule<typeof import('../src/renderer/features/watcher/entity/shield')>(
+  'src/renderer/features/watcher/entity/shield.ts',
+  {
+    './model': modelTools,
+    './textures': { textureFromUrl: () => new THREE.Texture() },
+  }
+)
+const equipment = loadModule<typeof import('../src/renderer/features/watcher/entity/equipment')>(
+  'src/renderer/features/watcher/entity/equipment.ts',
   {
     './shield': shield,
     './data': { entityData: { armor: { humanoid: { iron: 0 } } } },

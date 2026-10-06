@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import * as THREE from 'three'
-import { createSelfMotion } from '../src/components/watcher/selfMotion'
+import { createSelfMotion } from '../src/renderer/features/watcher/selfMotion'
 
 test('sideways starts and rapid reversals stay continuous without overshooting', () => {
   const motion = createSelfMotion()

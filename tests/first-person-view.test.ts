@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import * as THREE from 'three'
-import { createFirstPerson, FIRST_PERSON_FOV } from '../src/components/watcher/firstPerson'
+import { createFirstPerson, FIRST_PERSON_FOV } from '../src/renderer/features/watcher/firstPerson'
 import { fake } from './fakes'
 
 test('alternating sideways movement keeps the view stable while actual sprint zoom still works', () => {
