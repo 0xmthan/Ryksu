@@ -1,29 +1,29 @@
-const test = require('node:test')
-const assert = require('node:assert/strict')
-const fs = require('node:fs')
-const vm = require('node:vm')
-const ts = require('typescript')
-const THREE = require('three')
-const { skinUrl, capeUrl } = require('../src/bot/profileTextures')
-const compile = (file, requireModule, extras = {}) => {
-  const exportsObject = {}
-  vm.runInNewContext(ts.transpileModule(fs.readFileSync(file, 'utf8'), {
-    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2021 },
-  }).outputText, { exports: exportsObject, require: requireModule, ...extras })
-  return exportsObject
-}
-const geometry = compile('src/utils/entity/geometry.ts', require)
-let fetchTexture = async () => 'data:image/png;base64,test'
-const cape = compile('src/utils/entity/cape.ts', name => {
-  if (name === './geometry') return geometry
-  if (name === './model') return { mobMaterial: map => {
-    const material = new THREE.MeshLambertMaterial({ map })
-    material.userData.sharedMap = true
-    return material
-  } }
-  if (name === './textures') return { textureFromUrl: () => new THREE.Texture() }
-  return require(name)
-}, { window: { electronAPI: { bot: { getSkin: url => fetchTexture(url) } } } })
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import * as THREE from 'three'
+import { skinUrl, capeUrl } from '../src/bot/profileTextures'
+import type { MobModel } from '../src/utils/entity/model'
+import { fake } from './fakes'
+import { loadModule } from './loadModule'
+
+let fetchTexture: (url: string) => Promise<string | null> = async () => 'data:image/png;base64,test'
+const cape = loadModule<typeof import('../src/utils/entity/cape')>(
+  'src/utils/entity/cape.ts',
+  {
+    './model': {
+      mobMaterial: (map: THREE.Texture) => {
+        const material = new THREE.MeshLambertMaterial({ map })
+        material.userData.sharedMap = true
+        return material
+      },
+    },
+    './textures': { textureFromUrl: () => new THREE.Texture() },
+  },
+  { window: { electronAPI: { bot: { getSkin: (url: string) => fetchTexture(url) } } } }
+)
+// The part of a mob model a cape uses.
+const capeModel = (attachment: THREE.Group) =>
+  fake<MobModel>({ bones: new Map([['cape', attachment]]), materials: [] })
 
 test('profile cape URLs accept Mojang textures and normalize HTTP', () => {
   const player = { skinData: { url: 'http://textures.minecraft.net/texture/abc123', capeUrl: 'http://textures.minecraft.net/texture/deadbeef' } }
@@ -37,7 +37,7 @@ test('profile cape URLs accept Mojang textures and normalize HTTP', () => {
 test('cape geometry hangs from the shoulders behind the player and uses its own atlas', () => {
   const mesh = cape.createCapeGeometry()
   mesh.computeBoundingBox()
-  const bounds = mesh.boundingBox
+  const bounds = mesh.boundingBox!
   const size = bounds.getSize(new THREE.Vector3())
   assert.ok(Math.abs(size.x - 10) < 0.0001)
   assert.ok(Math.abs(size.y - 16) < 0.0001)
@@ -62,12 +62,12 @@ test('walking smoothly lifts the cape backward and it settles when standing', ()
   assert.ok(Math.abs(attachment.rotation.x + 0.12) < 0.01)
 })
 test('a cape texture finishing after disposal never revives the model', async () => {
-  let resolve
-  fetchTexture = () => new Promise(done => { resolve = done })
+  let resolve: (url: string) => void = () => {}
+  fetchTexture = () => new Promise((done) => (resolve = done))
   const attachment = new THREE.Group()
-  const model = { bones: new Map([['cape', attachment]]), materials: [] }
+  const model = capeModel(attachment)
   cape.addCape(model, 'https://textures.minecraft.net/texture/deadbeef')
-  const mesh = attachment.children[0]
+  const mesh = attachment.children[0] as THREE.Mesh
   model.materials[0].dispose()
   resolve('data:image/png;base64,test')
   await Promise.resolve()
@@ -77,14 +77,14 @@ test('a cape texture finishing after disposal never revives the model', async ()
 
 test('cape sits close to the jacket and leaves additional clearance for chest armor', () => {
   fetchTexture = async () => null
-  for (const [armored, offset] of [[false, 2.4], [true, 2.65]]) {
+  for (const [armored, offset] of [[false, 2.4], [true, 2.65]] as const) {
     const attachment = new THREE.Group()
     attachment.position.z = 3
-    const model = { bones: new Map([['cape', attachment]]), materials: [] }
+    const model = capeModel(attachment)
     cape.addCape(model, 'https://textures.minecraft.net/texture/deadbeef', armored)
     assert.equal(attachment.position.z, offset)
-    model.materials[0].map.dispose()
+    model.materials[0].map?.dispose()
     model.materials[0].dispose()
-    attachment.children[0].geometry.dispose()
+    ;(attachment.children[0] as THREE.Mesh).geometry.dispose()
   }
 })

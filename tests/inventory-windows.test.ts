@@ -1,13 +1,9 @@
-const test = require('node:test')
-const assert = require('node:assert/strict')
-const fs = require('node:fs')
-const vm = require('node:vm')
-const ts = require('typescript')
-const exportsObject = {}
-vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/utils/inventoryWindows.ts', 'utf8'), {
-  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2021 },
-}).outputText, { exports: exportsObject })
-const layout = (type, inventoryStart, resultSlot, title = '') => exportsObject.inventoryWindowLayout({ type, inventoryStart, resultSlot, title })
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import { inventoryWindowLayout } from '../src/utils/inventoryWindows'
+
+const layout = (type: string, inventoryStart: number, resultSlot: number, title = '') =>
+  inventoryWindowLayout({ id: 1, slots: [], type, inventoryStart, resultSlot, title })
 test('crafting table uses nine inputs and a separate result', () => {
   const window = layout('minecraft:crafting', 10, 0)
   assert.equal(window.columns, 3)
@@ -21,7 +17,7 @@ test('large chest keeps all 54 storage slots and renders nine columns', () => {
   assert.equal(window.result, null)
 })
 test('anvil, furnace and smithing results stay separate from inputs', () => {
-  for (const [type, start, result] of [['anvil', 3, 2], ['furnace', 3, 2], ['smithing', 4, 3]]) {
+  for (const [type, start, result] of [['anvil', 3, 2], ['furnace', 3, 2], ['smithing', 4, 3]] as const) {
     const window = layout(`minecraft:${type}`, start, result)
     assert.equal(window.inputs.length, start - 1)
     assert.equal(window.inputs.includes(result), false)

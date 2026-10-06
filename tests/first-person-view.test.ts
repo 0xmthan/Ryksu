@@ -1,15 +1,16 @@
-const test = require('node:test')
-const assert = require('node:assert/strict')
-const THREE = require('three')
-const { createFirstPerson, FIRST_PERSON_FOV } = require('../src/components/watcher/firstPerson.ts')
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import * as THREE from 'three'
+import { createFirstPerson, FIRST_PERSON_FOV } from '../src/components/watcher/firstPerson'
+import { fake } from './fakes'
 
 test('alternating sideways movement keeps the view stable while actual sprint zoom still works', () => {
-  const oldDocument = global.document
-  const oldWindow = global.window
-  global.document = { addEventListener() {}, removeEventListener() {}, pointerLockElement: null }
-  global.window = { addEventListener() {}, removeEventListener() {} }
+  const oldDocument = globalThis.document
+  const oldWindow = globalThis.window
+  globalThis.document = fake<Document>({ addEventListener() {}, removeEventListener() {}, pointerLockElement: null })
+  globalThis.window = fake<Window & typeof globalThis>({ addEventListener() {}, removeEventListener() {} })
   const camera = new THREE.PerspectiveCamera()
-  const view = createFirstPerson(camera, {}, () => {})
+  const view = createFirstPerson(camera, fake<HTMLElement>({}), () => {})
   try {
     view.enter(0)
     for (let frame = 0; frame < 120; frame++) {
@@ -25,7 +26,7 @@ test('alternating sideways movement keeps the view stable while actual sprint zo
     assert.ok(Math.abs(camera.fov - FIRST_PERSON_FOV) < 0.03)
   } finally {
     view.dispose()
-    global.document = oldDocument
-    global.window = oldWindow
+    globalThis.document = oldDocument
+    globalThis.window = oldWindow
   }
 })

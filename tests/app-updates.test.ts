@@ -1,11 +1,14 @@
-const { test } = require('node:test')
-const assert = require('node:assert/strict')
-const { checkForUpdates } = require('../src/appUpdates')
-const ts = require('typescript')
+import { test } from 'node:test'
+import assert from 'node:assert/strict'
+import os from 'node:os'
+import { checkForUpdates, type UpdateCheck } from '../src/appUpdates'
+import { fake } from './fakes'
+import { loadModule } from './loadModule'
 
-const release =
-  (tag, extra = {}) =>
-  async () => ({
+// A stand-in for fetch that answers with `response` (only the fields checkForUpdates reads).
+const respond = (response: object) => async () => fake<Response>(response)
+const release = (tag: string, extra = {}) =>
+  respond({
     ok: true,
     status: 200,
     json: async () => ({ tag_name: tag, draft: false, prerelease: false, ...extra }),
@@ -22,8 +25,8 @@ test('update checks compare numeric versions and accept v-prefixed tags', async 
 })
 
 test('missing releases are distinct from rate limits, network failures, and invalid data', async () => {
-  assert.equal((await checkForUpdates('2.1.0', async () => ({ status: 404 }))).status, 'no-release')
-  assert.equal((await checkForUpdates('2.1.0', async () => ({ status: 403, ok: false }))).status, 'error')
+  assert.equal((await checkForUpdates('2.1.0', respond({ status: 404 }))).status, 'no-release')
+  assert.equal((await checkForUpdates('2.1.0', respond({ status: 403, ok: false }))).status, 'error')
   assert.equal(
     (
       await checkForUpdates('2.1.0', async () => {
@@ -40,84 +43,86 @@ test('missing releases are distinct from rate limits, network failures, and inva
 test('update checks request latest GitHub release with a bounded timeout', async () => {
   await checkForUpdates('2.1.0', async (url, options) => {
     assert.equal(url, 'https://api.github.com/repos/0xmthan/Ryksu/releases/latest')
-    assert.equal(options.headers.Accept, 'application/vnd.github+json')
-    assert.ok(options.signal instanceof AbortSignal)
-    return { status: 404 }
+    assert.equal((options?.headers as Record<string, string>).Accept, 'application/vnd.github+json')
+    assert.ok(options?.signal instanceof AbortSignal)
+    return fake<Response>({ status: 404 })
   })
 })
 
-function mainHandlers(updateResult, openError = false) {
-  const fs = require('node:fs')
-  const vm = require('node:vm')
-  const handlers = new Map()
-  const opened = []
+type Handler = (...args: unknown[]) => unknown
+
+// Runs src/main.ts against a fake Electron and returns the IPC handlers it registered.
+function mainHandlers(updateResult: UpdateCheck, openError = false) {
+  const handlers = new Map<string, Handler>()
+  const opened: string[] = []
   let copied = ''
   const electron = {
     app: {
       getVersion: () => '2.1.0',
       // No display.json there, so the frame cap stays on.
-      getPath: () => require('node:os').tmpdir() + '/ryksu-test-missing',
+      getPath: () => os.tmpdir() + '/ryksu-test-missing',
       commandLine: { appendSwitch() {} },
       whenReady: () => ({ then() {} }),
       on() {},
     },
     BrowserWindow: {},
-    ipcMain: { handle: (name, handler) => handlers.set(name, handler), on() {} },
+    ipcMain: { handle: (name: string, handler: Handler) => handlers.set(name, handler), on() {} },
     clipboard: {
-      writeText: (text) => {
+      writeText: (text: string) => {
         copied = text
       },
     },
     shell: {
-      openExternal: async (url) => {
+      openExternal: async (url: string) => {
         if (openError) throw new Error('browser failed')
         opened.push(url)
       },
     },
   }
-  const source = ts.transpileModule(fs.readFileSync(require.resolve('../src/main.ts'), 'utf8'), {
-    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2021, esModuleInterop: true },
-  }).outputText
-  vm.runInNewContext(source, {
-    exports: {},
-    require: (name) => {
-      if (name === 'electron') return electron
-      if (name === './silenceKnownWarnings') return {}
-      if (name === './mcBridge') return { registerMinecraftIpc() {} }
-      if (name === './appUpdates')
-        return {
-          checkForUpdates: async () => updateResult,
-          RELEASES_URL: 'https://github.com/0xmthan/Ryksu/releases',
-        }
-      return require(name)
+  loadModule(
+    'src/main.ts',
+    {
+      electron,
+      './silenceKnownWarnings': {},
+      './mcBridge': { registerMinecraftIpc() {} },
+      './appUpdates': {
+        checkForUpdates: async () => updateResult,
+        RELEASES_URL: 'https://github.com/0xmthan/Ryksu/releases',
+      },
     },
-    process: {
-      emitWarning() {},
-      versions: { electron: '44.5.1', chrome: '148', node: '22' },
-      platform: 'darwin',
-      arch: 'arm64',
-    },
-    console: { log() {} },
-  })
-  return { handlers, opened, copied: () => copied }
+    {
+      process: {
+        versions: { electron: '44.5.1', chrome: '148', node: '22' },
+        platform: 'darwin',
+        arch: 'arm64',
+      },
+      console: { log() {} },
+    }
+  )
+  const handler = (name: string) => {
+    const found = handlers.get(name)
+    assert.ok(found, `${name} is registered`)
+    return found
+  }
+  return { handler, opened, copied: () => copied }
 }
 
 test('update IPC opens the fixed releases page only for a newer version', async () => {
   const available = mainHandlers({ status: 'available', version: '2.2.0' })
-  await available.handlers.get('app:checkForUpdates')()
+  await available.handler('app:checkForUpdates')()
   assert.deepEqual(available.opened, ['https://github.com/0xmthan/Ryksu/releases'])
-  for (const status of ['current', 'no-release', 'error']) {
+  for (const status of ['current', 'no-release', 'error'] as const) {
     const other = mainHandlers({ status })
-    await other.handlers.get('app:checkForUpdates')()
+    await other.handler('app:checkForUpdates')()
     assert.deepEqual(other.opened, [])
   }
   const failed = mainHandlers({ status: 'available', version: '2.2.0' }, true)
-  assert.equal((await failed.handlers.get('app:checkForUpdates')()).status, 'error')
+  assert.equal(((await failed.handler('app:checkForUpdates')()) as UpdateCheck).status, 'error')
 })
 
 test('copy info IPC copies the running version and system details', () => {
   const main = mainHandlers({ status: 'current' })
-  assert.equal(main.handlers.get('app:copyInfo')().ok, true)
+  assert.equal((main.handler('app:copyInfo')() as { ok: boolean }).ok, true)
   assert.equal(
     main.copied(),
     'Ryksu 2.1.0\nPlatform: darwin / arm64\nElectron: 44.5.1\nChromium: 148\nNode.js: 22'

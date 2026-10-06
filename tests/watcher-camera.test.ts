@@ -1,23 +1,21 @@
-const test = require('node:test')
-const assert = require('node:assert/strict')
-const fs = require('node:fs')
-const path = require('node:path')
-const vm = require('node:vm')
-const ts = require('typescript')
-const THREE = require('three')
-const exportsObject = {}
-const source = fs.readFileSync(path.join(__dirname, '../src/components/watcher/cameraRig.ts'), 'utf8')
-const compiled = ts.transpileModule(source, {
-  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2021 },
-}).outputText
-vm.runInNewContext(compiled, { exports: exportsObject, require })
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import * as THREE from 'three'
+import type { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
+import { createCameraRig, DEFAULT_DISTANCE } from '../src/components/watcher/cameraRig'
+
+// Just what the rig uses of the orbit controls: the point they circle and their start/end events.
+type FakeControls = THREE.EventDispatcher<{ start: object; end: object; change: object }> & {
+  target: THREE.Vector3
+}
 
 function setup() {
   const camera = new THREE.PerspectiveCamera()
   camera.position.set(16, 22, 24)
-  const controls = new THREE.EventDispatcher()
-  controls.target = new THREE.Vector3(0, 1.2, 0)
-  const rig = exportsObject.createCameraRig(camera, controls)
+  const controls = Object.assign(new THREE.EventDispatcher(), {
+    target: new THREE.Vector3(0, 1.2, 0),
+  }) as FakeControls
+  const rig = createCameraRig(camera, controls as unknown as OrbitControls)
   rig.update(new THREE.Vector3(), 1 / 60)
   return { camera, controls, rig }
 }
@@ -45,7 +43,7 @@ test('recenter eases to the default view and keeps the horizontal angle', () => 
   const initialAngle = Math.atan2(camera.position.x, camera.position.z)
   rig.recenter()
   for (let i = 0; i < 180; i++) rig.update(new THREE.Vector3(), 1 / 60)
-  assert.ok(Math.abs(camera.position.distanceTo(controls.target) - exportsObject.DEFAULT_DISTANCE) < 0.02)
+  assert.ok(Math.abs(camera.position.distanceTo(controls.target) - DEFAULT_DISTANCE) < 0.02)
   assert.ok(Math.abs(Math.atan2(camera.position.x, camera.position.z) - initialAngle) < 0.00001)
   rig.dispose()
 })

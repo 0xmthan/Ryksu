@@ -1,8 +1,10 @@
-const { test } = require('node:test')
-const assert = require('node:assert/strict')
-const { parseMotd } = require('../src/utils/motd.ts')
+import { test } from 'node:test'
+import assert from 'node:assert/strict'
+import { parseMotd } from '../src/utils/motd'
 
-const pick = (segments) => segments.map(({ text, color, bold }) => [text, color, bold])
+type Segment = ReturnType<typeof parseMotd>[number]
+
+const pick = (segments: Segment[]) => segments.map(({ text, color, bold }) => [text, color, bold])
 
 test('motd colors reset formatting while §r clears everything', () => {
   assert.deepEqual(pick(parseMotd('§lBold §agreen§r plain')), [

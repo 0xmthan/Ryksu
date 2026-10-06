@@ -1,6 +1,6 @@
-const test = require('node:test')
-const assert = require('node:assert/strict')
-const { releaseVersion } = require('../scripts/ci/release-version.cjs')
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import { releaseVersion } from '../scripts/ci/release-version.cjs'
 
 test('a version at the start of the subject requests a release', () => {
   assert.equal(releaseVersion('v2.1.1 Release'), '2.1.1')

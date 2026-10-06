@@ -1,25 +1,32 @@
-const test = require('node:test')
-const assert = require('node:assert/strict')
-const { EventEmitter } = require('node:events')
-const { Vec3 } = require('vec3')
-const { PvpController } = require('../src/bot/plugins/pvp')
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import type { Entity } from 'prismarine-entity'
+import { Vec3 } from 'vec3'
+import type { AutoToolController } from '../src/bot/plugins/autoTool'
+import { PvpController } from '../src/bot/plugins/pvp'
+import { fake, fakeBot, type FakeBot } from './fakes'
 
-function setup(options) {
+// The controller's private state these tests set up and check.
+type Internals = { bot: FakeBot; cooldownTicks: number; jumpAttackEnabled: boolean; pendingAttack: unknown }
+
+function setup(options?: ConstructorParameters<typeof PvpController>[0]) {
   const controller = new PvpController(options)
-  const bot = new EventEmitter()
-  const events = []
-  bot.entity = { position: new Vec3(0, 0, 0), onGround: true }
-  bot.setControlState = (name, value) => events.push(`${name}:${value}`)
-  bot.lookAt = async () => events.push('aim')
-  bot.attack = () => events.push('attack')
-  const target = { isValid: true, position: new Vec3(2, 0, 0), height: 1.8 }
-  controller.bot = bot
+  const internals = controller as unknown as Internals
+  const events: string[] = []
+  const bot = fakeBot({
+    entity: { position: new Vec3(0, 0, 0), onGround: true },
+    setControlState: (name: string, value: boolean) => events.push(`${name}:${value}`),
+    lookAt: async () => events.push('aim'),
+    attack: () => events.push('attack'),
+  })
+  const target = fake<Entity>({ isValid: true, position: new Vec3(2, 0, 0), height: 1.8 })
+  internals.bot = bot
   controller.target = target
-  return { controller, bot, target, events }
+  return { controller, internals, bot, target, events }
 }
 
 test('jump attack waits for takeoff and sends one attack', async (t) => {
-  const { controller, bot, target, events } = setup()
+  const { controller, internals, bot, target, events } = setup()
   t.after(() => controller.detach())
   const attack = controller._attemptAttack(target)
   assert.deepEqual(events, ['jump:true'])
@@ -33,19 +40,19 @@ test('jump attack waits for takeoff and sends one attack', async (t) => {
   await attack
   assert.deepEqual(events, ['jump:true', 'aim', 'attack'])
   assert.equal(bot.listenerCount('physicsTick'), 0)
-  assert.ok(controller.cooldownTicks > 0)
+  assert.ok(internals.cooldownTicks > 0)
 })
 
 test('disabled jump attack attacks without waiting for a jump', async (t) => {
-  const { controller, target, events } = setup()
+  const { controller, internals, target, events } = setup()
   t.after(() => controller.detach())
-  controller.jumpAttackEnabled = false
+  internals.jumpAttackEnabled = false
   await controller._attemptAttack(target)
   assert.deepEqual(events, ['aim', 'attack'])
 })
 
 test('cancelling an attack while waiting prevents a late strike', async (t) => {
-  const { controller, bot, target, events } = setup()
+  const { controller, internals, bot, target, events } = setup()
   t.after(() => controller.detach())
   const attack = controller._attemptAttack(target)
   controller.clearTarget()
@@ -54,7 +61,7 @@ test('cancelling an attack while waiting prevents a late strike', async (t) => {
   await attack
   assert.equal(events.includes('attack'), false)
   assert.equal(bot.listenerCount('physicsTick'), 0)
-  assert.equal(controller.pendingAttack, null)
+  assert.equal(internals.pendingAttack, null)
   assert.ok(events.includes('jump:false'))
 })
 
@@ -70,20 +77,20 @@ test('target moving out of reach during takeoff is not attacked', async (t) => {
 })
 
 test('weapon equipping cannot queue duplicate or cancelled attacks', async (t) => {
-  let equipped
-  const autoTool = {
+  let equipped: (value: boolean) => void = () => {}
+  const autoTool = fake<AutoToolController>({
     isEnabled: () => true,
     equipBestWeapon: () =>
-      new Promise((resolve) => {
+      new Promise<boolean>((resolve) => {
         equipped = resolve
       }),
-  }
+  })
   const { controller, target, events } = setup({ autoTool })
   t.after(() => controller.detach())
   const attack = controller._attemptAttack(target)
   await controller._attemptAttack(target)
   controller.clearTarget()
-  equipped()
+  equipped(true)
   await attack
   assert.deepEqual(events, [])
 })

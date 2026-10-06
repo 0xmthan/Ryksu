@@ -6,5 +6,5 @@ const textureUrl = (url: unknown) =>
     ? url.replace(/^http:/, 'https:')
     : null
 export const skinUrl = (player: SkinPlayer) => textureUrl(player?.skinData?.url)
-export const capeUrl = (player: SkinPlayer, skinParts: unknown) =>
+export const capeUrl = (player: SkinPlayer, skinParts?: unknown) =>
   typeof skinParts === 'number' && !(skinParts & 1) ? null : textureUrl(player?.skinData?.capeUrl)

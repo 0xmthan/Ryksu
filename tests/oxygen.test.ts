@@ -1,9 +1,11 @@
-const { test } = require('node:test')
-const assert = require('node:assert/strict')
-const { readOxygen } = require('../src/bot/oxygen')
+import { test } from 'node:test'
+import assert from 'node:assert/strict'
+import type { Bot } from 'mineflayer'
+import { readOxygen } from '../src/bot/oxygen'
+import { fake } from './fakes'
 
 const registry = { entitiesByName: { player: { metadataKeys: ['shared_flags', 'air_supply'] } } }
-const botWith = (metadata, extra = {}) => ({ registry, entity: { name: 'player', metadata }, ...extra })
+const botWith = (metadata: number[], extra = {}) => fake<Bot>({ registry, entity: { name: 'player', metadata }, ...extra })
 
 test('oxygen comes from the bot, not from what mineflayer last saw on any entity', () => {
   // A nearby mob's air update leaves bot.oxygenLevel at its value; the bot's own air is full.
@@ -14,7 +16,7 @@ test('oxygen comes from the bot, not from what mineflayer last saw on any entity
 
 test('oxygen is full until the bot has air metadata', () => {
   assert.equal(readOxygen(botWith([])), 20)
-  assert.equal(readOxygen({ registry, entity: null }), 20)
+  assert.equal(readOxygen(fake<Bot>({ registry, entity: null })), 20)
   // Versions without metadata names use the air slot directly.
-  assert.equal(readOxygen({ entity: { name: 'player', metadata: [0, 90] } }), 6)
+  assert.equal(readOxygen(fake<Bot>({ entity: { name: 'player', metadata: [0, 90] } })), 6)
 })

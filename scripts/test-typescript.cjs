@@ -1,5 +1,5 @@
-// Keep the existing CommonJS tests usable on Node 22 without depending on
-// native TypeScript stripping or ESM interop behavior.
+// Loads the TypeScript tests and sources as CommonJS, compiled with the TypeScript compiler, so they run the
+// same on Node 22 and newer without relying on Node's own type stripping (the test script turns that off).
 const fs = require('node:fs')
 const ts = require('typescript')
 

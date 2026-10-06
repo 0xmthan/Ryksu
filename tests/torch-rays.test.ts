@@ -1,15 +1,16 @@
-const { test } = require('node:test')
-const assert = require('node:assert/strict')
-const THREE = require('three')
-const { rayUniforms, updateTorchRayCasters } = require('../src/components/watcher/torchRays.ts')
-const { boneGeometry } = require('../src/utils/entity/geometry.ts')
+import { test } from 'node:test'
+import assert from 'node:assert/strict'
+import * as THREE from 'three'
+import { rayUniforms, updateTorchRayCasters } from '../src/components/watcher/torchRays'
+import { boneGeometry } from '../src/utils/entity/geometry'
 
 // Where a scene point lands in a caster box's own 0-1 cube.
-const toBox = (box, point) => {
+const toBox = (box: number, point: THREE.Vector3) => {
   const rows = rayUniforms.uRayBoxes.value.slice(box * 3, box * 3 + 3)
   return rows.map((row) => row.x * point.x + row.y * point.y + row.z * point.z + row.w)
 }
-const near = (actual, expected) => actual.forEach((value, i) => assert.ok(Math.abs(value - expected[i]) < 1e-6, `${actual} vs ${expected}`))
+const near = (actual: number[], expected: number[]) =>
+  actual.forEach((value, i) => assert.ok(Math.abs(value - expected[i]) < 1e-6, `${actual} vs ${expected}`))
 
 test('a model cube becomes a shadow box that follows the entity', () => {
   // One 2×4×2 cube with its corner at the origin, in an entity standing at (10, 0, 5) turned 90°.

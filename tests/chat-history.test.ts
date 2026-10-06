@@ -1,15 +1,17 @@
-const test = require('node:test')
-const assert = require('node:assert/strict')
-const fs = require('node:fs')
-const vm = require('node:vm')
-const ts = require('typescript')
-const { ChatBridge } = require('../src/bot/chatBridge')
-const exportsObject = {}
-vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/utils/chat.ts', 'utf8'), {
-  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2021 },
-}).outputText, { exports: exportsObject })
-const { mergeChatHistory } = exportsObject
-const entry = index => ({ id: String(index), text: `Message ${index}`, timestamp: index, author: 'Server', type: 'system', position: null })
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import { ChatBridge } from '../src/bot/chatBridge'
+import type { ChatMessage } from '../src/types'
+import { mergeChatHistory } from '../src/utils/chat'
+
+const entry = (index: number): ChatMessage => ({
+  id: String(index),
+  text: `Message ${index}`,
+  timestamp: index,
+  author: 'Server',
+  type: 'system',
+  position: null,
+})
 test('saved history keeps older messages beyond the previous 2000 message limit', () => {
   const old = Array.from({ length: 2500 }, (_, index) => entry(index))
   const history = mergeChatHistory(old, [entry(2500)])

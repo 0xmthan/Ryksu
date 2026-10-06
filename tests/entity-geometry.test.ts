@@ -1,15 +1,9 @@
-const test = require('node:test')
-const assert = require('node:assert/strict')
-const fs = require('node:fs')
-const vm = require('node:vm')
-const ts = require('typescript')
-const THREE = require('three')
-const exportsObject = {}
-vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/utils/entity/geometry.ts', 'utf8'), {
-  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2021 },
-}).outputText, { exports: exportsObject, require })
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import * as THREE from 'three'
+import { boneGeometry } from '../src/utils/entity/geometry'
 test('skin UVs stay inside each face while cube corners remain watertight', () => {
-  const geometry = exportsObject.boneGeometry([{ origin: [0, 0, 0], size: [8, 8, 8], uv: [0, 0] }], new THREE.Vector3(), null, 1 / 64, 1 / 64)
+  const geometry = boneGeometry([{ origin: [0, 0, 0], size: [8, 8, 8], uv: [0, 0] }], new THREE.Vector3(), null, 1 / 64, 1 / 64)
   const uv = geometry.getAttribute('uv')
   for (let index = 0; index < uv.count; index++) {
     for (const value of [uv.getX(index) * 64, uv.getY(index) * 64]) {
@@ -24,7 +18,7 @@ test('skin UVs stay inside each face while cube corners remain watertight', () =
   geometry.dispose()
 })
 test('thin cape faces keep valid UV ranges after the seam inset', () => {
-  const geometry = exportsObject.boneGeometry([{ origin: [-5, -16, -1], size: [10, 16, 1], uv: [0, 0] }], new THREE.Vector3(), null, 1 / 64, 1 / 32)
+  const geometry = boneGeometry([{ origin: [-5, -16, -1], size: [10, 16, 1], uv: [0, 0] }], new THREE.Vector3(), null, 1 / 64, 1 / 32)
   const uv = geometry.getAttribute('uv')
   for (let face = 0; face < 6; face++) {
     const us = Array.from({ length: 4 }, (_, i) => uv.getX(face * 4 + i))

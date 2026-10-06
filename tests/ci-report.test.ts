@@ -1,6 +1,6 @@
-const test = require('node:test')
-const assert = require('node:assert/strict')
-const { auditCounts, summary, packageDetails } = require('../scripts/ci/report.cjs')
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import { auditCounts, summary, packageDetails } from '../scripts/ci/report.cjs'
 
 const counts = { critical: 1, high: 32, moderate: 14, low: 3, info: 0 }
 const results = {
@@ -38,7 +38,7 @@ test('parents are deduplicated at the direct dependency and absent paths stay un
 
 test('full audit download is available after a failed audit and unsafe URLs are rejected', () => {
   const url = 'https://github.com/0xmthan/Ryksu/actions/runs/123/artifacts/789'
-  const withUrl = (url) => ({ ...results, packages: { ...results.packages, outputs: { ...results.packages.outputs, 'artifact-url': url } } })
+  const withUrl = (url: string) => ({ ...results, packages: { ...results.packages, outputs: { ...results.packages.outputs, 'artifact-url': url } } })
   assert.ok(summary(withUrl(url), env).includes(`[Download full package audit (JSON)](${url})`))
   assert.doesNotMatch(summary(withUrl('javascript:alert(1)'), env), /javascript:|Download full package audit \(JSON\)/)
 })

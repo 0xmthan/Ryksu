@@ -1,25 +1,30 @@
-const test = require('node:test')
-const assert = require('node:assert/strict')
-const { ManualMovementController } = require('../src/bot/plugins/manualMovement')
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import { ManualMovementController } from '../src/bot/plugins/manualMovement'
+import type { MovementControls } from '../src/types'
+import { asBot, fakeBot } from './fakes'
+
+// The controller's private state, checked after a disconnect.
+type Internals = { bot: unknown; timeout: unknown }
 
 function setup() {
-  const controls = {}
+  const controls: Record<string, boolean> = {}
   let starts = 0
-  let yaw
-  const bot = {
+  let yaw: number | undefined
+  const bot = fakeBot({
     entity: {},
-    setControlState: (name, value) => {
+    setControlState: (name: string, value: boolean) => {
       controls[name] = value
     },
-    look: async (value) => {
+    look: async (value: number) => {
       yaw = value
     },
-  }
+  })
   const controller = new ManualMovementController({ onStart: () => starts++ })
-  controller.attach(bot)
+  controller.attach(asBot(bot))
   return { controller, bot, controls, starts: () => starts, yaw: () => yaw }
 }
-const input = (changes = {}) => ({
+const input = (changes: Partial<MovementControls> = {}): MovementControls => ({
   forward: false,
   back: false,
   left: false,
@@ -77,8 +82,9 @@ test('disconnect releases every held movement key', () => {
     sprint: false,
     sneak: false,
   })
-  assert.equal(controller.bot, null)
-  assert.equal(controller.timeout, null)
+  const internals = controller as unknown as Internals
+  assert.equal(internals.bot, null)
+  assert.equal(internals.timeout, null)
 })
 
 test('malformed input and sleeping bots cannot start moving', () => {
@@ -103,13 +109,14 @@ test('release packets leave autonomous movement alone when manual control is ina
 test('each WASD direction faces its camera-relative travel heading', (t) => {
   const { controller, controls, yaw } = setup()
   t.after(() => controller.detach())
-  for (const [keys, heading] of [
+  const headings: [Partial<MovementControls>, number][] = [
     [{ forward: true }, 0],
     [{ back: true }, Math.PI],
     [{ left: true }, Math.PI / 2],
     [{ right: true }, -Math.PI / 2],
     [{ back: true, right: true }, (-3 * Math.PI) / 4],
-  ]) {
+  ]
+  for (const [keys, heading] of headings) {
     controller.setControls(input({ yaw: 0, ...keys }))
     assert.equal(yaw(), heading)
     assert.deepEqual(controls, {

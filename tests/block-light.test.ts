@@ -1,11 +1,11 @@
-const { test } = require('node:test')
-const assert = require('node:assert/strict')
-const { spreadLight } = require('../src/bot/worldView')
+import { test } from 'node:test'
+import assert from 'node:assert/strict'
+import { spreadLight } from '../src/bot/worldView'
 
 // A 5×1×5 floor slice: palette 0 = torch, 1 = stone, 2 = leaves; -1 = air.
 const emits = [14, 0, 0]
 const filters = [0, 15, 1]
-const at = (x, z) => z * 5 + x
+const at = (x: number, z: number) => z * 5 + x
 
 test('block light fades one level per block and stops at solid blocks', () => {
   const grid = new Int16Array(25).fill(-1)
