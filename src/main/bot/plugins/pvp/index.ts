@@ -50,7 +50,8 @@ export class PvpController {
   private jumpAttackEnabled: boolean
   private jumpReleaseTimer: ReturnType<typeof setTimeout> | null
   private pendingAttack: AttackRun | null
-  private isFleeing: () => boolean
+  // Something else has the bot (a creeper fight, or the user driving it or using a block); attacks wait.
+  private shouldHoldOff: () => boolean
   private onDefend: ((mob: Entity) => void) | null
   defendTarget: Entity | null
   private defendUntil: number
@@ -59,12 +60,12 @@ export class PvpController {
   constructor({
     autoTool,
     autoShield,
-    isFleeing,
+    shouldHoldOff,
     onDefend,
   }: {
     autoTool?: AutoToolController
     autoShield?: AutoShieldController
-    isFleeing?: () => boolean
+    shouldHoldOff?: () => boolean
     onDefend?: (mob: Entity) => void
   } = {}) {
     this.bot = null
@@ -84,7 +85,7 @@ export class PvpController {
     this.jumpAttackEnabled = true
     this.jumpReleaseTimer = null
     this.pendingAttack = null
-    this.isFleeing = isFleeing ?? (() => false)
+    this.shouldHoldOff = shouldHoldOff ?? (() => false)
     this.onDefend = onDefend ?? null
     this.defendTarget = null
     this.defendUntil = 0
@@ -294,8 +295,8 @@ export class PvpController {
       return
     }
 
-    // Running from a creeper owns the pathfinder; don't chase or clear its goal.
-    if (this.isFleeing()) {
+    // A creeper fight or the user owns the pathfinder; don't chase or clear its goal.
+    if (this.shouldHoldOff()) {
       this._cancelPendingAttack()
       this.isControllingPathfinder = false
       return
@@ -479,7 +480,7 @@ export class PvpController {
       this.bot === bot &&
       this.target === target &&
       target.isValid &&
-      !this.isFleeing()
+      !this.shouldHoldOff()
 
     try {
       if (this.autoTool?.isEnabled?.()) {

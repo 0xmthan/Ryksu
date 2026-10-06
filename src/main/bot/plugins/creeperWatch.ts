@@ -38,8 +38,7 @@ const FOLLOW_PAUSE_MS = 1000
 
 export class CreeperWatch {
   private pathfinder: PathfinderController
-  // Set after construction: the PvP plugin also needs this one (see BotManager).
-  pvp: PvpController | null | undefined
+  private pvp: PvpController
   private autoTool: AutoToolController
   private onAlert: ((message: string) => void) | undefined
   private isManuallyControlled: () => boolean
@@ -58,7 +57,7 @@ export class CreeperWatch {
     isManuallyControlled = () => false,
   }: {
     pathfinder: PathfinderController
-    pvp?: PvpController
+    pvp: PvpController
     autoTool: AutoToolController
     onAlert?: (message: string) => void
     isManuallyControlled?: () => boolean
@@ -168,7 +167,7 @@ export class CreeperWatch {
   }
 
   private _fightTarget(): Entity | null {
-    const target = this.pvp?.target ?? this.pvp?.defendTarget
+    const target = this.pvp.target ?? this.pvp.defendTarget
     return target?.name === 'creeper' && target.isValid ? target : null
   }
 
@@ -267,7 +266,7 @@ export class CreeperWatch {
   private _attack(creeper: Entity) {
     this.bot!.attack(creeper)
     const held = this.bot!.heldItem?.name ?? 'other'
-    this.cooldown = (this.pvp?.cooldownTicksFor(held) ?? 12) + 2
+    this.cooldown = this.pvp.cooldownTicksFor(held) + 2
     this.bot!.setControlState('sprint', false)
   }
 

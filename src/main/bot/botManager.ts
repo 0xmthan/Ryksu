@@ -45,6 +45,7 @@ import type {
   PvpOptions,
   WorldView,
 } from '../../shared/types'
+import { isPluginPacketError, PLUGIN_PACKET_WARNING } from '../../shared/protocolErrors'
 
 type BotManagerEvents = {
   status: [status: BotStatusPayload]
@@ -68,7 +69,6 @@ type BotPlugin = { attach(bot: Bot): void; detach(): void }
 const STATE_INTERVAL_MS = 1000
 const MOTION_INTERVAL_MS = 100
 const MICROSOFT_LINK_URL = 'https://www.microsoft.com/link'
-const PLUGIN_PACKET_WARNING = 'The server or one of its plugins sent a packet Ryksu could not parse.'
 
 // prismarine-physics stops the bot exactly flush against block faces. Paper treats a flush hitbox as
 // colliding and pulls the bot back, so it can't jump up 1-block steps. A hair wider collision box keeps it
@@ -78,9 +78,7 @@ const PHYSICS_HALF_WIDTH = 0.300001
 const isIgnorablePluginPacketError = (error: unknown) => {
   const raw = (error as { message?: unknown } | null | undefined)?.message
   const message = typeof raw === 'string' ? raw : typeof error === 'string' ? error : ''
-  return (
-    message.includes('Chunk size is') && message.includes('partial packet') && message.includes('player_info')
-  )
+  return isPluginPacketError(message)
 }
 
 // The status Microsoft's device sign-in asks the user to finish (the code and where to enter it).
@@ -114,7 +112,7 @@ export class BotManager extends EventEmitter<BotManagerEvents> {
   // Players allowed to command the bot with gestures, by lowercase name. Saved by the renderer.
   private trustedPlayers = new Set<string>()
   // Something is being opened (a block or a trader); other actions wait.
-  private openingBlock = false
+  private interaction: 'block' | 'trader' | null = null
   private trader: TraderWindow | null = null
 
   private armorManager: ArmorManagerController
@@ -158,21 +156,21 @@ export class BotManager extends EventEmitter<BotManagerEvents> {
     this.manualMovement = new ManualMovementController({
       onStart: () => this._takeControl('Stopped for manual movement.', { stopManualMovement: false }),
     })
-    this.creeperWatch = new CreeperWatch({
-      isManuallyControlled: () => this._isUserDriving(),
-      pathfinder: this.pathfinder,
-      autoTool: this.autoTool,
-      onAlert: (message) => this.chat.pushSystemMessage(message),
-    })
     this.pvp = new PvpController({
       autoTool: this.autoTool,
       autoShield: this.autoShield,
-      isFleeing: () => this.creeperWatch.isFleeing() || this._isUserDriving(),
+      shouldHoldOff: () => this.creeperWatch.isFleeing() || this._isUserDriving(),
       onDefend: (mob) =>
         this.chat.pushSystemMessage(`Attacked by ${mob.displayName ?? mob.name ?? 'a mob'}, fighting back.`),
     })
     // The creeper fight hits and dodges the creeper the PvP plugin is targeting.
-    this.creeperWatch.pvp = this.pvp
+    this.creeperWatch = new CreeperWatch({
+      isManuallyControlled: () => this._isUserDriving(),
+      pathfinder: this.pathfinder,
+      pvp: this.pvp,
+      autoTool: this.autoTool,
+      onAlert: (message) => this.chat.pushSystemMessage(message),
+    })
     this.behavior = new BehaviorManager({ pathfinder: this.pathfinder, pvp: this.pvp })
     this.bed = new BedController({
       pathfinder: this.pathfinder,
@@ -500,17 +498,17 @@ export class BotManager extends EventEmitter<BotManagerEvents> {
   }
 
   async interactBlock(position: Vec3Like) {
-    if (this.openingBlock) throw new Error('Already opening a block.')
+    if (this.interaction) throw new Error('Already opening a block.')
     const bot = this.bot
     if (!bot?.entity) throw new Error('The bot is not connected.')
-    this.openingBlock = true
+    this.interaction = 'block'
     try {
       this._takeControl('Stopped to open a block.')
       await openInteractiveBlock(bot, position)
       if (bot !== this.bot) throw new Error('The connection changed.')
       this.world.emitNow()
     } finally {
-      this.openingBlock = false
+      this.interaction = null
     }
   }
 
@@ -526,12 +524,12 @@ export class BotManager extends EventEmitter<BotManagerEvents> {
 
   // Walks to a villager or wandering trader and opens its trades.
   async openTrader(entityId: number) {
-    if (this.openingBlock) throw new Error('Already opening something.')
+    if (this.interaction) throw new Error('Already opening something.')
     const bot = this.bot
     if (!bot?.entity) throw new Error('The bot is not connected.')
     const entity = bot.entities?.[entityId]
     if (!entity?.isValid || !isTrader(entity)) throw new Error('That is not a trader.')
-    this.openingBlock = true
+    this.interaction = 'trader'
     try {
       this._takeControl('Stopped to trade.')
       const window = await openTrader(bot, entity)
@@ -543,7 +541,7 @@ export class BotManager extends EventEmitter<BotManagerEvents> {
       this.world.emitNow()
       return describeTrades(bot, window)
     } finally {
-      this.openingBlock = false
+      this.interaction = null
     }
   }
 
@@ -742,7 +740,7 @@ export class BotManager extends EventEmitter<BotManagerEvents> {
   // The user has the bot's controls (walking it, or a block or trader is being opened, or a window is open);
   // automatic behaviors stay out of the way.
   private _isUserDriving() {
-    return this.manualMovement.isActive() || this.openingBlock || Boolean(this.bot?.currentWindow)
+    return this.manualMovement.isActive() || this.interaction !== null || Boolean(this.bot?.currentWindow)
   }
 
   // Frees the bot for something the user asked for: stops walking, mining, fighting and following.
