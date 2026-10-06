@@ -6,9 +6,9 @@
 // only tests the boxes of entities it passes near. Lava, fire and lights past the nearest MAX_LIGHTS keep
 // the spread light (see rayBlockLight below).
 import * as THREE from 'three'
-import type { WorldView } from '../../types'
+import type { BlockView } from '../../types'
 
-type Blocks = WorldView['blocks']
+type Blocks = BlockView
 
 const MAX_LIGHTS = 32
 const MAX_CASTERS = 12

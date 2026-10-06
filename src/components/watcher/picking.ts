@@ -1,8 +1,8 @@
 // What's under the mouse in the watcher: a block (with the side that was hit) or an entity.
 import * as THREE from 'three'
-import type { WorldView } from '../../types'
+import type { BlockView } from '../../types'
 
-type Blocks = WorldView['blocks']
+type Blocks = BlockView
 
 export type Pickable = { mesh: THREE.Mesh; quads: number[]; blocks: Blocks }
 

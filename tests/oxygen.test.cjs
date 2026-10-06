@@ -1,6 +1,6 @@
 const { test } = require('node:test')
 const assert = require('node:assert/strict')
-const { readOxygen } = require('../src/bot/oxygen.js')
+const { readOxygen } = require('../src/bot/oxygen')
 
 const registry = { entitiesByName: { player: { metadataKeys: ['shared_flags', 'air_supply'] } } }
 const botWith = (metadata, extra = {}) => ({ registry, entity: { name: 'player', metadata }, ...extra })

@@ -1,6 +1,7 @@
 const { test } = require('node:test')
 const assert = require('node:assert/strict')
 const { checkForUpdates } = require('../src/appUpdates')
+const ts = require('typescript')
 
 const release =
   (tag, extra = {}) =>
@@ -74,10 +75,14 @@ function mainHandlers(updateResult, openError = false) {
       },
     },
   }
-  vm.runInNewContext(fs.readFileSync(require.resolve('../src/main'), 'utf8'), {
+  const source = ts.transpileModule(fs.readFileSync(require.resolve('../src/main.ts'), 'utf8'), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2021, esModuleInterop: true },
+  }).outputText
+  vm.runInNewContext(source, {
+    exports: {},
     require: (name) => {
       if (name === 'electron') return electron
-      if (name === 'electron-squirrel-startup') return false
+      if (name === './silenceKnownWarnings') return {}
       if (name === './mcBridge') return { registerMinecraftIpc() {} }
       if (name === './appUpdates')
         return {

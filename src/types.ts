@@ -169,29 +169,32 @@ export type WorldView = {
     selectedHotbar: number
     freeSlots: number
   }
-  blocks: {
-    // Changes whenever any block in the view changes.
-    key: string
-    origin: { x: number; y: number; z: number }
-    radius: number
-    palette: string[]
-    // Block state properties for each palette entry (facing, axis, half, …).
-    properties: Record<string, string | number | boolean>[]
-    // Block positions relative to origin as flat [x, y, z, x, y, z, …], one palette index per block.
-    positions: number[]
-    blocks: number[]
-    // Per block: bits 0-5 = visible faces (up, down, north, south, west, east), 6-8 = view mode hints
-    // (see src/utils/viewMode.ts).
-    faces: number[]
-    // Block light (0-15) for every cell of the view box, 255 where light can't enter. Cells are laid out
-    // x fastest, then z, then y; `below` is the origin's layer.
-    light: { width: number; height: number; below: number; cells: Uint8Array }
-    // Point lights (torches, lanterns, …) as x, y, z (like positions) and level, four numbers each.
-    emitters?: number[]
-    roofCutoff: number
-    // Where the bot is, for picking the view mode automatically.
-    environment: 'outside' | 'indoors' | 'cave'
-  }
+  blocks: BlockView | null
+}
+
+// The blocks around the bot the watcher draws (built by src/bot/worldCompute.ts).
+export type BlockView = {
+  // Changes whenever any block in the view changes.
+  key: string
+  origin: { x: number; y: number; z: number }
+  radius: number
+  palette: string[]
+  // Block state properties for each palette entry (facing, axis, half, …).
+  properties: Record<string, string | number | boolean>[]
+  // Block positions relative to origin as flat [x, y, z, x, y, z, …], one palette index per block.
+  positions: number[]
+  blocks: number[]
+  // Per block: bits 0-5 = visible faces (up, down, north, south, west, east), 6-8 = view mode hints
+  // (see src/utils/viewMode.ts).
+  faces: number[]
+  // Block light (0-15) for every cell of the view box, 255 where light can't enter. Cells are laid out
+  // x fastest, then z, then y; `below` is the origin's layer.
+  light: { width: number; height: number; below: number; cells: Uint8Array }
+  // Point lights (torches, lanterns, …) as x, y, z (like positions) and level, four numbers each.
+  emitters?: number[]
+  roofCutoff: number
+  // Where the bot is, for picking the view mode automatically.
+  environment: 'outside' | 'indoors' | 'cave'
 }
 
 export type InventoryClick = { slot: number; button: number; mode: 0 | 1 | 2 | 4 }

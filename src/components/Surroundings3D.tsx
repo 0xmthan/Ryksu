@@ -2,7 +2,7 @@ import interactiveBlocks from '../shared/interactiveBlocks.json'
 import React, { useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
-import type { BuildAction, BuildCells, InventoryItem, Motion, MotionEntity, WorldView } from '../types'
+import type { BuildAction, BuildCells, InventoryItem, Motion, MotionEntity, BlockView } from '../types'
 import { prettyName } from '../utils/blockColors'
 import { loadBlockAtlas, type BlockAtlas } from '../utils/blockAtlas'
 import { modeFor, type ViewMode } from '../utils/viewMode'
@@ -38,7 +38,7 @@ import { applyEdgeFog, fogObject, updateEdgeFog } from './watcher/edgeFog'
 import { updateTorchRayBlocks, updateTorchRayCasters, updateTorchRayLights } from './watcher/torchRays'
 import { applyWater, setWaterQuality, updateWater } from './watcher/water'
 
-type Blocks = WorldView['blocks']
+type Blocks = BlockView
 
 // How quickly shown positions catch up with the latest update (per second); higher is snappier.
 const FOLLOW_RATE = 12

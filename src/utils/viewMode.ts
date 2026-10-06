@@ -2,10 +2,10 @@
 // - full: everything.
 // - roof: indoors, the roof over the bot's room is drawn as a faint ghost; trees and other buildings stay.
 // - cave: only the walls of the cave the bot is in, with the ceiling cut away.
-import type { WorldView } from '../types'
+import type { BlockView } from '../types'
 
 export type ViewMode = 'full' | 'roof' | 'cave'
-export type Environment = WorldView['blocks']['environment']
+export type Environment = BlockView['environment']
 
 const FACES = 0b111111
 // Top face shown when everything above the cut is hidden.

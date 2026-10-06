@@ -1,0 +1,98 @@
+import type { Bot } from 'mineflayer'
+import type { Entity } from 'prismarine-entity'
+
+// Things about entities that only show up as one-off packets, kept so the watcher can pick them up on its
+// next motion update: arm swings, hurts and deaths (as counters it can compare), and the order of the
+// registries the server sends while joining (mob variants are ids into them). Variant, pose, bed and owner
+// values are also kept by their metadata type, which stays right even where minecraft-data's key list is off.
+export type EntityEventState = {
+  swing: number
+  hurt: number
+  dead: boolean
+  typed: Record<string, unknown>
+}
+
+type BotState = {
+  registries: Record<string, string[]>
+  events: WeakMap<Entity, EntityEventState>
+}
+
+type MetadataEntry = { key?: number; type?: unknown; value?: unknown }
+
+const state = new WeakMap<Bot, BotState>()
+
+const stateFor = (bot: Bot) => {
+  let entry = state.get(bot)
+  if (!entry) {
+    entry = { registries: {}, events: new WeakMap() }
+    state.set(bot, entry)
+  }
+  return entry
+}
+
+const eventsFor = (bot: Bot, entity: Entity) => {
+  const { events } = stateFor(bot)
+  let entry = events.get(entity)
+  if (!entry) {
+    entry = { swing: 0, hurt: 0, dead: false, typed: {} }
+    events.set(entity, entry)
+  }
+  return entry
+}
+
+// Call right after creating the bot, before it joins, so the registry packets aren't missed.
+export const attachEntityTracking = (bot: Bot) => {
+  const { registries } = stateFor(bot)
+  const client = bot._client
+  client.on('registry_data', (packet: { id?: unknown; entries?: { key: unknown }[] }) => {
+    // 1.20.5+: one packet per registry, entries in id order.
+    if (typeof packet?.id === 'string' && Array.isArray(packet.entries)) {
+      registries[packet.id.replace(/^minecraft:/, '')] = packet.entries.map((entry) =>
+        String(entry.key).replace(/^minecraft:/, '')
+      )
+    }
+  })
+
+  client.on('entity_metadata', (packet: { entityId: number; metadata?: MetadataEntry[] }) => {
+    const entity = bot.entities?.[packet.entityId]
+    if (!entity || !Array.isArray(packet.metadata)) return
+    const { typed } = eventsFor(bot, entity)
+    for (const entry of packet.metadata) {
+      if (
+        typeof entry?.type === 'string' &&
+        (entry.type === 'pose' || /(?<!sound)_variant$/.test(entry.type))
+      ) {
+        typed[entry.type] = entry.value
+      } else if (entry?.type === 'optional_block_pos' || entry?.type === 'optional_position') {
+        // A living entity's only optional block position is the bed it sleeps in.
+        typed.sleeping_pos = entry.value ?? null
+      } else if (entry?.type === 'optional_uuid') {
+        // On tamed wolves, cats and parrots: whose pet it is.
+        typed.owner_uuid = entry.value ?? null
+      }
+    }
+  })
+
+  bot.on('entitySwingArm', (entity) => {
+    eventsFor(bot, entity).swing++
+  })
+  bot.on('entityHurt', (entity) => {
+    eventsFor(bot, entity).hurt++
+  })
+  bot.on('entityDead', (entity) => {
+    eventsFor(bot, entity).dead = true
+  })
+  bot.on('spawn', () => {
+    if (bot.entity) eventsFor(bot, bot.entity).dead = false
+  })
+
+  // The server doesn't echo the bot's own swings, so count the ones it sends.
+  const write = client.write.bind(client)
+  client.write = (name, params) => {
+    if (name === 'arm_animation' && bot.entity) eventsFor(bot, bot.entity).swing++
+    return write(name, params)
+  }
+}
+
+export const registryOrder = (bot: Bot, name: string) => stateFor(bot).registries[name] ?? null
+export const entityEvents = (bot: Bot, entity: Entity) => eventsFor(bot, entity)

@@ -3,12 +3,12 @@
 // shaded per side like the game, so the whole view is a few draw calls.
 import * as THREE from 'three'
 import blockData from '../generated/blockModels.json'
-import type { WorldView } from '../types'
+import type { BlockView } from '../types'
 import type { BlockAtlas } from './blockAtlas'
 import { blockColor } from './blockColors'
 import { blockVisibility, CAP_BIT, type ViewMode } from './viewMode'
 
-type Blocks = WorldView['blocks']
+type Blocks = BlockView
 
 type Face = { t: number; uv: number[]; r?: number; c?: number; tint?: number }
 type Element = {

@@ -4,13 +4,13 @@
 // a few per frame, nearest first, while the old meshes stay up until the new set is complete, so moving
 // never stalls a frame or flashes holes. Off-screen chunks are skipped by the GPU (frustum culling).
 import * as THREE from 'three'
-import type { WorldView } from '../../types'
+import type { BlockView } from '../../types'
 import type { BlockAtlas } from '../../utils/blockAtlas'
 import { buildBlockMeshes, type MeshOptions } from '../../utils/blockMesher'
 import type { ViewMode } from '../../utils/viewMode'
 import type { Pickable } from './picking'
 
-type Blocks = WorldView['blocks']
+type Blocks = BlockView
 type Materials = {
   opaque: THREE.Material
   translucent: THREE.Material
