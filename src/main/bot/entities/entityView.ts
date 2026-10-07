@@ -150,6 +150,40 @@ const tameness = (bot: Bot, entity: Entity): Pick<MotionEntity, 'tamed' | 'owner
   return { tamed: true, owner: { uuid: plainUuid(uuid), ...(found ?? {}) } }
 }
 
+// Bit 0 of every entity's shared flags (metadata 0) is "on fire". The game never draws flames on
+// fire-immune mobs, even with the flag set.
+const FIRE_IMMUNE = new Set([
+  'blaze',
+  'ghast',
+  'magma_cube',
+  'strider',
+  'wither',
+  'wither_skeleton',
+  'zombified_piglin',
+  'zoglin',
+  'ender_dragon',
+  'warden',
+])
+// Standing in lava or fire counts too: servers clear the flag while a mob stays in lava, but the game
+// still draws it burning there.
+const FIRE_BLOCKS = new Set(['lava', 'fire', 'soul_fire'])
+const touchesFire = (bot: Bot, entity: Entity) => {
+  const half = (entity.width || 0.6) / 2
+  const { x, y, z } = entity.position
+  const top = y + (entity.height || 1.8) - 0.01
+  for (let bx = Math.floor(x - half); bx <= Math.floor(x + half); bx++) {
+    for (let by = Math.floor(y); by <= Math.floor(top); by++) {
+      for (let bz = Math.floor(z - half); bz <= Math.floor(z + half); bz++) {
+        if (FIRE_BLOCKS.has(bot.blockAt(new Vec3(bx, by, bz))?.name ?? '')) return true
+      }
+    }
+  }
+  return false
+}
+const isBurning = (bot: Bot, entity: Entity) =>
+  !FIRE_IMMUNE.has(entity.name ?? '') &&
+  ((Number(entity.metadata?.[0]) & 1) === 1 || touchesFire(bot, entity))
+
 const SLEEPING_POSE = 2
 const CROUCHING_POSE = 5
 // Yaw that faces each way; a bed's facing points from its foot to its head.
@@ -237,6 +271,9 @@ const pose = (bot: Bot, entity: Entity, yaw: number, headYaw: number): EntityPos
     swing: events.swing,
     hurt: events.hurt,
     ...(events.dead ? { dead: true } : {}),
+    ...(isBurning(bot, entity)
+      ? { burning: { width: round(entity.width || 0.6), height: round(entity.height || 1.8) } }
+      : {}),
     // Last, so a sleeper's place on the bed wins over where it stood.
     ...posture(bot, entity),
   }

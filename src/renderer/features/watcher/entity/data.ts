@@ -31,6 +31,8 @@ export type EntityEntry = {
   baby?: EntityEntry
   villagerTypes?: (number | null)[]
   markings?: Record<string, number>
+  // Iron golem damage layers by how cracked it is.
+  cracks?: Record<string, number>
 }
 
 export const entityData = generated as unknown as {
@@ -45,6 +47,8 @@ export const entityData = generated as unknown as {
     humanoid_leggings: Record<string, number>
     humanoid_baby: Record<string, number>
   }
+  // fire_0 and fire_1: vertical strips of 16×16 animation frames.
+  fire: (number | null)[]
 }
 
 // Mobs drawn with another mob's model and textures.

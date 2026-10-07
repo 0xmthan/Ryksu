@@ -30,6 +30,14 @@ const swapTexture = (model: MobModel, texture: Promise<THREE.Texture>) => {
     .catch(() => {})
 }
 
+// How cracked an iron golem looks, by the share of its 100 health left (the game's thresholds).
+const GOLEM_HEALTH = 100
+const crackiness = (entity: MotionEntity) => {
+  if (entity.type !== 'iron_golem' || entity.health === undefined) return null
+  const left = entity.health / GOLEM_HEALTH
+  return left < 0.25 ? 'high' : left < 0.5 ? 'medium' : left < 0.75 ? 'low' : null
+}
+
 // Everything that changes how an entity looks; the model is rebuilt when this changes.
 export const lookOf = (entity: MotionEntity) =>
   JSON.stringify([
@@ -45,6 +53,7 @@ export const lookOf = (entity: MotionEntity) =>
     entity.cape,
     entity.slim,
     entity.equipment,
+    crackiness(entity),
   ])
 
 export const buildEntityModel = (entity: MotionEntity): MobModel | null => {
@@ -70,6 +79,10 @@ export const buildEntityModel = (entity: MotionEntity): MobModel | null => {
   const markings = entity.markings ? (entry.markings ?? entityData.horseMarkings)[entity.markings] : undefined
   if (markings !== undefined) {
     swapTexture(model, layeredTexture([variant ?? entry.texture, markings]))
+  }
+  const cracks = crackiness(entity)
+  if (cracks && entry.cracks?.[cracks] !== undefined) {
+    swapTexture(model, layeredTexture([variant ?? entry.texture, entry.cracks[cracks]]))
   }
   // Sheep wear white wool until the server says otherwise; null means sheared.
   if (entity.wool !== null) {

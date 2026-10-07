@@ -257,12 +257,20 @@ module.exports = () => {
     if (glow !== null) out.glow_squid = { ...out.squid, texture: glow }
   }
   addBabies(out, textures)
+  // Iron golems show cracks as they lose health, drawn over their skin.
+  if (out.iron_golem) {
+    out.iron_golem.cracks = textures.addAll({ low: 'low', medium: 'medium', high: 'high' }, (level) =>
+      path.join(entityDir, 'iron_golem', `iron_golem_crackiness_${level}.png`)
+    )
+  }
+  // The flames on burning entities: two animated strips of 16×16 frames.
+  const fire = ['fire_0', 'fire_1'].map((name) => textures.add(path.join(dataDir, 'blocks', `${name}.png`)))
 
   // SHOW_SOURCES=1 lists which texture file each mob ended up with.
   if (process.env.SHOW_SOURCES) console.log(sources)
   writeJson(
     'entityModels.json',
-    { version: VERSION, textures: textures.list, entities: out, layers, horseMarkings, armor },
+    { version: VERSION, textures: textures.list, entities: out, layers, horseMarkings, armor, fire },
     `${Object.keys(out).length} mobs${missing.length ? ` (no model or texture: ${missing.join(', ')})` : ''}`
   )
 }

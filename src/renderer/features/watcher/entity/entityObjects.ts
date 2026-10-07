@@ -4,6 +4,7 @@ import * as THREE from 'three'
 import type { EntityKind, MotionEntity } from '../../../../shared/types'
 import { createAnimator, type Animator } from './animation'
 import { buildEntityModel, lookOf } from './appearance'
+import { createFlames, type Flames } from './flames'
 import { buildItemMesh } from './itemMesh'
 import type { MobModel } from './model'
 import { disposeObject, shortestAngle } from '../sceneUtils'
@@ -57,6 +58,9 @@ export type Tracked = {
   swing: number
   hurt: number
   look: string
+  // Shown while it's on fire; `fireSize` is the hitbox they were made for.
+  flames: Flames | null
+  fireSize: string | null
 }
 
 const droppedItem = (name: string) => {
@@ -97,7 +101,7 @@ export const createTracked = (
   object.position.copy(previous ? previous.object.position : target)
   object.rotation.y = previous ? previous.object.rotation.y : entity.yaw
   if (previous) disposeObject(previous.object)
-  return {
+  const entry: Tracked = {
     object,
     nametag,
     target,
@@ -118,7 +122,11 @@ export const createTracked = (
     swing: entity.swing,
     hurt: entity.hurt,
     look: lookOf(entity),
+    flames: null,
+    fireSize: null,
   }
+  syncFlames(entry, entity)
+  return entry
 }
 
 // Takes in a motion update; returns false when the look changed and the entity needs rebuilding.
@@ -137,7 +145,18 @@ export const syncTracked = (entry: Tracked, entity: MotionEntity, target: THREE.
   entry.swing = entity.swing
   entry.hurt = entity.hurt
   entry.animator?.setDead(now, Boolean(entity.dead))
+  syncFlames(entry, entity)
   return true
+}
+
+// Adds, resizes or removes the flames to match whether it's burning.
+const syncFlames = (entry: Tracked, entity: MotionEntity) => {
+  const size = entity.burning ? `${entity.burning.width}x${entity.burning.height}` : null
+  if (size === entry.fireSize) return
+  if (entry.flames) disposeObject(entry.flames.object)
+  entry.flames = entity.burning ? createFlames(entity.burning.width, entity.burning.height) : null
+  if (entry.flames) entry.object.add(entry.flames.object)
+  entry.fireSize = size
 }
 
 const before = new THREE.Vector3()

@@ -178,6 +178,8 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
     else firstPersonRef.current?.pause()
   }, [movementEnabled])
   const [anchorVersion, setAnchorVersion] = useState(0)
+  // H off: nothing is cut away or ghosted, not even an indoor roof or a cave ceiling.
+  const [solidView, setSolidView] = useState(false)
   const [atlas, setAtlas] = useState<BlockAtlas | null>(null)
 
   useEffect(() => {
@@ -532,7 +534,9 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
       }
       for (const entry of entities.values()) {
         stepTracked(entry, blend, delta, now)
+        entry.flames?.update(camera, now)
       }
+      bot?.flames?.update(camera, now)
       if (frameCount % 10 === 0) updateTorchRayLights(torchRays, bot ? bot.object.position : controls.target)
       // Every frame, so shadows follow walking legs and swinging arms.
       updateTorchRayCasters(
@@ -1044,7 +1048,7 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
         else enterFirstPerson()
         return
       }
-      // H cycles how blocks in front of the bot turn see-through.
+      // H turns all see-through off and on: the cutaway over the bot, ghosted roofs and cut cave ceilings.
       if (
         event.code === 'KeyH' &&
         !event.repeat &&
@@ -1059,8 +1063,11 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
             (SEE_THROUGH_SHAPES.indexOf(getSeeThroughShape()) + 1) % SEE_THROUGH_SHAPES.length
           ]
         setSeeThroughShape(next)
+        setSolidView(next === 'off')
         onHoverRef.current(
-          next === 'cutaway' ? 'Cutaway on: leaves and roofs over the bot are hidden' : 'Cutaway off'
+          next === 'cutaway'
+            ? 'See-through on: leaves, roofs and cave ceilings over the bot are hidden'
+            : 'See-through off: every block is drawn solid'
         )
         return
       }
@@ -1159,8 +1166,9 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
         material.needsUpdate = true
       }
     }
-    const mode = modeFor(blocks.environment)
-    state.mode = mode
+    // The sky still follows where the bot really is.
+    state.mode = modeFor(blocks.environment)
+    const mode = solidView ? 'full' : state.mode
     const offset = new THREE.Vector3(
       blocks.origin.x - state.anchor.x,
       blocks.origin.y - state.anchor.y,
@@ -1169,7 +1177,7 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
     state.chunks.update(blocks, atlas, mode, offset)
     updateTorchRayBlocks(blocks, offset)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [blocks?.key, anchorVersion, atlas])
+  }, [blocks?.key, anchorVersion, atlas, solidView])
 
   useEffect(() => {
     const state = stateRef.current

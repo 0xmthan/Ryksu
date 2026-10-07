@@ -234,7 +234,7 @@ const casterOrder: THREE.Object3D[] = []
 const eachMesh = (root: THREE.Object3D, visit: (mesh: THREE.Mesh) => void) => {
   const walk = (object: THREE.Object3D) => {
     for (const child of object.children) {
-      if (!child.visible || child.userData.silhouetteTwin) continue
+      if (!child.visible || child.userData.silhouetteTwin || child.userData.noShadow) continue
       if ((child as THREE.Mesh).isMesh) visit(child as THREE.Mesh)
       walk(child)
     }

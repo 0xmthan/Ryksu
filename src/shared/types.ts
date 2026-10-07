@@ -301,6 +301,8 @@ export type EntityPose = {
   swing: number
   hurt: number
   dead?: boolean
+  // On fire: its hitbox size, which the flames are drawn around.
+  burning?: { width: number; height: number }
   // Sneaking (players), and sitting on command (cats, wolves, parrots).
   crouching?: boolean
   sitting?: boolean
