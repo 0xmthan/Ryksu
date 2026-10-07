@@ -28,6 +28,9 @@ export type UpdateCheck = {
 
 export type Vec3Like = { x: number; y: number; z: number }
 
+// The control API (Settings → Developer): whether it's listening, where, and why it couldn't start.
+export type ControlApiStatus = { enabled: boolean; port: number; error: string | null }
+
 // Most actions answer with whether they worked and, if not, why.
 export type Result<T = unknown> = { ok: boolean; message?: string } & T
 
@@ -79,6 +82,8 @@ export type InvokeChannels = {
   // Whether this launch has Chromium's frame cap off (see main.ts), and the choice for the next launch.
   'app:getUnlimitedFps': { args: []; result: boolean }
   'app:setUnlimitedFps': { args: [enabled: boolean]; result: { ok: boolean } }
+  'app:getControlApi': { args: []; result: ControlApiStatus }
+  'app:setControlApi': { args: [enabled: boolean]; result: ControlApiStatus }
   'system:openExternal': { args: [url: string]; result: Result }
   // Pointer lock for first person, granted as a user gesture (see main.ts).
   'window:grabPointer': { args: []; result: void }

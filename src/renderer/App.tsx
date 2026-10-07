@@ -239,6 +239,15 @@ const App: React.FC = () => {
     pathfinder,
   ])
 
+  // Lets the dev control API (src/main/debugControl.ts) connect the same way the Connect button does.
+  useEffect(() => {
+    const hooks = window as unknown as { __ryksuConnect?: () => Promise<void> }
+    hooks.__ryksuConnect = connectWithCurrentFields
+    return () => {
+      delete hooks.__ryksuConnect
+    }
+  }, [connectWithCurrentFields])
+
   const handleConnect: React.FormEventHandler<HTMLFormElement> = async (event) => {
     event.preventDefault()
     await connectWithCurrentFields()

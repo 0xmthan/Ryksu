@@ -5,6 +5,7 @@ import path from 'node:path'
 import { registerAppIpc } from './ipc/registerAppIpc'
 import { BotManager } from './bot/botManager'
 import { registerBotIpc } from './ipc/registerBotIpc'
+import { createControlApi } from './controlApi'
 
 // Set by Electron Forge's Vite plugin.
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string | undefined
@@ -35,7 +36,31 @@ ipcMain.handle('app:setUnlimitedFps', (_event, enabled: unknown) => {
   }
 })
 
-registerBotIpc(ipcMain, new BotManager())
+const botManager = new BotManager()
+registerBotIpc(ipcMain, botManager)
+
+// The control API (Settings → Developer): off unless turned on, and remembered across launches.
+const controlApi = createControlApi(botManager, () => BrowserWindow.getAllWindows()[0] ?? null)
+const controlApiSettingsPath = path.join(app.getPath('userData'), 'control-api.json')
+const controlApiWanted = (() => {
+  try {
+    return JSON.parse(fs.readFileSync(controlApiSettingsPath, 'utf8')).enabled === true
+  } catch {
+    return false
+  }
+})()
+if (controlApiWanted) void controlApi.start()
+
+ipcMain.handle('app:getControlApi', () => controlApi.status())
+ipcMain.handle('app:setControlApi', async (_event, enabled: unknown) => {
+  const wanted = enabled === true
+  try {
+    fs.writeFileSync(controlApiSettingsPath, JSON.stringify({ enabled: wanted }))
+  } catch (error) {
+    console.error('[Control] Could not save the setting', error)
+  }
+  return wanted ? controlApi.start() : controlApi.stop()
+})
 
 registerAppIpc({
   ipcMain,

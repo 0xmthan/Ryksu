@@ -6,6 +6,8 @@ export class AutoShieldController extends ToggleablePlugin {
   private isOverridden: () => boolean
   private hurtListener: ((entity: Entity, source?: Entity) => void) | null
   private tickListener: (() => void) | null
+  // Whether the shield is up because this raised it.
+  private raised = false
   private recentThreats: Map<number, number>
   private forceBlockUntil: number
   private threatLifetimeMs: number
@@ -205,9 +207,7 @@ export class AutoShieldController extends ToggleablePlugin {
     }
 
     if (!this.desiredBlocking) {
-      if (this.bot.usingHeldItem) {
-        this._lowerShield()
-      }
+      this._lowerShield()
       return
     }
 
@@ -226,6 +226,7 @@ export class AutoShieldController extends ToggleablePlugin {
       if (!bot.usingHeldItem) {
         try {
           bot.activateItem(true)
+          this.raised = true
         } catch (error) {
           console.error('Failed to raise shield', error)
         }
@@ -267,8 +268,14 @@ export class AutoShieldController extends ToggleablePlugin {
     this.nextAllowedLookTime = now + 250
   }
 
+  // Only a shield this raised: the same "using an item" state is also eating, drawing a bow, …, and lowering
+  // that every tick cancelled every bite of food.
   private _lowerShield() {
-    if (!this.bot || !this.bot.usingHeldItem) {
+    if (!this.bot || !this.raised) {
+      return
+    }
+    this.raised = false
+    if (!this.bot.usingHeldItem) {
       return
     }
 

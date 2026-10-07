@@ -146,15 +146,18 @@ export class BotManager extends EventEmitter<BotManagerEvents> {
         if (food) this.emit('notice', `Eating ${food}…`)
         this._emitState()
       },
-      onResult: ({ food, ok }) =>
-        this.emit('notice', ok ? `Ate ${food}.` : `Couldn't finish eating ${food}.`),
+      onResult: ({ food, ok, reason }) =>
+        this.emit(
+          'notice',
+          ok ? `Ate ${food}.` : `Couldn't finish eating ${food}${reason ? ` (${reason})` : ''}.`
+        ),
     })
     this.autoTool = new AutoToolController()
     this.autoShield = new AutoShieldController({
       isManuallyControlled: () => this._isUserDriving(),
       isOverridden: () => this.creeperWatch.isFleeing(),
     })
-    this.pathfinder = new PathfinderController()
+    this.pathfinder = new PathfinderController({ isPaused: () => Boolean(this.autoEat.eating) })
     this.manualMovement = new ManualMovementController({
       onStart: () => this._takeControl('Stopped for manual movement.', { stopManualMovement: false }),
     })
@@ -191,7 +194,7 @@ export class BotManager extends EventEmitter<BotManagerEvents> {
     this.mining = new MiningController({
       pathfinder: this.pathfinder,
       autoTool: this.autoTool,
-      isBusy: () => this.creeperWatch.isFleeing() || Boolean(this.pvp.target),
+      isBusy: () => this.creeperWatch.isFleeing() || Boolean(this.pvp.target) || Boolean(this.autoEat.eating),
       defend: (mob) => {
         if (this._isUserDriving()) return
         this.chat.pushSystemMessage(

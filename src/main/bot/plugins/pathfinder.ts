@@ -5,6 +5,7 @@ import { pathfinder as pathfinderPlugin, Movements, goals } from '../vendor/path
 import type { Goal } from '../vendor/pathfinder/lib/goals'
 import { isOpenDoorway } from '../vendor/pathfinder/lib/movements'
 import { applyBlockEditing } from './blockEditing'
+import { GoalAbove, avoidBigCaves, hasSkyAbove } from './caves'
 
 type FollowOptions = Pick<PathfinderOptions, 'followEnabled' | 'followTarget'>
 type GoToLocation = NonNullable<PathfinderOptions['goToLocation']>
@@ -22,6 +23,39 @@ type GoToRun = {
 // (and the sprint, which overshoots the turn into the door) while an open doorway is right there, unless
 // a real step up is directly ahead.
 const DOORWAY_REACH = 1.6
+
+// Go-to legs (see _travel). Searches are kept short and light: a long one stalls the bot and lags the app.
+const CLIMB_MARGIN = 4
+const CLIMB_STEP = 6
+const CLIMB_THINK_MS = 3000
+const HOP_DISTANCE = 48
+const HOP_RANGE = 4
+const HOP_THINK_MS = 5000
+const ARRIVE_THINK_MS = 5000
+const MAX_MISSES = 4
+const TRAVEL_TICK_TIMEOUT_MS = 20
+const DEFAULT_TICK_TIMEOUT_MS = 40
+// Not getting anywhere this long mid-leg means the walk has stalled. Only moving, digging or a pause (eating)
+// counts: a bot that keeps "building" without rising (jumping into a ceiling, say) is as stuck as one standing
+// still.
+const STALL_MS = 5000
+
+export const watchStall = (bot: Bot, reject: (error: Error) => void, stallMs = STALL_MS) => {
+  let lastActive = Date.now()
+  let lastPosition = bot.entity?.position.clone()
+  const timer = setInterval(() => {
+    const position = bot.entity?.position
+    const moved = position && lastPosition && position.distanceTo(lastPosition) > 0.2
+    if (moved || bot.pathfinder?.isMining?.() || bot.pathfinder?.isPaused?.()) {
+      lastActive = Date.now()
+      if (position) lastPosition = position.clone()
+    } else if (Date.now() - lastActive > stallMs) {
+      clearInterval(timer)
+      reject(new Error('Stalled.'))
+    }
+  }, 500)
+  return () => clearInterval(timer)
+}
 
 const nearOpenDoorway = (bot: Bot) => {
   const feet = bot.entity.position.floored()
@@ -64,7 +98,11 @@ export class PathfinderController {
   private followedEntity: Entity | null
   private doorwayListener?: (() => void) | null
 
-  constructor() {
+  private isPaused: () => boolean
+
+  // `isPaused`: the bot's hands are needed elsewhere for a moment (eating); walking waits.
+  constructor({ isPaused = () => false }: { isPaused?: () => boolean } = {}) {
+    this.isPaused = isPaused
     this.bot = null
     this.options = { followEnabled: false, followTarget: '' }
     this.movements = null
@@ -203,6 +241,12 @@ export class PathfinderController {
     })
   }
 
+  private _createMovements(bot: Bot) {
+    const movements = new Movements(bot)
+    avoidBigCaves(movements, bot)
+    return movements
+  }
+
   _ensurePlugin() {
     if (!this.bot) {
       return false
@@ -218,7 +262,7 @@ export class PathfinderController {
     }
 
     if (!this.movements && this.bot.pathfinder) {
-      this.movements = new Movements(this.bot)
+      this.movements = this._createMovements(this.bot)
     }
 
     if (this.movements) {
@@ -227,6 +271,7 @@ export class PathfinderController {
 
     if (this.bot.pathfinder) {
       this.bot.pathfinder.thinkTimeout = 10000
+      this.bot.pathfinder.isPaused = this.isPaused
     }
 
     return Boolean(this.bot.pathfinder)
@@ -291,7 +336,7 @@ export class PathfinderController {
     }
 
     if (!this.movements) {
-      this.movements = new Movements(this.bot)
+      this.movements = this._createMovements(this.bot)
     }
     if (this.movements) {
       applyBlockEditing(this.movements, this.allowBlockBreak)
@@ -325,26 +370,6 @@ export class PathfinderController {
     this._applyFollowGoal()
   }
 
-  private _isRecoverablePathError(error: unknown) {
-    if (!error) {
-      return false
-    }
-
-    const raw = (error as { message?: unknown }).message
-    const message = typeof raw === 'string' ? raw.toLowerCase() : ''
-    if (!message && typeof error === 'string') {
-      return error.toLowerCase().includes('no path')
-    }
-
-    return (
-      message.includes('no path') ||
-      message.includes('unreachable') ||
-      message.includes('path could not be found') ||
-      message.includes('took to long') ||
-      message.includes('timeout')
-    )
-  }
-
   private _activateGoTo(location: GoToLocation) {
     if (!this.bot || !this._ensurePlugin()) {
       return
@@ -361,13 +386,6 @@ export class PathfinderController {
       z: Math.floor(z),
     }
 
-    if (!this.movements) {
-      this.movements = new Movements(this.bot)
-    }
-    if (this.movements) {
-      applyBlockEditing(this.movements, this.allowBlockBreak)
-    }
-
     this._cancelGoTo()
 
     const door = location.door && typeof location.door === 'object' ? location.door : null
@@ -379,95 +397,127 @@ export class PathfinderController {
         }
       : null
 
-    const goalsToTry: { label: string; goal: Goal }[] = doorPos
+    // Where "there" is: next to the door when going through one, else the spot itself or close to it.
+    const arrivals: Goal[] = doorPos
       ? [
-          { label: 'door reach radius 2.6', goal: new goals.GoalNear(doorPos.x, doorPos.y, doorPos.z, 2.6) },
-          { label: 'door reach radius 3', goal: new goals.GoalNear(doorPos.x, doorPos.y, doorPos.z, 3) },
-          { label: 'near target radius 2', goal: new goals.GoalNear(target.x, target.y, target.z, 2) },
+          new goals.GoalNear(doorPos.x, doorPos.y, doorPos.z, 2.6),
+          new goals.GoalNear(doorPos.x, doorPos.y, doorPos.z, 3),
+          new goals.GoalNear(target.x, target.y, target.z, 2),
         ]
       : [
-          { label: 'exact block', goal: new goals.GoalBlock(target.x, target.y, target.z) },
-          { label: 'near radius 1', goal: new goals.GoalNear(target.x, target.y, target.z, 1) },
-          { label: 'near radius 2', goal: new goals.GoalNear(target.x, target.y, target.z, 2) },
-          { label: 'near radius 4', goal: new goals.GoalNear(target.x, target.y, target.z, 4) },
-          { label: 'same column', goal: new goals.GoalXZ(target.x, target.z) },
+          new goals.GoalBlock(target.x, target.y, target.z),
+          new goals.GoalNear(target.x, target.y, target.z, 2),
         ]
 
     this._stopFollowing({ preserveGoTo: false })
 
-    const bot = this.bot
-    try {
-      bot.pathfinder.setMovements(this.movements!)
-    } catch (error) {
-      console.error('[Pathfinder] Failed to set movements before go-to', error)
-      return
-    }
-
-    // This go-to's own record; a newer go-to replaces it, and then this one must leave everything alone
-    // (its promise fails with GoalChanged as the new goal takes over).
+    // This go-to's own record; a newer go-to replaces it, and then this one must leave everything alone.
     const run: GoToRun = { target, goal: null, promise: null }
     const isCurrent = () => this.activeGoTo === run
-
-    const attemptGoal = (index: number): Promise<unknown> => {
-      if (!isCurrent()) {
-        return Promise.resolve()
-      }
-
-      if (index >= goalsToTry.length) {
-        this.activeGoTo = null
-        return Promise.reject(new Error('Unable to reach target location.'))
-      }
-
-      const { goal } = goalsToTry[index]
-      run.goal = goal
-
-      return bot.pathfinder.goto(goal).catch((error) => {
-        if (!isCurrent() || run.goal !== goal) {
-          return Promise.reject(error)
-        }
-
-        if (error?.name === 'GoalChanged' || error?.code === 'GoalChanged') {
-          this.activeGoTo = null
-          return Promise.reject(error)
-        }
-
-        if (this._isRecoverablePathError(error)) {
-          try {
-            bot.pathfinder.stop()
-          } catch {
-            // ignore stop errors when recovering
-          }
-          return attemptGoal(index + 1)
-        }
-
-        console.error('[Pathfinder] Go-to failed', error)
-        this.activeGoTo = null
-        return Promise.reject(error)
-      })
-    }
-
     this.activeGoTo = run
 
-    run.promise = new Promise((resolve, reject) => {
-      // Only the go-to that's still current cleans up; a replaced one would stop its successor.
-      const finish = () => {
-        if (!isCurrent()) return false
-        this.activeGoTo = null
-        this.bot?.pathfinder?.setGoal(null)
-        return true
+    run.promise = this._travel(run, isCurrent, arrivals).then(
+      () => this._finishGoTo(run),
+      (error) => {
+        if (this._finishGoTo(run)) console.error('[Pathfinder] Go-to failed', error)
+        throw error
       }
-      attemptGoal(0)
-        .then((result) => {
-          finish()
-          resolve(result)
-        })
-        .catch((error) => {
-          finish()
-          reject(error)
-        })
-    })
+    )
     // Failures are expected (replaced, unreachable); nothing waits on this.
     run.promise.catch(() => {})
+  }
+
+  // Only the go-to that's still current cleans up; a replaced one would stop its successor.
+  private _finishGoTo(run: GoToRun) {
+    if (this.activeGoTo !== run) return false
+    this.activeGoTo = null
+    const pathfinder = this.bot?.pathfinder
+    if (pathfinder) {
+      pathfinder.setGoal(null)
+      pathfinder.tickTimeout = DEFAULT_TICK_TIMEOUT_MS
+    }
+    return true
+  }
+
+  // A trip in legs. Deep underground below the target, it climbs first: up a passage if there's one close by,
+  // else straight up through the rock, a block placed under it each step. Far away, it hops toward the target
+  // a stretch at a time, so no single search has to plan the whole way (searching that far is slow and lags
+  // everything). Close by, it heads for the spot itself. A leg that finds no way just leads to the next try.
+  private async _travel(run: GoToRun, isCurrent: () => boolean, arrivals: Goal[]) {
+    const bot = this.bot!
+    const { target } = run
+    const game = bot.game as Bot['game'] & { minY?: number; height?: number }
+    const worldTop = (game?.minY ?? 0) + (game?.height ?? 256)
+    let misses = 0
+    while (isCurrent()) {
+      const feet = bot.entity.position
+      const underRock = !hasSkyAbove((position) => bot.blockAt(position, false), feet, worldTop)
+      const climbFirst = target.y - feet.y > CLIMB_MARGIN && underRock
+      const away = Math.hypot(target.x - feet.x, target.z - feet.z)
+
+      if (climbFirst) {
+        const goal = new GoalAbove(Math.min(Math.floor(feet.y) + CLIMB_STEP, target.y))
+        if (await this._leg(run, isCurrent, goal, CLIMB_THINK_MS)) misses = 0
+        else if (++misses >= MAX_MISSES) throw new Error('Stuck underground: could not find a way up.')
+        continue
+      }
+
+      if (away > HOP_DISTANCE) {
+        const step = HOP_DISTANCE / away
+        const goal = new goals.GoalNearXZ(
+          Math.floor(feet.x + (target.x - feet.x) * step),
+          Math.floor(feet.z + (target.z - feet.z) * step),
+          HOP_RANGE
+        )
+        if (await this._leg(run, isCurrent, goal, HOP_THINK_MS)) {
+          misses = 0
+        } else if (++misses >= MAX_MISSES) {
+          throw new Error('Unable to reach target location.')
+        } else if (underRock) {
+          // Boxed in on the way: get up and over whatever's in the way.
+          await this._leg(run, isCurrent, new GoalAbove(Math.floor(feet.y) + CLIMB_STEP), CLIMB_THINK_MS)
+        }
+        continue
+      }
+
+      for (const goal of arrivals) {
+        if (await this._leg(run, isCurrent, goal, ARRIVE_THINK_MS)) return
+      }
+      if (++misses >= MAX_MISSES || !underRock || target.y < feet.y) {
+        throw new Error('Unable to reach target location.')
+      }
+      await this._leg(run, isCurrent, new GoalAbove(Math.floor(feet.y) + CLIMB_STEP), CLIMB_THINK_MS)
+    }
+  }
+
+  // One leg: true once at its goal, false if no way was found or the bot stalled. Throws only when the go-to
+  // was replaced or cancelled.
+  private async _leg(run: GoToRun, isCurrent: () => boolean, goal: Goal, thinkTimeout: number) {
+    const bot = this.bot
+    if (!bot?.pathfinder || !isCurrent()) throw new Error('Go-to cancelled.')
+    if (goal.isEnd(bot.entity.position.floored())) return true
+    run.goal = goal
+    const pathfinder = bot.pathfinder
+    pathfinder.setMovements(this.movements!)
+    pathfinder.thinkTimeout = thinkTimeout
+    pathfinder.tickTimeout = TRAVEL_TICK_TIMEOUT_MS
+    let stopWatching = () => {}
+    try {
+      await Promise.race([
+        pathfinder.goto(goal),
+        new Promise<void>((_, reject) => {
+          stopWatching = watchStall(bot, reject)
+        }),
+      ])
+      return true
+    } catch (error) {
+      if (!isCurrent()) throw error
+      // Clear the goal without pathfinder.stop(): its stop flag outlives the goal and kills the next leg.
+      if (pathfinder.goal === goal) pathfinder.setGoal(null)
+      return goal.isEnd(bot.entity.position.floored())
+    } finally {
+      stopWatching()
+    }
   }
 
   private _cancelGoTo() {

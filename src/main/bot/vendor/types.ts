@@ -45,6 +45,9 @@ export interface Pathfinder {
   searchRadius: number
   enablePathShortcut: boolean
   LOSWhenPlacingBlocks: boolean
+  // "x,y,z" → until when (performance.now()) the server is assumed to refuse digging or placing there.
+  refused: Map<string, number>
+  isPaused: () => boolean
   readonly goal: Goal | null
   readonly movements: Movements
   bestHarvestTool(block: Block): Item | null

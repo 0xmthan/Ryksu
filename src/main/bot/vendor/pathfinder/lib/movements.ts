@@ -205,7 +205,19 @@ export class Movements {
     this.entityIntersections = {}
   }
 
+  // The server refused a dig or a placement here lately (see refused in the pathfinder).
+  isRefused(position: Vec3 | undefined) {
+    if (!position) return false
+    const refused = (this.bot as { pathfinder?: { refused?: Map<string, number> } }).pathfinder?.refused
+    const until = refused?.get(`${position.x},${position.y},${position.z}`)
+    if (until === undefined) return false
+    if (until > performance.now()) return true
+    refused!.delete(`${position.x},${position.y},${position.z}`)
+    return false
+  }
+
   exclusionPlace(block: BlockInfo) {
+    if (this.isRefused(block.position)) return 100
     if (this.exclusionAreasPlace.length === 0) return 0
     let weight = 0
     for (const a of this.exclusionAreasPlace) {
@@ -357,7 +369,7 @@ export class Movements {
    * @returns
    */
   safeToBreak(block: BlockInfo): block is MovementBlock {
-    if (!this.canDig || block.type === undefined) {
+    if (!this.canDig || block.type === undefined || this.isRefused(block.position)) {
       return false
     }
 

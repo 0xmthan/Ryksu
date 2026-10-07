@@ -25,6 +25,16 @@ function hasFollowTarget(goal: Goal): goal is GoalFollow {
   return Boolean((goal as Partial<GoalFollow>).entity)
 }
 
+const REFUSAL_CHECK_MS = 250
+const REFUSED_FOR_MS = 120000
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
+type PlaceWithOptions = (
+  referenceBlock: Block,
+  faceVector: Vec3,
+  options: { swingArm?: 'right' | 'left'; forceLook?: boolean }
+) => Promise<void>
+
 function inject(bot: CoreBot) {
   const waterType = bot.registry.blocksByName.water.id
   const ladderId = bot.registry.blocksByName.ladder.id
@@ -46,6 +56,10 @@ function inject(bot: CoreBot) {
   // trigger a re-plan: re-planning mid-jump from inside a just-placed tower block made the bot dig it back out.
   const ownChanges = new Set<string>()
   const posKey = (pos: { x: number; y: number; z: number }) => `${pos.x},${pos.y},${pos.z}`
+  const refuse = (pos: Vec3) => {
+    ownChanges.delete(posKey(pos))
+    bot.pathfinder.refused.set(posKey(pos), performance.now() + REFUSED_FOR_MS)
+  }
   const physics = new Physics(bot)
   const lockPlaceBlock = new Lock()
   const lockEquipItem = new Lock()
@@ -58,6 +72,11 @@ function inject(bot: CoreBot) {
   bot.pathfinder.searchRadius = -1 // in blocks, limits of the search area, -1: don't limit the search
   bot.pathfinder.enablePathShortcut = false // disabled by default as it can cause bugs in specific configurations
   bot.pathfinder.LOSWhenPlacingBlocks = true
+  // Spots where the server refused a dig or a placement (claims, spawn protection, …). Planning steers clear
+  // of them for a while instead of trying the same thing forever.
+  bot.pathfinder.refused = new Map()
+  // Something else needs the hands for a moment (eating): don't start digging or placing, and stand still.
+  bot.pathfinder.isPaused = () => false
 
   bot.pathfinder.bestHarvestTool = (block) => {
     const availableTools = bot.inventory.items()
@@ -537,6 +556,12 @@ function inject(bot: CoreBot) {
     let nextPoint = path[0]
     const p = bot.entity.position
 
+    if (!digging && !placing && bot.pathfinder.isPaused()) {
+      lastNodeTime = performance.now()
+      bot.clearControlStates()
+      return
+    }
+
     // Handle digging
     if (digging || nextPoint.toBreak.length > 0) {
       if (!digging && bot.entity.onGround) {
@@ -550,6 +575,14 @@ function inject(bot: CoreBot) {
         const digBlock = () => {
           bot
             .dig(block, true)
+            .then(() => sleep(REFUSAL_CHECK_MS))
+            .then(() => {
+              // A refused dig still "finishes"; the block just stays (or comes back).
+              if (bot.blockAt(block.position, false)?.type === block.type) {
+                refuse(block.position)
+                resetPath('dig_refused')
+              }
+            })
             .catch((_ignoreError) => {
               ownChanges.delete(posKey(block.position))
               resetPath('dig_error')
@@ -616,7 +649,17 @@ function inject(bot: CoreBot) {
       let canPlace = true
       if (placingBlock!.jump) {
         bot.setControlState('jump', true)
-        canPlace = placingBlock!.y + 1 < bot.entity.position.y
+        // Aim down and get the block in hand while rising, so the placement can go out the moment it's allowed.
+        bot.look(bot.entity.yaw, -Math.PI / 2, true).catch(() => {})
+        if (bot.heldItem?.type !== block.type && lockEquipItem.tryAcquire()) {
+          bot
+            .equip(block, 'hand')
+            .catch(() => {})
+            .then(() => lockEquipItem.release())
+        }
+        // The new block goes where the feet were, so wait until they're above its top: placing while still
+        // inside it gets the placement rejected by the server.
+        canPlace = placingBlock!.y + 2 < bot.entity.position.y
       }
       if (canPlace) {
         if (!lockEquipItem.tryAcquire()) return
@@ -633,8 +676,20 @@ function inject(bot: CoreBot) {
               refBlock.position.offset(placingBlock!.dx, placingBlock!.dy, placingBlock!.dz)
             )
             ownChanges.add(placed)
-            bot
-              .placeBlock(refBlock, new Vec3(placingBlock!.dx, placingBlock!.dy, placingBlock!.dz))
+            const face = new Vec3(placingBlock!.dx, placingBlock!.dy, placingBlock!.dz)
+            // A jump-place has a few ticks at the top of the jump: look instantly instead of turning smoothly,
+            // or the bot is falling back into the spot by the time the placement goes out.
+            const placement = placingBlock!.jump
+              ? (bot as unknown as { _placeBlockWithOptions: PlaceWithOptions })._placeBlockWithOptions(
+                  refBlock,
+                  face,
+                  {
+                    swingArm: 'right',
+                    forceLook: true,
+                  }
+                )
+              : bot.placeBlock(refBlock, face)
+            placement
               .then(function () {
                 // Dont release Sneak if the block placement was not successful
                 bot.setControlState('sneak', false)
@@ -643,6 +698,7 @@ function inject(bot: CoreBot) {
               })
               .catch((_ignoreError) => {
                 ownChanges.delete(placed)
+                refuse(refBlock.position.plus(face))
                 resetPath('place_error')
               })
               .then(() => {

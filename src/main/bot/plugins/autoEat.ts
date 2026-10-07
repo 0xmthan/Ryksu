@@ -98,7 +98,7 @@ type EatListeners = Record<
 
 export class AutoEatController extends ToggleablePlugin {
   private onEating: (food: string | null) => void
-  private onResult: (result: { food: string; ok: boolean }) => void
+  private onResult: (result: { food: string; ok: boolean; reason?: string }) => void
   eating: string | null
   private eatListeners: EatListeners | null
   private spawnListener: (() => void) | null
@@ -112,7 +112,7 @@ export class AutoEatController extends ToggleablePlugin {
     onResult = () => {},
   }: {
     onEating?: (food: string | null) => void
-    onResult?: (result: { food: string; ok: boolean }) => void
+    onResult?: (result: { food: string; ok: boolean; reason?: string }) => void
   } = {}) {
     super()
     this.onEating = onEating
@@ -198,22 +198,25 @@ export class AutoEatController extends ToggleablePlugin {
 
     // Eating takes a couple of seconds and the plugin finishes (even after a failure) with eatFinish.
     let failed = false
+    let reason: string | undefined
     const foodName = (opts?: { food?: { name?: string; displayName?: string } }) =>
       opts?.food?.displayName ?? opts?.food?.name ?? 'food'
     this.eatListeners = {
       eatStart: (opts) => {
         failed = false
+        reason = undefined
         this.eating = foodName(opts)
         this.onEating(this.eating)
       },
-      eatFail: () => {
+      eatFail: (error: unknown) => {
         failed = true
+        reason = (error as Error | undefined)?.message
       },
       eatFinish: (opts) => {
         const food = this.eating ?? foodName(opts)
         this.eating = null
         this.onEating(null)
-        this.onResult({ food, ok: !failed })
+        this.onResult({ food, ok: !failed, reason })
       },
     }
     for (const [event, listener] of Object.entries(this.eatListeners))

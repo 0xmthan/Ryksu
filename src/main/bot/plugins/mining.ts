@@ -8,6 +8,7 @@ import { Movements, goals } from '../vendor/pathfinder'
 import type { Goal } from '../vendor/pathfinder/lib/goals'
 import type { AutoToolController } from './autoTool'
 import { applyBlockEditing } from './blockEditing'
+import { avoidBigCaves } from './caves'
 import { type ChestStore, type SavedChest, fileChestStore } from './miningChests'
 import {
   GoalReach,
@@ -20,7 +21,7 @@ import {
   pickNext,
   seedScore,
 } from './miningTargets'
-import type { PathfinderController } from './pathfinder'
+import { type PathfinderController, watchStall } from './pathfinder'
 
 type Alive = () => boolean
 type DepositEntry = { type: number; name: string; count: number }
@@ -321,7 +322,9 @@ export class MiningController {
       try {
         if (this._inDanger()) {
           this._setStatus(
-            this.threat ? `Fighting ${this._mobName(this.threat)}` : 'Paused (fighting, fleeing or sleeping)'
+            this.threat
+              ? `Fighting ${this._mobName(this.threat)}`
+              : 'Paused (eating, fighting, fleeing or sleeping)'
           )
           this.calmUntil = Date.now() + CALM_DOWN_MS
           await sleep(WATCH_INTERVAL_MS)
@@ -743,10 +746,16 @@ export class MiningController {
         thinkTimeout: THINK_TIMEOUT_MS,
         tickTimeout: TICK_TIMEOUT_MS,
       })
-      const idle = new Promise<void>((resolve, reject) => {
-        stopWatching = this._watchIdle(goal, resolve, reject)
+      // The pathfinder can end a route a block off from where it planned and then just stand there, never
+      // re-planning. Once the bot has stopped getting anywhere, it either got there after all or the walk is over.
+      const stalled = new Promise<void>((resolve, reject) => {
+        stopWatching = watchStall(
+          bot,
+          (error) => (goal.isEnd(bot.entity.position.floored()) ? resolve() : reject(error)),
+          IDLE_GIVE_UP_MS
+        )
       })
-      await withTimeout(Promise.race([walking, idle]), timeout, 'Took too long to get there.')
+      await withTimeout(Promise.race([walking, stalled]), timeout, 'Took too long to get there.')
     } catch (error) {
       if (this.task !== task || this._inDanger()) {
         throw new Interrupted()
@@ -767,41 +776,13 @@ export class MiningController {
     }
   }
 
-  // The pathfinder can end a route a block off from where it planned and then just stand there, never
-  // re-planning. Once the bot has stood still a while, it either got there after all or the walk is over.
-  private _watchIdle(goal: Goal, resolve: () => void, reject: (error: Error) => void) {
-    const bot = this.bot!
-    let lastActive = Date.now()
-    const timer = setInterval(() => {
-      const pathfinder = bot.pathfinder
-      if (
-        !bot.entity?.onGround ||
-        pathfinder?.isMoving?.() ||
-        pathfinder?.isMining?.() ||
-        pathfinder?.isBuilding?.()
-      ) {
-        lastActive = Date.now()
-        return
-      }
-      if (Date.now() - lastActive < IDLE_GIVE_UP_MS) {
-        return
-      }
-      clearInterval(timer)
-      if (goal.isEnd(bot.entity.position.floored())) {
-        resolve()
-      } else {
-        reject(new Error('Stopped moving before getting there.'))
-      }
-    }, 500)
-    return () => clearInterval(timer)
-  }
-
   // Mining's own movement rules: no parkour, and placing and digging cost more, so the bot walks around
   // instead of bridging or tunneling, and only does either when there's no other way to reach something.
   private _movements() {
     const bot = this.bot!
     if (!this.movements) {
       const movements = new Movements(bot)
+      avoidBigCaves(movements, bot)
       movements.allowParkour = false
       movements.placeCost = 3
       // Walk around a wall rather than dig through it, unless digging is the only way (ores in stone).

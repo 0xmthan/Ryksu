@@ -39,6 +39,8 @@ export const createElectronAPI = (ipcRenderer: IpcRendererLike) => {
     checkForUpdates: () => invoke('app:checkForUpdates'),
     getUnlimitedFps: () => invoke('app:getUnlimitedFps'),
     setUnlimitedFps: (...args: Args<'app:setUnlimitedFps'>) => invoke('app:setUnlimitedFps', ...args),
+    getControlApi: () => invoke('app:getControlApi'),
+    setControlApi: (...args: Args<'app:setControlApi'>) => invoke('app:setControlApi', ...args),
     minimize: () => send('window-controls', 'minimize'),
     close: () => send('window-controls', 'close'),
     openExternal: (...args: Args<'system:openExternal'>) => invoke('system:openExternal', ...args),

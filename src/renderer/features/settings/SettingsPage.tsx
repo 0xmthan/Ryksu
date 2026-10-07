@@ -1,5 +1,6 @@
 import { type ReactNode, useEffect, useState } from 'react'
-import { Monitor, RotateCcw, X } from 'lucide-react'
+import { Monitor, RotateCcw, Terminal, X } from 'lucide-react'
+import type { ControlApiStatus } from '../../../shared/ipc'
 import {
   DEFAULT_GRAPHICS,
   FPS_LIMITS,
@@ -106,6 +107,21 @@ export default function SettingsPage({ onClose }: { onClose?: () => void }) {
   useEffect(() => {
     window.electronAPI.getUnlimitedFps().then(setLaunchedUnlimited, () => setLaunchedUnlimited(false))
   }, [])
+
+  // The control API's status from the main process; null until known.
+  const [controlApi, setControlApi] = useState<ControlApiStatus | null>(null)
+  const [controlApiBusy, setControlApiBusy] = useState(false)
+  useEffect(() => {
+    window.electronAPI.getControlApi().then(setControlApi, () => setControlApi(null))
+  }, [])
+  const toggleControlApi = async (enabled: boolean) => {
+    setControlApiBusy(true)
+    try {
+      setControlApi(await window.electronAPI.setControlApi(enabled))
+    } finally {
+      setControlApiBusy(false)
+    }
+  }
 
   const update = (changes: Partial<GraphicsSettings>) => {
     const next = { ...graphics, ...changes }
@@ -323,6 +339,44 @@ export default function SettingsPage({ onClose }: { onClose?: () => void }) {
               value={graphics.showFps}
               onChange={(showFps) => update({ showFps })}
             />
+          </Row>
+        </div>
+      </section>
+      <section
+        className="mt-5 rounded-2xl border border-neutral-800 bg-neutral-950/70 px-6 pt-5 pb-2"
+        aria-labelledby="developer-heading"
+      >
+        <h2 id="developer-heading" className="flex items-center gap-2 text-sm font-medium text-neutral-300">
+          <Terminal size={15} aria-hidden="true" className="text-neutral-500" />
+          Developer
+        </h2>
+        <div className="mt-2 divide-y divide-neutral-800/80">
+          <Row
+            title="Control API"
+            hint={
+              controlApi?.error ? (
+                <span className="text-amber-300">{controlApi.error}</span>
+              ) : controlApi?.enabled ? (
+                <>
+                  Listening on <code className="text-neutral-300">http://127.0.0.1:{controlApi.port}</code>.
+                  Programs on this computer can see and control the bot.
+                </>
+              ) : (
+                'Lets scripts and tools on this computer see and control the bot over HTTP. Only reachable from this computer.'
+              )
+            }
+          >
+            <div className={controlApiBusy || !controlApi ? 'pointer-events-none opacity-60' : undefined}>
+              <Segmented
+                label="Control API"
+                options={[
+                  { value: false, label: 'Off' },
+                  { value: true, label: 'On' },
+                ]}
+                value={controlApi ? controlApi.enabled : null}
+                onChange={(enabled) => void toggleControlApi(enabled)}
+              />
+            </div>
           </Row>
         </div>
       </section>
