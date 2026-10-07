@@ -144,6 +144,10 @@ export const registerBotIpc = (ipcMain: IpcMain, botManager: BotManager) => {
 
   handle('bot:startMining', (_event, options) => attempt(() => ({ state: botManager.startMining(options) })))
 
+  handle('bot:stopMining', () => ({ ok: true, state: botManager.stopMining() }))
+
+  handle('bot:getMineableBlocks', () => botManager.getMineableBlocks())
+
   handle('bot:toggleMiningChest', (_event, position) => attempt(() => botManager.toggleMiningChest(position)))
 
   handle('bot:interactBlock', (_event, position) => attempt(() => botManager.interactBlock(position)))

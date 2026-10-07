@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import React, { useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from 'react'
 import type { ChatMessage } from '../../../shared/types'
 import PlayerHead from '../../components/PlayerHead'
 
@@ -36,15 +36,17 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     onClose()
   }
 
+  // Runs when the chat opens, reading the input as it is then (typing doesn't count as opening).
+  const onOpen = useEffectEvent(() => {
+    input.current?.focus()
+    historyIndex.current = submitted.current.length
+    draft.current = chatInput
+    atBottom.current = true
+    if (log.current) log.current.scrollTop = log.current.scrollHeight
+    setUnread(false)
+  })
   useEffect(() => {
-    if (open) {
-      input.current?.focus()
-      historyIndex.current = submitted.current.length
-      draft.current = chatInput
-      atBottom.current = true
-      if (log.current) log.current.scrollTop = log.current.scrollHeight
-      setUnread(false)
-    }
+    if (open) onOpen()
   }, [open])
   useEffect(() => {
     if (open) return

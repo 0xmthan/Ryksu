@@ -8,6 +8,8 @@ import { applyBlockEditing } from './blockEditing'
 
 type FollowOptions = Pick<PathfinderOptions, 'followEnabled' | 'followTarget'>
 type GoToLocation = NonNullable<PathfinderOptions['goToLocation']>
+// Per-call overrides for goto: other movements (e.g. mining's), and a shorter, lighter search.
+type GotoOptions = { movements?: Movements; thinkTimeout?: number; tickTimeout?: number }
 type GoToRun = {
   target: { x: number; y: number; z: number }
   goal: Goal | null
@@ -104,6 +106,10 @@ export class PathfinderController {
     return this.allowBlockBreak
   }
 
+  isBlockBreakingAllowed() {
+    return this.allowBlockBreak
+  }
+
   getOptions(): FollowOptions {
     return { ...this.options }
   }
@@ -177,14 +183,24 @@ export class PathfinderController {
     return this.goto(new goals.GoalNear(position.x, position.y, position.z, range))
   }
 
-  goto(goal: Goal) {
+  goto(goal: Goal, { movements, thinkTimeout, tickTimeout }: GotoOptions = {}) {
     if (!this.bot || !this._ensurePlugin()) {
       return Promise.reject(new Error('Pathfinder is not available.'))
     }
 
     this._cancelGoTo()
-    this.bot.pathfinder.setMovements(this.movements!)
-    return this.bot.pathfinder.goto(goal)
+    const pathfinder = this.bot.pathfinder
+    pathfinder.setMovements(movements ?? this.movements!)
+    if (thinkTimeout === undefined && tickTimeout === undefined) {
+      return pathfinder.goto(goal)
+    }
+    const previousTick = pathfinder.tickTimeout
+    if (thinkTimeout !== undefined) pathfinder.thinkTimeout = thinkTimeout
+    if (tickTimeout !== undefined) pathfinder.tickTimeout = tickTimeout
+    return pathfinder.goto(goal).finally(() => {
+      pathfinder.thinkTimeout = 10000
+      pathfinder.tickTimeout = previousTick
+    })
   }
 
   _ensurePlugin() {

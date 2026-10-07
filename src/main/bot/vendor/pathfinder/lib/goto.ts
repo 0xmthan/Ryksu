@@ -22,7 +22,9 @@ export function goto(bot: CoreBot, goal: Goal) {
     }
 
     function noPathListener(results: PathResult) {
-      if (results.path.length === 0) {
+      // An empty path only means arrived when the search succeeded. A partial result with nothing yet is still
+      // thinking, and a failed search with nothing to walk is a failure; both used to count as arrived.
+      if (results.status === 'success' && results.path.length === 0) {
         cleanup()
       } else if (results.status === 'noPath') {
         cleanup(error('NoPath', 'No path to the goal!'))

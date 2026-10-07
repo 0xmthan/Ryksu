@@ -42,6 +42,10 @@ function inject(bot: CoreBot) {
   let lastNodeTime = performance.now()
   let returningPos: Vec3 | null = null
   let stopPathing = false
+  // Blocks the bot itself is placing or digging along the path. Their change is expected, so it shouldn't
+  // trigger a re-plan: re-planning mid-jump from inside a just-placed tower block made the bot dig it back out.
+  const ownChanges = new Set<string>()
+  const posKey = (pos: { x: number; y: number; z: number }) => `${pos.x},${pos.y},${pos.z}`
   const physics = new Physics(bot)
   const lockPlaceBlock = new Lock()
   const lockEquipItem = new Lock()
@@ -95,7 +99,27 @@ function inject(bot: CoreBot) {
       const dy = startPos.y - p.y
       const b = bot.blockAt(p) // The block we are standing in
       // Offset the floored bot position by one if we are standing on a block that has not the full height but is solid
-      const offset = b && dy > 0.001 && bot.entity.onGround && !stateMovements.emptyBlocks.has(b.type) ? 1 : 0
+      const standingOnPartial =
+        dy > 0.001 && bot.entity.onGround && !stateMovements.emptyBlocks.has(b?.type ?? -1)
+      let offset = b && standingOnPartial ? 1 : 0
+      // Re-planning mid-air (a jump, a step off an edge, a tower jump) plans from where the bot will stand, not
+      // from where its feet happen to be. Planning from the top of a jump had the bot bridging a block above the
+      // ground, and planning from inside a block just placed under it had it dig that block back out.
+      if (!bot.entity.onGround && !bot.entity.isInWater) {
+        // Inside a solid block's space: rising out of one just placed, or above a slab-like block, which the
+        // pathfinder counts as standing on top of it.
+        if (b?.boundingBox === 'block') {
+          offset = 1
+        } else {
+          for (let drop = 0; drop < 4; drop++) {
+            const below = bot.blockAt(p.offset(0, -1 - drop, 0))
+            if (below?.boundingBox === 'block') {
+              offset = -drop
+              break
+            }
+          }
+        }
+      }
       start = new Move(p.x, p.y + offset, p.z, movements.countScaffoldingItems(), 0)
     }
     if (movements.allowEntityDetection) {
@@ -156,6 +180,7 @@ function inject(bot: CoreBot) {
   bot.pathfinder.setGoal = (goal, dynamic = false) => {
     stateGoal = goal
     dynamicGoal = dynamic
+    ownChanges.clear()
     bot.emit('goal_updated', goal, dynamic)
     resetPath('goal_updated')
   }
@@ -427,6 +452,7 @@ function inject(bot: CoreBot) {
 
   bot.on('blockUpdate', (oldBlock, newBlock) => {
     if (!oldBlock || !newBlock) return
+    if (ownChanges.delete(posKey(oldBlock.position))) return
     if (isPositionNearPath(oldBlock.position, path) && oldBlock.type !== newBlock.type) {
       resetPath('block_updated', false)
     }
@@ -519,11 +545,13 @@ function inject(bot: CoreBot) {
         const block = bot.blockAt(new Vec3(b.x, b.y, b.z), false)!
         const tool = bot.pathfinder.bestHarvestTool(block)
         fullStop()
+        ownChanges.add(posKey(block.position))
 
         const digBlock = () => {
           bot
             .dig(block, true)
             .catch((_ignoreError) => {
+              ownChanges.delete(posKey(block.position))
               resetPath('dig_error')
             })
             .then(function () {
@@ -601,6 +629,10 @@ function inject(bot: CoreBot) {
             if (interactableBlocks.has(refBlock.name)) {
               bot.setControlState('sneak', true)
             }
+            const placed = posKey(
+              refBlock.position.offset(placingBlock!.dx, placingBlock!.dy, placingBlock!.dz)
+            )
+            ownChanges.add(placed)
             bot
               .placeBlock(refBlock, new Vec3(placingBlock!.dx, placingBlock!.dy, placingBlock!.dz))
               .then(function () {
@@ -610,6 +642,7 @@ function inject(bot: CoreBot) {
                   returningPos = placingBlock!.returnPos.clone()
               })
               .catch((_ignoreError) => {
+                ownChanges.delete(placed)
                 resetPath('place_error')
               })
               .then(() => {

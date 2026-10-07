@@ -21,6 +21,7 @@ import { BehaviorManager } from './plugins/behaviorManager'
 import { CreeperWatch } from './plugins/creeperWatch'
 import { FirstPersonActions } from './plugins/firstPersonActions'
 import { GestureController } from './plugins/gestures'
+import { TpaAccept } from './plugins/tpaAccept'
 import { ManualMovementController } from './plugins/manualMovement'
 import { MiningController } from './plugins/mining'
 import { PathfinderController } from './plugins/pathfinder'
@@ -128,6 +129,7 @@ export class BotManager extends EventEmitter<BotManagerEvents> {
   private autoSleep: AutoSleep
   private mining: MiningController
   private gestures: GestureController
+  private tpaAccept: TpaAccept
   firstPerson: FirstPersonActions
   private breakProgress: BreakProgress
   private world: WorldStream
@@ -190,6 +192,13 @@ export class BotManager extends EventEmitter<BotManagerEvents> {
       pathfinder: this.pathfinder,
       autoTool: this.autoTool,
       isBusy: () => this.creeperWatch.isFleeing() || Boolean(this.pvp.target),
+      defend: (mob) => {
+        if (this._isUserDriving()) return
+        this.chat.pushSystemMessage(
+          `${mob.displayName ?? mob.name ?? 'A mob'} is close, fighting it before mining on.`
+        )
+        this.pvp.defend(mob)
+      },
       onStop: (reason, { automatic }) => {
         this.chat.pushSystemMessage(`Mining stopped: ${reason}`)
         if (automatic) {
@@ -197,6 +206,10 @@ export class BotManager extends EventEmitter<BotManagerEvents> {
         }
       },
       onUpdate: () => this._emitState(),
+    })
+    this.tpaAccept = new TpaAccept({
+      isTrusted: (name) => this.isTrusted(name),
+      onAccept: (name) => this.chat.pushSystemMessage(`Accepted ${name}'s teleport request.`),
     })
     this.gestures = new GestureController({
       isTrusted: (name) => this.isTrusted(name),
@@ -224,6 +237,7 @@ export class BotManager extends EventEmitter<BotManagerEvents> {
       this.bed,
       this.autoSleep,
       this.gestures,
+      this.tpaAccept,
       this.firstPerson,
       this.breakProgress,
       this.creeperWatch,
@@ -365,6 +379,7 @@ export class BotManager extends EventEmitter<BotManagerEvents> {
 
       attachEntityTracking(bot)
       attachPlayerNames(bot, `${host}:${port}`)
+      this.mining.setServer(`${host}:${port}`)
       for (const plugin of this.plugins) plugin.attach(bot)
       this.behavior.applyCurrentState()
 

@@ -49,10 +49,9 @@ const LocationManager: React.FC<LocationManagerProps> = ({
       return
     }
 
-    const exists = savedLocations.some((s) => s.id === selectedLocationId)
-    if (!exists) {
-      setSelectedLocationId(savedLocations[0].id)
-    }
+    setSelectedLocationId((selected) =>
+      savedLocations.some((s) => s.id === selected) ? selected : savedLocations[0].id
+    )
   }, [savedLocations])
 
   const handleSaveCurrentLocation = (e: React.FormEvent) => {
@@ -82,8 +81,12 @@ const LocationManager: React.FC<LocationManagerProps> = ({
     setActiveTravel(null)
   }
 
+  // The coordinates on their own, so a new position object with the same values doesn't count as a move.
+  const x = currentPosition?.x
+  const y = currentPosition?.y
+  const z = currentPosition?.z
   useEffect(() => {
-    if (!currentPosition) {
+    if (x === undefined || y === undefined || z === undefined) {
       return
     }
 
@@ -92,7 +95,7 @@ const LocationManager: React.FC<LocationManagerProps> = ({
         return previous
       }
 
-      const distance = distanceBetween(currentPosition, previous.location)
+      const distance = distanceBetween({ x, y, z }, previous.location)
 
       if (!Number.isFinite(distance)) {
         return previous
@@ -121,7 +124,7 @@ const LocationManager: React.FC<LocationManagerProps> = ({
         currentDistance: distance,
       }
     })
-  }, [currentPosition?.x, currentPosition?.y, currentPosition?.z])
+  }, [x, y, z])
 
   useEffect(() => {
     setActiveTravel((previous) => {

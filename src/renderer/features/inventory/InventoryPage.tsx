@@ -180,9 +180,10 @@ const InventoryPage: React.FC<{ inventory: Inventory | null; onClose: () => void
       </button>
     )
   }
+  const anvilItemName = container?.slots[0]?.displayName
   useEffect(() => {
-    if (layout?.anvil) setAnvilName(container?.slots[0]?.displayName ?? '')
-  }, [container?.id, container?.slots[0]?.displayName, layout?.anvil])
+    if (layout?.anvil) setAnvilName(anvilItemName ?? '')
+  }, [container?.id, anvilItemName, layout?.anvil])
   const hovered = hover === null ? null : itemAt(hover)
   return (
     <div

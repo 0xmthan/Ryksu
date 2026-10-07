@@ -253,6 +253,15 @@ export class PvpController {
     this.target = entity
   }
 
+  // Fights a mob that's closing in, the same way as one that already hurt the bot.
+  defend(entity: Entity) {
+    if (this.defendTarget === entity) return
+    this._cancelPendingAttack()
+    this.defendTarget = entity
+    this.defendUntil = Date.now() + DEFEND_DURATION_MS
+    this.target = entity
+  }
+
   // Drops a requested attack (or fight-back) target.
   stopAttacking() {
     if (!this.defendTarget) return
