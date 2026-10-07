@@ -40,7 +40,7 @@ const useConnectionPreferences = ({
 
   useEffect(() => {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY)
+      const raw = window.ryksuStore.getItem(STORAGE_KEY)
       if (raw) {
         const parsed = JSON.parse(raw) as Partial<LastConnectionType>
         if (parsed.accountType === 'online' || parsed.accountType === 'offline') {
@@ -98,7 +98,7 @@ const useConnectionPreferences = ({
     }
 
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload))
+      window.ryksuStore.setItem(STORAGE_KEY, JSON.stringify(payload))
       setLastConnection(payload)
     } catch (error) {
       console.error('Failed to persist connection details', error)

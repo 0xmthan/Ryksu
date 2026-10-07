@@ -66,11 +66,20 @@ export const attachEntityTracking = (bot: Bot) => {
       } else if (entry?.type === 'optional_block_pos' || entry?.type === 'optional_position') {
         // A living entity's only optional block position is the bed it sleeps in.
         typed.sleeping_pos = entry.value ?? null
+      } else if (entry?.type === 'direction') {
+        // Item frames: the way they face out of the wall (1.21.9+; before, only in the spawn packet).
+        typed.direction = entry.value
       } else if (entry?.type === 'optional_uuid') {
         // On tamed wolves, cats and parrots: whose pet it is.
         typed.owner_uuid = entry.value ?? null
       }
     }
+  })
+
+  client.on('spawn_entity', (packet: { entityId: number; objectData?: unknown }) => {
+    const entity = bot.entities?.[packet.entityId]
+    // Hanging entities (item frames, paintings) carry their facing as the spawn's object data.
+    if (entity?.name?.endsWith('item_frame')) eventsFor(bot, entity).typed.direction = packet.objectData
   })
 
   bot.on('entitySwingArm', (entity) => {

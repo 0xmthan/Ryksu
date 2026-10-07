@@ -19,7 +19,7 @@ import type {
   ChatMessage,
   PathfinderOptions,
 } from '../shared/types'
-import { makeChatStorageKey, normalizeProtocolError } from './features/chat/chat'
+import { makeChatStorageKey, makeLocationsStorageKey, normalizeProtocolError } from './features/chat/chat'
 import { loadTrustedPlayers } from './lib/trustedPlayers'
 
 const App: React.FC = () => {
@@ -545,6 +545,7 @@ const App: React.FC = () => {
             updatePathfinder={updatePathfinder}
             autoEat={autoEatEnabled ? autoEatOptions : null}
             paused={sidePage === 'settings'}
+            locationsKey={makeLocationsStorageKey(host, port)}
           />
         ) : isViewingSavedChats ? (
           <SavedChats transcripts={savedTranscripts} onDelete={handleDeleteTranscript} />

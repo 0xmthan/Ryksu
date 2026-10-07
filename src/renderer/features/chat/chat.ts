@@ -14,6 +14,10 @@ export const normalizePort = (value: string) => {
   return trimmed.length > 0 ? trimmed : '25565'
 }
 
+// The server's saved locations (each server has its own).
+export const makeLocationsStorageKey = (host: string, port: string) =>
+  `ryksu:locations:${normalizeHost(host)}:${normalizePort(port)}`
+
 export const makeChatStorageKey = (type: AccountType, host: string, port: string) =>
   `${CHAT_STORAGE_PREFIX}${type}:${normalizeHost(host)}:${normalizePort(port)}`
 

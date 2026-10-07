@@ -1,8 +1,20 @@
 import React, { useState } from 'react'
 import { createPortal } from 'react-dom'
-import { LoaderCircle, Plus, Play, ScrollText, Square, Trash2, X } from 'lucide-react'
+import {
+  ChevronDown,
+  LoaderCircle,
+  PanelRightClose,
+  PanelRightOpen,
+  Plus,
+  Play,
+  ScrollText,
+  Square,
+  Trash2,
+  X,
+} from 'lucide-react'
 import ToolbarButton from '../../components/ui/ToolbarButton'
 import CodeEditor from './CodeEditor'
+import { SCRIPT_CALLS } from '../../../shared/scriptApi'
 import type { Script } from '../../../shared/types'
 import { useScripts } from './useScripts'
 
@@ -16,20 +28,27 @@ async function stop() {
 }
 `
 
-const API_HELP: [string, string][] = [
-  ['ryksu.chat(text)', 'Say something or run a command, like "/wp home".'],
-  ['await ryksu.wait(ms)', 'Pause for a while.'],
-  ['await ryksu.waitForTeleport()', 'Until the server teleports the bot (15s at most).'],
-  ['await ryksu.waitForChat(text)', 'Until a server message contains the text (or matches a /regex/).'],
-  ['ryksu.onChat((text) => …)', 'Runs for every server message while the script is on.'],
-  ['await ryksu.goto({ x, y, z })', 'Walk there.'],
-  ['ryksu.position(), ryksu.vitals()', 'Where the bot is; its health and food.'],
-  ['ryksu.toggles()', 'Each automatic feature: { on, yours }, on now and what you picked.'],
-  ['ryksu.setToggle(name, on)', 'Turn an automatic feature on or off while the script runs.'],
-  ['ryksu.status(text), ryksu.log(…)', 'Show what the script is doing; write to the log.'],
-]
-
 type Draft = { name: string; code: string }
+
+// Whether the side column (help and log) and the help in it are open, remembered between launches.
+const SIDE_STORAGE_KEY = 'ryksu.scripts.sideOpen'
+const HELP_STORAGE_KEY = 'ryksu.scripts.helpOpen'
+
+const loadOpen = (key: string) => {
+  try {
+    return localStorage.getItem(key) !== 'false'
+  } catch {
+    return true
+  }
+}
+
+const saveOpen = (key: string, open: boolean) => {
+  try {
+    localStorage.setItem(key, String(open))
+  } catch {
+    // storage unavailable; the choice just isn't remembered
+  }
+}
 
 const ScriptsPanel: React.FC = () => {
   const { scripts, running, log } = useScripts()
@@ -39,6 +58,18 @@ const ScriptsPanel: React.FC = () => {
   const [drafts, setDrafts] = useState<Record<string, Draft>>({})
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [sideOpen, setSideOpen] = useState(() => loadOpen(SIDE_STORAGE_KEY))
+  const [helpOpen, setHelpOpen] = useState(() => loadOpen(HELP_STORAGE_KEY))
+
+  const toggleSide = () => {
+    saveOpen(SIDE_STORAGE_KEY, !sideOpen)
+    setSideOpen(!sideOpen)
+  }
+
+  const toggleHelp = () => {
+    saveOpen(HELP_STORAGE_KEY, !helpOpen)
+    setHelpOpen(!helpOpen)
+  }
 
   const selected = scripts.find((script) => script.id === selectedId) ?? scripts[0] ?? null
   const draftOf = (script: Script): Draft => drafts[script.id] ?? { name: script.name, code: script.code }
@@ -67,6 +98,12 @@ const ScriptsPanel: React.FC = () => {
     } finally {
       setBusy(false)
     }
+  }
+
+  // Drops the unsaved edits, back to the saved script.
+  const discard = (script: Script) => {
+    setDrafts(({ [script.id]: _discarded, ...rest }) => rest)
+    setError(null)
   }
 
   const save = async (script: Script) => {
@@ -100,7 +137,11 @@ const ScriptsPanel: React.FC = () => {
       await act(() => window.electronAPI.scripts.stop())
       return
     }
-    if (await save(script)) await act(() => window.electronAPI.scripts.start(script.id))
+    // Once it's on, the panel gets out of the way (the side panel shows the script); if it didn't start, the
+    // panel stays open with the reason.
+    if ((await save(script)) && (await act(() => window.electronAPI.scripts.start(script.id)))) {
+      setIsOpen(false)
+    }
   }
 
   return (
@@ -141,6 +182,20 @@ const ScriptsPanel: React.FC = () => {
                   <span className="mr-auto text-xs text-neutral-500">
                     One runs at a time. While it&apos;s on, the automatic features are paused.
                   </span>
+                  <button
+                    type="button"
+                    onClick={toggleSide}
+                    aria-pressed={sideOpen}
+                    aria-label={sideOpen ? 'Hide help and log' : 'Show help and log'}
+                    title={sideOpen ? 'Hide help and log' : 'Show help and log'}
+                    className="rounded-md p-1 text-neutral-400 hover:text-white"
+                  >
+                    {sideOpen ? (
+                      <PanelRightClose className="h-4 w-4" />
+                    ) : (
+                      <PanelRightOpen className="h-4 w-4" />
+                    )}
+                  </button>
                   <button
                     type="button"
                     onClick={() => setIsOpen(false)}
@@ -221,6 +276,17 @@ const ScriptsPanel: React.FC = () => {
                             py-0.5 font-semibold text-neutral-100 hover:border-neutral-700
                             focus:border-sky-600 focus:outline-none"
                         />
+                        {isDirty(selected) ? (
+                          <button
+                            type="button"
+                            onClick={() => discard(selected)}
+                            disabled={busy}
+                            className="rounded-md px-2.5 py-1 text-xs text-neutral-400 hover:text-neutral-100
+                              disabled:opacity-40"
+                          >
+                            Discard
+                          </button>
+                        ) : null}
                         <button
                           type="button"
                           onClick={() => void save(selected)}
@@ -276,39 +342,63 @@ const ScriptsPanel: React.FC = () => {
                     <p className="m-auto text-xs text-neutral-500">No scripts yet.</p>
                   )}
 
-                  <aside className="flex w-72 shrink-0 flex-col border-l border-neutral-800">
-                    <details className="border-b border-neutral-800 px-3 py-2" open>
-                      <summary className="cursor-pointer text-xs font-semibold text-neutral-400">
+                  {sideOpen ? (
+                    <aside className="flex min-h-0 w-72 shrink-0 flex-col border-l border-neutral-800">
+                      <button
+                        type="button"
+                        onClick={toggleHelp}
+                        aria-expanded={helpOpen}
+                        aria-controls="scripts-help"
+                        className="flex shrink-0 items-center justify-between gap-2 px-3 py-2 text-xs
+                          font-semibold text-neutral-400 hover:text-neutral-200"
+                      >
                         What scripts can call
-                      </summary>
-                      <dl className="mt-2 space-y-1.5 text-[0.68rem]">
-                        {API_HELP.map(([call, meaning]) => (
-                          <div key={call}>
-                            <dt className="font-mono text-sky-200">{call}</dt>
-                            <dd className="text-neutral-500">{meaning}</dd>
-                          </div>
-                        ))}
-                      </dl>
-                    </details>
-                    <h3 className="px-3 pt-2 text-xs font-semibold text-neutral-400">Log</h3>
-                    <ol className="min-h-0 flex-1 overflow-y-auto px-3 py-1 font-mono text-[0.68rem]">
-                      {log.length === 0 ? <li className="text-neutral-600">Nothing yet.</li> : null}
-                      {log
-                        .slice()
-                        .reverse()
-                        .map((entry, index) => (
-                          <li
-                            key={`${entry.at}-${index}`}
-                            className={entry.level === 'error' ? 'text-red-300' : 'text-neutral-400'}
-                          >
-                            <span className="text-neutral-600">
-                              {new Date(entry.at).toLocaleTimeString([], { hour12: false })}{' '}
-                            </span>
-                            {entry.text}
-                          </li>
-                        ))}
-                    </ol>
-                  </aside>
+                        <ChevronDown
+                          aria-hidden="true"
+                          className={`h-3.5 w-3.5 transition-transform ${helpOpen ? '' : '-rotate-90'}`}
+                        />
+                      </button>
+                      {helpOpen ? (
+                        <dl
+                          id="scripts-help"
+                          className="max-h-[55%] shrink-0 space-y-1.5 overflow-y-auto px-3 pb-2
+                            text-[0.68rem]"
+                        >
+                          {SCRIPT_CALLS.map((call) => (
+                            <div key={call.name}>
+                              <dt className="font-mono text-sky-200">
+                                {call.waits ? 'await ' : ''}ryksu.{call.signature}
+                              </dt>
+                              <dd className="text-neutral-500">{call.doc}</dd>
+                            </div>
+                          ))}
+                        </dl>
+                      ) : null}
+                      <h3
+                        className="shrink-0 border-t border-neutral-800 px-3 pt-2 text-xs font-semibold
+                          text-neutral-400"
+                      >
+                        Log
+                      </h3>
+                      <ol className="min-h-0 flex-1 overflow-y-auto px-3 py-1 font-mono text-[0.68rem]">
+                        {log.length === 0 ? <li className="text-neutral-600">Nothing yet.</li> : null}
+                        {log
+                          .slice()
+                          .reverse()
+                          .map((entry, index) => (
+                            <li
+                              key={`${entry.at}-${index}`}
+                              className={entry.level === 'error' ? 'text-red-300' : 'text-neutral-400'}
+                            >
+                              <span className="text-neutral-600">
+                                {new Date(entry.at).toLocaleTimeString([], { hour12: false })}{' '}
+                              </span>
+                              {entry.text}
+                            </li>
+                          ))}
+                      </ol>
+                    </aside>
+                  ) : null}
                 </div>
               </section>
             </div>,

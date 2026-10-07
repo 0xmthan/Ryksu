@@ -9,6 +9,7 @@ import type {
   BuildCells,
   ChatMessage,
   InventoryAction,
+  MapPixels,
   MiningState,
   Motion,
   MovementControls,
@@ -112,6 +113,8 @@ export type InvokeChannels = {
     result: Result<{ added?: boolean; state?: MiningState }>
   }
   'bot:getWorldView': { args: []; result: WorldView | null }
+  // Pixels of maps held in item frames, for the ones the watcher hasn't got (or has an old copy of).
+  'bot:getMaps': { args: [ids: number[]]; result: MapPixels[] }
   // A player skin as a data URL, or null if it couldn't be fetched.
   'bot:getSkin': { args: [url: string]; result: string | null }
   // A player's name from their UUID (dashless), or null if Mojang doesn't know it.

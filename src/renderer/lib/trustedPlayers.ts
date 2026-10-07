@@ -4,7 +4,7 @@ const STORAGE_KEY = 'trustedPlayers'
 
 export const loadTrustedPlayers = (): string[] => {
   try {
-    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]')
+    const stored = JSON.parse(window.ryksuStore.getItem(STORAGE_KEY) ?? '[]')
     return Array.isArray(stored) ? stored.filter((name): name is string => typeof name === 'string') : []
   } catch {
     return []
@@ -15,7 +15,7 @@ export const setPlayerTrusted = async (name: string, trusted: boolean) => {
   const others = loadTrustedPlayers().filter((entry) => entry.toLowerCase() !== name.toLowerCase())
   const next = trusted ? [...others, name] : others
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+    window.ryksuStore.setItem(STORAGE_KEY, JSON.stringify(next))
   } catch {
     // Storage unavailable; the bot still trusts them until it disconnects.
   }

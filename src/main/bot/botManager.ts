@@ -7,6 +7,7 @@ import { BuildQueue } from './actions/buildQueue'
 import { ChatBridge } from './chatBridge'
 import { DoorOpener } from './actions/doorOpener'
 import { attachEntityTracking } from './entities/entityEvents'
+import { attachMapTracking, mapPixels } from './entities/itemFrames'
 import { getMotion } from './entities/entityView'
 import { kickReasonToText, normaliseError, type FriendlyError } from './errors'
 import { runInventoryAction } from './actions/inventoryActions'
@@ -35,6 +36,8 @@ import { SUPPORTED_VERSIONS } from './versions'
 import { goals } from './vendor/pathfinder'
 import { ScriptHost } from '../scripts/scriptHost'
 import type { ScriptTarget } from '../scripts/scriptApi'
+import { ScriptWorld } from '../scripts/scriptWorld'
+import { authCache } from '../storage/secrets'
 import { WorldStream } from './world/worldStream'
 import type { ConnectOptions, SelfMotion, Vec3Like } from '../../shared/ipc'
 import type {
@@ -65,6 +68,8 @@ type BotManagerEvents = {
   buildCells: [cells: BuildCells]
   chat: [entry: ChatMessage]
   miningStopped: [reason: string]
+  // A desktop notification (from a script).
+  notify: [title: string, text: string]
   scripts: [state: ScriptsState]
 }
 
@@ -164,13 +169,13 @@ export class BotManager extends EventEmitter<BotManagerEvents> {
         ),
     })
     this.autoTool = new AutoToolController()
-    this.scripts = new ScriptHost({ target: this._scriptTarget() })
-    this.scripts.on('state', (state) => this.emit('scripts', state))
     this.autoShield = new AutoShieldController({
       isManuallyControlled: () => this._isUserDriving(),
       isOverridden: () => this.creeperWatch.isFleeing(),
     })
     this.pathfinder = new PathfinderController({ isPaused: () => Boolean(this.autoEat.eating) })
+    this.scripts = new ScriptHost({ target: this._scriptTarget() })
+    this.scripts.on('state', (state) => this.emit('scripts', state))
     this.manualMovement = new ManualMovementController({
       onStart: () => this._takeControl('Stopped for manual movement.', { stopManualMovement: false }),
     })
@@ -302,7 +307,11 @@ export class BotManager extends EventEmitter<BotManagerEvents> {
       throw new Error(`Unsupported client version "${selectedVersion}". Select one from the list.`)
     }
 
-    const botOptions: BotOptions & { password?: string; onMsaCode?: (data: unknown) => void } = {
+    const botOptions: Omit<BotOptions, 'profilesFolder'> & {
+      password?: string
+      onMsaCode?: (data: unknown) => void
+      profilesFolder?: string | false | typeof authCache
+    } = {
       host,
       port: port ? Number(port) : undefined,
       username,
@@ -314,6 +323,9 @@ export class BotManager extends EventEmitter<BotManagerEvents> {
     if (accountType === 'online') {
       if (password) botOptions.password = password
       botOptions.onMsaCode = (data) => this.emit('status', microsoftAuthStatus(data))
+      // Sign-in tokens go to ~/.ryksu/secrets/auth, encrypted with the Keychain (prismarine-auth takes a cache
+      // factory in place of a folder).
+      botOptions.profilesFolder = authCache
     }
 
     this.chat.prepareForConnection(accountType === 'offline' ? offlinePassword : null, username)
@@ -381,7 +393,8 @@ export class BotManager extends EventEmitter<BotManagerEvents> {
 
       let bot: Bot
       try {
-        bot = this.bot = mineflayer.createBot(botOptions)
+        // Its types only know a folder for profilesFolder.
+        bot = this.bot = mineflayer.createBot(botOptions as BotOptions)
       } catch (err) {
         rejectOnce(err)
         return
@@ -401,6 +414,7 @@ export class BotManager extends EventEmitter<BotManagerEvents> {
       }
 
       attachEntityTracking(bot)
+      attachMapTracking(bot)
       attachPlayerNames(bot, `${host}:${port}`)
       this.mining.setServer(`${host}:${port}`)
       for (const plugin of this.plugins) plugin.attach(bot)
@@ -533,6 +547,10 @@ export class BotManager extends EventEmitter<BotManagerEvents> {
 
   getWorldView() {
     return this.world.getWorldView()
+  }
+
+  getMaps(ids: number[]) {
+    return this.bot ? mapPixels(this.bot, ids) : []
   }
 
   async interactBlock(position: Vec3Like) {
@@ -807,6 +825,7 @@ export class BotManager extends EventEmitter<BotManagerEvents> {
 
   // What scripts drive the bot through (see src/main/scripts/scriptApi.ts).
   private _scriptTarget(): ScriptTarget & { pauseAutomation(): void; resumeAutomation(): void } {
+    const world = new ScriptWorld({ getBot: () => this.bot, pathfinder: this.pathfinder })
     const userOn = (feature: Automation) => {
       if (feature in this.userToggles) return this.userToggles[feature as keyof BotManager['userToggles']]
       const { followEnabled } = this.behavior.getPathfinderOptions()
@@ -820,10 +839,10 @@ export class BotManager extends EventEmitter<BotManagerEvents> {
     return {
       getBot: () => this.bot,
       chat: (text) => this.sendChat(text),
-      goto: async (position, range) => {
-        await this.pathfinder.goto(new goals.GoalNear(position.x, position.y, position.z, range))
-      },
+      goto: (position, range) => world.walk(new goals.GoalNear(position.x, position.y, position.z, range)),
+      world,
       stopMoving: () => this.pathfinder.clearTemporaryGoal(),
+      notify: (title, text) => this.emit('notify', title, text),
       toggles: () =>
         Object.fromEntries(
           AUTOMATIONS.map((feature) => [

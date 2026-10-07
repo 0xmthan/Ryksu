@@ -8,14 +8,13 @@ const useSavedTranscripts = () => {
   const loadSavedTranscripts = useCallback((): StoredTranscriptMeta[] => {
     const transcripts: StoredTranscriptMeta[] = []
 
-    for (let index = 0; index < localStorage.length; index += 1) {
-      const key = localStorage.key(index)
-      if (!key || !key.startsWith(CHAT_STORAGE_PREFIX)) {
+    for (const key of window.ryksuStore.keys()) {
+      if (!key.startsWith(CHAT_STORAGE_PREFIX)) {
         continue
       }
 
       try {
-        const raw = localStorage.getItem(key)
+        const raw = window.ryksuStore.getItem(key)
         if (!raw) {
           continue
         }
@@ -56,7 +55,7 @@ const useSavedTranscripts = () => {
   const deleteTranscript = useCallback(
     (key: string): boolean => {
       try {
-        localStorage.removeItem(key)
+        window.ryksuStore.removeItem(key)
       } catch (error) {
         console.error('Failed to delete transcript', key, error)
       }

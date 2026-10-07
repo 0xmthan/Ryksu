@@ -1,3 +1,5 @@
+import type { Automation } from './scriptApi'
+
 export type AccountType = 'offline' | 'online'
 
 export type BotStatusPayload = {
@@ -143,8 +145,10 @@ export type ScriptLogEntry = { at: number; level: 'info' | 'error'; text: string
 
 export type ScriptsState = {
   scripts: Script[]
-  // The script that's on (one at a time) and what it last said it's doing.
-  running: { id: string; status: string } | null
+  // The script that's on (one at a time), what it last said it's doing, and whether it hid the world (the
+  // game view shows a screen about the script instead, drawing nothing).
+  // `toggles`: which automatic features are on now (the script's picks, not the user's).
+  running: { id: string; status: string; worldHidden: boolean; toggles: Record<Automation, boolean> } | null
   // The latest lines scripts logged, oldest first.
   log: ScriptLogEntry[]
 }
@@ -348,4 +352,25 @@ export type Motion = {
     walking?: boolean
   }
   entities: MotionEntity[]
+  // Item frames nearby, drawn with what they hold (maps as their pixels, for map art walls).
+  frames?: ItemFrame[]
 }
+
+// An item frame (or glow item frame). `facing` is the way it points out of the wall (0 down, 1 up,
+// 2 north, 3 south, 4 west, 5 east); `rotation` is its 45° turns (0-7). `map` is a filled map it
+// holds: its id and how many updates it has had, so the watcher knows when to fetch its pixels again.
+export type ItemFrame = {
+  id: number
+  x: number
+  y: number
+  z: number
+  facing: number
+  rotation: number
+  invisible?: boolean
+  glow?: boolean
+  item?: string
+  map?: { id: number; version: number }
+}
+
+// A map's 128×128 color ids, row by row (see the map color table in the watcher).
+export type MapPixels = { id: number; version: number; colors: Uint8Array }

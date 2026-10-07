@@ -19,6 +19,7 @@ import StatusPill from '../components/ui/StatusPill'
 import ToolbarButton from '../components/ui/ToolbarButton'
 import MiningPanel from '../features/mining/MiningPanel'
 import ScriptsPanel from '../features/scripts/ScriptsPanel'
+import { useScripts } from '../features/scripts/useScripts'
 import type { BotStatus, MiningState } from '../../shared/types'
 import { useFps } from '../lib/frameRate'
 import { loadGraphicsSettings, onGraphicsSettingsChange } from '../lib/graphicsSettings'
@@ -128,6 +129,12 @@ const TitleBar: React.FC<TitleBarProps> = ({
   jumpAttackEnabled,
   onJumpAttackToggle,
 }) => {
+  // While a script is on, the automatic features' buttons show what the script has on and can't be changed.
+  const scriptToggles = useScripts().running?.toggles ?? null
+  const locked = scriptToggles ? 'Locked while a script is on.' : null
+  const shown = (feature: keyof NonNullable<typeof scriptToggles>, yours: boolean) =>
+    scriptToggles ? scriptToggles[feature] : yours
+
   const handleMinimize = () => {
     window.electronAPI?.minimize()
   }
@@ -264,7 +271,8 @@ const TitleBar: React.FC<TitleBarProps> = ({
             <ToolbarButton
               label="Armor Manager"
               description="Automatically equip armor. Click to toggle."
-              active={armorManagerEnabled}
+              active={shown('armorManager', armorManagerEnabled)}
+              locked={locked}
               onClick={() => onArmorManagerToggle(!armorManagerEnabled)}
             >
               <ArmorIcon />
@@ -272,7 +280,8 @@ const TitleBar: React.FC<TitleBarProps> = ({
             <ToolbarButton
               label="Auto Shield"
               description="Automatically block with a shield. Click to toggle."
-              active={autoShieldEnabled}
+              active={shown('autoShield', autoShieldEnabled)}
+              locked={locked}
               onClick={() => onAutoShieldToggle(!autoShieldEnabled)}
             >
               <ShieldHalf aria-hidden="true" className="h-4.5 w-4.5" strokeWidth={1.75} />
@@ -280,7 +289,8 @@ const TitleBar: React.FC<TitleBarProps> = ({
             <ToolbarButton
               label="Auto Tool"
               description="Automatically choose the right tool. Click to toggle."
-              active={autoToolEnabled}
+              active={shown('autoTool', autoToolEnabled)}
+              locked={locked}
               onClick={() => onAutoToolToggle(!autoToolEnabled)}
             >
               <Pickaxe aria-hidden="true" className="h-4.5 w-4.5" strokeWidth={1.75} />
@@ -288,7 +298,8 @@ const TitleBar: React.FC<TitleBarProps> = ({
             <ToolbarButton
               label="Auto Eat"
               description="Eat automatically. Click to toggle. Right-click for settings."
-              active={autoEatEnabled}
+              active={shown('autoEat', autoEatEnabled)}
+              locked={locked}
               onClick={() => onAutoEatToggle(!autoEatEnabled)}
               onConfigure={onAutoEatConfigure}
             >
@@ -297,7 +308,8 @@ const TitleBar: React.FC<TitleBarProps> = ({
             <ToolbarButton
               label="Attack Mobs"
               description="Attack mobs automatically. Click to toggle. Right-click for settings."
-              active={pvpEnabled}
+              active={shown('attackMobs', pvpEnabled)}
+              locked={locked}
               onClick={() => onPvpToggle(!pvpEnabled)}
               onConfigure={onPvpConfigure}
             >
@@ -311,7 +323,7 @@ const TitleBar: React.FC<TitleBarProps> = ({
             >
               <ChevronsUp aria-hidden="true" className="h-4.5 w-4.5" strokeWidth={1.75} />
             </ToolbarButton>
-            <MiningPanel mining={mining} />
+            <MiningPanel mining={mining} locked={locked} />
             <ScriptsPanel />
             <ToolbarButton
               label="Break / Place Blocks"

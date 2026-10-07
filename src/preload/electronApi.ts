@@ -77,6 +77,7 @@ export const createElectronAPI = (ipcRenderer: IpcRendererLike) => {
       getMineableBlocks: () => invoke('bot:getMineableBlocks'),
       toggleMiningChest: (...args: Args<'bot:toggleMiningChest'>) => invoke('bot:toggleMiningChest', ...args),
       getWorldView: () => invoke('bot:getWorldView'),
+      getMaps: (...args: Args<'bot:getMaps'>) => invoke('bot:getMaps', ...args),
       getSkin: (...args: Args<'bot:getSkin'>) => invoke('bot:getSkin', ...args),
       lookupPlayerName: (...args: Args<'bot:lookupPlayerName'>) => invoke('bot:lookupPlayerName', ...args),
       getPlayerSkin: (...args: Args<'bot:getPlayerSkin'>) => invoke('bot:getPlayerSkin', ...args),

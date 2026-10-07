@@ -114,7 +114,7 @@ export const onGraphicsSettingsChange = (listener: (settings: GraphicsSettings) 
 export const loadGraphicsSettings = (): GraphicsSettings => {
   if (current) return { ...current }
   try {
-    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}') ?? {}
+    const stored = JSON.parse(window.ryksuStore.getItem(STORAGE_KEY) ?? '{}') ?? {}
     return {
       resolutionScale: pick(stored.resolutionScale, RESOLUTION_SCALES, DEFAULT_GRAPHICS.resolutionScale),
       antialiasing:
@@ -139,7 +139,7 @@ export const loadGraphicsSettings = (): GraphicsSettings => {
 export const saveGraphicsSettings = (settings: GraphicsSettings) => {
   current = { ...settings }
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(settings))
+    window.ryksuStore.setItem(STORAGE_KEY, JSON.stringify(settings))
   } catch {
     // Storage unavailable; the choice lasts until the app closes.
   }

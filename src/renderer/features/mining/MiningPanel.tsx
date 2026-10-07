@@ -28,7 +28,7 @@ type MineableBlock = { name: string; displayName: string }
 
 const loadList = (key: string, fallback: string[]): string[] => {
   try {
-    const stored = JSON.parse(localStorage.getItem(key) ?? 'null')
+    const stored = JSON.parse(window.ryksuStore.getItem(key) ?? 'null')
     if (Array.isArray(stored)) {
       return stored.filter((entry) => typeof entry === 'string')
     }
@@ -40,7 +40,7 @@ const loadList = (key: string, fallback: string[]): string[] => {
 
 const saveList = (key: string, value: string[]) => {
   try {
-    localStorage.setItem(key, JSON.stringify(value))
+    window.ryksuStore.setItem(key, JSON.stringify(value))
   } catch {
     // storage unavailable; the choice just isn't remembered
   }
@@ -48,9 +48,11 @@ const saveList = (key: string, value: string[]) => {
 
 type MiningPanelProps = {
   mining: MiningState | undefined
+  // Why it can't be used now (a script is on), if it can't.
+  locked?: string | null
 }
 
-const MiningPanel: React.FC<MiningPanelProps> = ({ mining }) => {
+const MiningPanel: React.FC<MiningPanelProps> = ({ mining, locked = null }) => {
   const [isOpen, setIsOpen] = useState(false)
   const [ores, setOres] = useState<string[]>(() => loadList(STORAGE_KEY, ['iron', 'coal']))
   const [blocks, setBlocks] = useState<string[]>(() => loadList(BLOCKS_STORAGE_KEY, []))
@@ -167,6 +169,7 @@ const MiningPanel: React.FC<MiningPanelProps> = ({ mining }) => {
         label="Auto Mine"
         description="Click to start or stop mining. Right-click to choose ores or blocks and view progress."
         active={active}
+        locked={locked}
         onClick={() => {
           if (!isBusy) void (active ? handleStop() : handleStart())
         }}

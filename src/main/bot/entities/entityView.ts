@@ -15,6 +15,7 @@ import type {
 } from '../../../shared/types'
 import { entityEvents } from './entityEvents'
 import { entityVariant } from './entityVariants'
+import { getItemFrames } from './itemFrames'
 import { nameForUuid } from './playerNames'
 import { skinUrl, capeUrl } from './profileTextures'
 
@@ -317,6 +318,7 @@ export const getMotion = (
       ...(equipment ? { equipment } : {}),
     },
     entities,
+    frames: getItemFrames(bot),
     time: bot.time?.timeOfDay ?? 6000,
   }
 }

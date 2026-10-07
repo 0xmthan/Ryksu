@@ -10,12 +10,16 @@ import {
   type GraphicsSettings,
 } from '../src/renderer/lib/graphicsSettings'
 
-// The settings are read from localStorage when loaded, so a stand-in installed here is in place in time.
+// The settings are read from the app's store when loaded, so a stand-in installed here is in place in time.
 const store = new Map<string, string>()
-globalThis.localStorage = {
-  getItem: (key: string) => store.get(key) ?? null,
-  setItem: (key: string, value: string) => void store.set(key, String(value)),
-} as Storage
+Object.assign(globalThis, {
+  window: {
+    ryksuStore: {
+      getItem: (key: string) => store.get(key) ?? null,
+      setItem: (key: string, value: string) => void store.set(key, String(value)),
+    },
+  },
+})
 
 test('graphics settings fall back to defaults for missing or unknown values', () => {
   assert.deepEqual(loadGraphicsSettings(), DEFAULT_GRAPHICS)

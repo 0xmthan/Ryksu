@@ -1,20 +1,9 @@
-// The bot's automatic features. While a script runs they're all paused, whatever the user picked, and the
-// script turns back on the ones it wants; when it stops, the user's picks apply again.
-export const AUTOMATIONS = [
-  'armorManager',
-  'autoEat',
-  'autoTool',
-  'autoShield',
-  'attackMobs',
-  'attackPlayer',
-  'follow',
-  'creeperDodge',
-  'autoSleep',
-  'gestures',
-  'tpaAccept',
-] as const
+import { AUTOMATIONS, type Automation } from '../../shared/scriptApi'
 
-export type Automation = (typeof AUTOMATIONS)[number]
+// The bot's automatic features (listed in src/shared/scriptApi.ts). While a script runs they're all paused,
+// whatever the user picked, and the script turns back on the ones it wants; when it stops, the user's picks
+// apply again.
+export { AUTOMATIONS, type Automation }
 
 export const isAutomation = (name: unknown): name is Automation =>
   (AUTOMATIONS as readonly unknown[]).includes(name)

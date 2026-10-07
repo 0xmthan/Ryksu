@@ -7,10 +7,12 @@ import LocationManager from './LocationManager'
 import TradePanel from '../trading/TradePanel'
 import TabPanel from './TabPanel'
 import { prettyName } from '../../lib/blockColors'
-import { Hammer, ScrollText } from 'lucide-react'
+import { Hammer } from 'lucide-react'
 import { PICK_MINING_CHESTS_EVENT } from '../mining/MiningPanel'
 import VitalBars, { Hotbar } from './VitalBars'
 import { useSavedLocations } from './useSavedLocations'
+import ScriptScreen from '../scripts/ScriptScreen'
+import ScriptSidePanel from '../scripts/ScriptSidePanel'
 import { useScripts } from '../scripts/useScripts'
 import type {
   AutoEatOptions,
@@ -30,6 +32,8 @@ type ConnectedSnapshot = Extract<BotSnapshot, { connected: true }>
 
 type DashboardProps = {
   snapshot: ConnectedSnapshot
+  // Where this server's saved locations are kept.
+  locationsKey: string
   chatMessages: ChatMessage[]
   chatInput: string
   onChatInputChange: (value: string) => void
@@ -47,6 +51,7 @@ type DashboardProps = {
 }
 
 const Dashboard: React.FC<DashboardProps> = ({
+  locationsKey,
   pathfinder,
   snapshot,
   chatMessages,
@@ -61,7 +66,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   autoEat,
   paused = false,
 }) => {
-  const { locations, saveLocation, deleteLocation } = useSavedLocations()
+  const { locations, saveLocation, deleteLocation } = useSavedLocations(locationsKey)
   const [worldView, setWorldView] = useState<WorldView | null>(null)
   const [inventoryOpen, setInventoryOpen] = useState(false)
   const [openingBlock, setOpeningBlock] = useState(false)
@@ -293,6 +298,10 @@ const Dashboard: React.FC<DashboardProps> = ({
     updatePathfinder,
   ])
 
+  if (runningScript && scripts.running?.worldHidden) {
+    return <ScriptScreen name={runningScript.name} status={scripts.running.status} log={scripts.log} />
+  }
+
   return (
     <div className="relative min-h-0 min-w-0 flex-1 bg-neutral-950 text-neutral-100">
       <Surroundings3D
@@ -357,7 +366,10 @@ const Dashboard: React.FC<DashboardProps> = ({
             </button>
           </div>
         ) : null}
-        <div className="pointer-events-auto absolute left-3 top-15 w-64">
+        <div
+          className="absolute left-3 top-15 flex max-h-[calc(100%-20rem)] w-64 flex-col gap-2
+            *:pointer-events-auto"
+        >
           <VitalBars
             health={snapshot.health}
             food={snapshot.food}
@@ -368,25 +380,10 @@ const Dashboard: React.FC<DashboardProps> = ({
             eating={snapshot.eating}
             effects={snapshot.effects}
           />
+          {runningScript && scripts.running ? (
+            <ScriptSidePanel name={runningScript.name} status={scripts.running.status} log={scripts.log} />
+          ) : null}
         </div>
-        {runningScript && scripts.running && !buildMode && !pickingChests ? (
-          <div
-            role="status"
-            className="absolute left-1/2 top-15 flex -translate-x-1/2 items-center gap-2.5 rounded-full border
-              border-emerald-400/30 bg-neutral-950/75 py-1.5 pl-2 pr-3.5 text-xs text-neutral-300 shadow-lg
-              backdrop-blur-xl"
-          >
-            <span
-              className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-400/15
-                text-emerald-300"
-            >
-              <ScrollText aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2} />
-            </span>
-            <span className="font-semibold text-emerald-100">{runningScript.name}</span>
-            <span className="text-neutral-400">{scripts.running.status}</span>
-            <span className="text-neutral-500">· automatic features paused</span>
-          </div>
-        ) : null}
         {buildMode ? (
           <div
             role="status"

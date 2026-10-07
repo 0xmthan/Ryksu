@@ -6,7 +6,7 @@ type UseChatHistoryArgs = { chatStorageKey: string; connectionStartTimestamp: nu
 
 const readHistory = (key: string): ChatMessage[] => {
   try {
-    const saved = JSON.parse(localStorage.getItem(key) ?? '[]')
+    const saved = JSON.parse(window.ryksuStore.getItem(key) ?? '[]')
     return Array.isArray(saved)
       ? saved.filter(
           (entry) =>
@@ -43,7 +43,7 @@ const useChatHistory = ({ chatStorageKey, connectionStartTimestamp }: UseChatHis
   useEffect(() => {
     if (state.key !== chatStorageKey) return
     try {
-      localStorage.setItem(chatStorageKey, JSON.stringify(state.messages))
+      window.ryksuStore.setItem(chatStorageKey, JSON.stringify(state.messages))
     } catch (error) {
       console.error('Failed to persist chat history for server', error)
     }

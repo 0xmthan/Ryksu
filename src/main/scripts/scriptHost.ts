@@ -1,8 +1,10 @@
+import { AsyncLocalStorage } from 'node:async_hooks'
 import { EventEmitter } from 'node:events'
 import vm from 'node:vm'
 import type { Script, ScriptLogEntry, ScriptsState } from '../../shared/types'
-import { createScriptApi, ScriptStopped, Session, type ScriptTarget } from './scriptApi'
+import { createScriptApi, ScriptStopped, Session, type ScriptTarget, type SessionScope } from './scriptApi'
 import { fileScriptStore, type ScriptStore } from './scriptStore'
+import type { Automation } from '../bot/automation'
 
 // How long a script's top level may run when it loads (an endless loop there would freeze the app).
 const LOAD_TIMEOUT_MS = 1000
@@ -12,14 +14,27 @@ const LOG_LIMIT = 200
 
 type Run = {
   script: Script
+  // start()'s, then stop()'s once it's turned off.
   session: Session
+  stopSession: Session | null
   status: string
+  worldHidden: boolean
   stopFn: (() => unknown) | null
   // Set while stop() runs, so a second turn-off waits for the same one.
   stopping: Promise<void> | null
 }
 
 const messageOf = (error: unknown) => (error as Error | undefined)?.message || String(error)
+
+// Which run of a script (start() or stop()) a call comes from, carried through its awaits, so start() code
+// still going after a turn-off can't act through stop()'s session.
+const sessions = new AsyncLocalStorage<Session>()
+const ended = new Session()
+ended.end()
+const scope: SessionScope = {
+  current: () => sessions.getStore() ?? ended,
+  run: (session, action) => sessions.run(session, action),
+}
 
 // Runs the user's scripts, one at a time. While one is on, the target pauses the automatic features (see
 // src/main/bot/automation.ts). Scripts run in their own context with only `ryksu` and `console` to call;
@@ -47,7 +62,16 @@ export class ScriptHost extends EventEmitter<{ state: [state: ScriptsState] }> {
   getState(): ScriptsState {
     return {
       scripts: this.scripts.map((script) => ({ ...script })),
-      running: this.run ? { id: this.run.script.id, status: this.run.status } : null,
+      running: this.run
+        ? {
+            id: this.run.script.id,
+            status: this.run.status,
+            worldHidden: this.run.worldHidden,
+            toggles: Object.fromEntries(
+              Object.entries(this.target.toggles()).map(([feature, { on }]) => [feature, on])
+            ) as Record<Automation, boolean>,
+          }
+        : null,
       log: [...this.log],
     }
   }
@@ -85,12 +109,42 @@ export class ScriptHost extends EventEmitter<{ state: [state: ScriptsState] }> {
     await this.stop()
     if (!this.target.getBot()?.entity) throw new Error('Connect the bot first.')
 
-    const run: Run = { script, session: new Session(), status: 'Starting…', stopFn: null, stopping: null }
-    const api = createScriptApi(this.target, () => run.session, {
+    const run: Run = {
+      script,
+      session: new Session(),
+      stopSession: null,
+      status: 'Starting…',
+      worldHidden: false,
+      stopFn: null,
+      stopping: null,
+    }
+    // A script turning a feature on or off shows on the toolbar.
+    const target: ScriptTarget = {
+      ...this.target,
+      setToggle: (feature, on) => {
+        this.target.setToggle(feature, on)
+        this._emit()
+      },
+    }
+    const api = createScriptApi(target, scope, {
       log: (level, text) => this._log(level, `${script.name}: ${text}`),
       status: (text) => {
         if (this.run !== run) return
         run.status = text
+        this._emit()
+      },
+      notify: (text) => {
+        this._log('info', `${script.name}: ${text}`)
+        this.target.notify(script.name, text)
+      },
+      exit: (reason) => {
+        if (this.run !== run) return
+        if (reason) this._log('info', `${script.name}: ${reason}`)
+        void this.stop()
+      },
+      hideWorld: (hidden) => {
+        if (this.run !== run || run.worldHidden === hidden) return
+        run.worldHidden = hidden
         this._emit()
       },
     })
@@ -107,9 +161,11 @@ export class ScriptHost extends EventEmitter<{ state: [state: ScriptsState] }> {
             this._log('error', `${script.name}: ${parts.map(String).join(' ')}`),
         },
       })
-      new vm.Script(script.code, { filename: `${script.name}.js` }).runInContext(context, {
-        timeout: LOAD_TIMEOUT_MS,
-      })
+      sessions.run(run.session, () =>
+        new vm.Script(script.code, { filename: `${script.name}.js` }).runInContext(context, {
+          timeout: LOAD_TIMEOUT_MS,
+        })
+      )
       if (typeof context.start !== 'function') throw new Error('It needs an `async function start()`.')
       startFn = context.start
       run.stopFn = typeof context.stop === 'function' ? context.stop : null
@@ -125,7 +181,7 @@ export class ScriptHost extends EventEmitter<{ state: [state: ScriptsState] }> {
     this._emit()
 
     Promise.resolve()
-      .then(() => startFn())
+      .then(() => sessions.run(run.session, () => startFn()))
       .then(
         () => {
           if (this.run === run && run.status === 'Starting…') {
@@ -161,13 +217,14 @@ export class ScriptHost extends EventEmitter<{ state: [state: ScriptsState] }> {
   private async _stop(run: Run) {
     run.session.end()
     if (run.stopFn && this.target.getBot()?.entity) {
-      run.session = new Session()
+      const stopSession = new Session()
+      run.stopSession = stopSession
       run.status = 'Stopping…'
       this._emit()
       let timer: ReturnType<typeof setTimeout> | undefined
       try {
         await Promise.race([
-          Promise.resolve().then(() => run.stopFn!()),
+          Promise.resolve().then(() => sessions.run(stopSession, () => run.stopFn!())),
           new Promise((_, reject) => {
             timer = setTimeout(
               () => reject(new Error(`stop() took over ${STOP_TIMEOUT_MS / 1000}s.`)),
@@ -189,6 +246,7 @@ export class ScriptHost extends EventEmitter<{ state: [state: ScriptsState] }> {
 
   private _finish(run: Run) {
     run.session.end()
+    run.stopSession?.end()
     if (this.run !== run) return
     this.run = null
     this.target.resumeAutomation()

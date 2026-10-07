@@ -14,6 +14,7 @@ import { prettyName } from '../../lib/blockColors'
 import { loadBlockAtlas, type BlockAtlas } from './meshing/blockAtlas'
 import { modeFor, type ViewMode } from './viewMode'
 import { createTracked, stepTracked, syncTracked, type Tracked } from './entity/entityObjects'
+import { createItemFrames } from './entity/itemFrames'
 import { createSelfMotion } from './selfMotion'
 import { groundTarget, isLiquid, pickAt, REPLACEABLE_BLOCKS, walkTarget, type Pick } from './picking'
 import { disposeObject, makeLabel } from './sceneUtils'
@@ -361,6 +362,7 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
     const north = makeLabel('N', '#f87171')
     scene.add(north)
     const entities = new Map<number, Tracked>()
+    const itemFrames = createItemFrames(scene)
     let entityInfo = new Map<number, MotionEntity>()
     const clock = new THREE.Clock()
 
@@ -432,6 +434,7 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
           entities.delete(id)
         }
       }
+      itemFrames.update(motion.frames ?? [], state.anchor)
     }
     const unsubscribeMotion = window.electronAPI.bot.onMotion(handleMotion)
 
@@ -1094,6 +1097,7 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
       firstPersonRef.current = null
       if (pendingClick) clearTimeout(pendingClick.timer)
       unsubscribeMotion()
+      itemFrames.dispose()
       unsubscribeBreaking()
       unsubscribeSelf()
       breakEffects.dispose()

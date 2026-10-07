@@ -107,7 +107,7 @@ const STORAGE_KEY = 'ryksu:pluginPreferences'
 
 export const loadPluginPreferences = (): PluginPreferences => {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    const raw = window.ryksuStore.getItem(STORAGE_KEY)
     if (!raw) {
       return {
         ...DEFAULT_PLUGIN_PREFERENCES,
@@ -209,7 +209,7 @@ export const savePluginPreferences = (preferences: PluginPreferences) => {
   }
 
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload))
+    window.ryksuStore.setItem(STORAGE_KEY, JSON.stringify(payload))
   } catch (error) {
     console.error('Failed to save plugin preferences', error)
   }

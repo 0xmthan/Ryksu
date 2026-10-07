@@ -50,7 +50,7 @@ const SEARCH_RADII = [16, 32, 48]
 const SEARCH_COUNT = 16
 // Wanted blocks this close are checked for being in reach and in sight, so the bot never walks past one.
 const NEARBY_RADIUS = 5
-const CHEST_NAMES = ['chest', 'trapped_chest', 'barrel']
+export const CHEST_NAMES = ['chest', 'trapped_chest', 'barrel']
 // Head back to the chest once this few inventory slots are left.
 const MIN_FREE_SLOTS = 3
 // Picked blocks are capped so a typo-free but huge list can't flood findBlocks.

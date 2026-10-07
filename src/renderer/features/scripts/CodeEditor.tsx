@@ -3,16 +3,8 @@ import { basicSetup } from 'codemirror'
 import { indentWithTab } from '@codemirror/commands'
 import { javascript } from '@codemirror/lang-javascript'
 import { EditorState } from '@codemirror/state'
-import { oneDark } from '@codemirror/theme-one-dark'
 import { EditorView, keymap } from '@codemirror/view'
-
-// One Dark's colors on the panel's own background.
-const panelTheme = EditorView.theme({
-  '&': { height: '100%', backgroundColor: 'transparent', fontSize: '12px' },
-  '.cm-scroller': { fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', lineHeight: '1.6' },
-  '.cm-gutters': { backgroundColor: 'transparent', borderRight: '1px solid rgb(38 38 38)' },
-  '&.cm-focused': { outline: 'none' },
-})
+import { ryksuEditor } from './ryksuEditor'
 
 type CodeEditorProps = {
   value: string
@@ -22,8 +14,8 @@ type CodeEditorProps = {
   label: string
 }
 
-// A JavaScript editor with syntax colors (CodeMirror). `value` from outside replaces what's shown, such as
-// when another script is picked.
+// A JavaScript editor (CodeMirror) with syntax colors, and completions and hover help for the ryksu API.
+// `value` from outside replaces what's shown, such as when another script is picked.
 const CodeEditor: React.FC<CodeEditorProps> = ({ value, onChange, onSave, label }) => {
   const host = useRef<HTMLDivElement>(null)
   const view = useRef<EditorView | null>(null)
@@ -49,8 +41,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({ value, onChange, onSave, label 
             },
           ]),
           javascript(),
-          oneDark,
-          panelTheme,
+          ryksuEditor,
           EditorView.contentAttributes.of({ 'aria-label': label }),
           EditorView.updateListener.of((update) => {
             if (update.docChanged) callbacks.current.onChange(update.state.doc.toString())

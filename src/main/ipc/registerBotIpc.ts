@@ -62,6 +62,12 @@ export const registerBotIpc = (ipcMain: IpcMain, botManager: BotManager) => {
 
   handle('server:ping', (_event, target) => pingServer(target))
 
+  botManager.on('notify', (title, body) => {
+    if (Notification.isSupported()) {
+      new Notification({ title, body }).show()
+    }
+  })
+
   botManager.on('miningStopped', (reason) => {
     if (Notification.isSupported()) {
       new Notification({ title: 'Auto Mine stopped', body: reason }).show()
@@ -259,6 +265,8 @@ export const registerBotIpc = (ipcMain: IpcMain, botManager: BotManager) => {
   handle('bot:getWorldView', () => {
     return botManager.getWorldView()
   })
+
+  handle('bot:getMaps', (_event, ids) => botManager.getMaps(ids))
 
   handle('bot:setArmorManagerEnabled', (_event, enabled) => {
     const result = botManager.setArmorManagerEnabled(enabled)

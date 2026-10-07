@@ -5,7 +5,8 @@
 //   GET  /events?since=<id>      recent pathfinder/mining/chat events, for following along
 //   GET  /chat                   chat history
 //   GET  /block?x=&y=&z=         a block's name, hitbox and light
-//   GET  /storage?key=<key>      a value from the window's localStorage (saved locations, connection, …)
+//   GET  /frames                 item frames near the bot as the watcher gets them, and the maps known
+//   GET  /settings               the saved settings, locations, … by key (never passwords or tokens)
 //   POST /connect                connect with the saved connection details (like the Connect button)
 //   POST /disconnect
 //   POST /chat      {"text"}     say something or run a command
@@ -20,6 +21,8 @@ import type { Bot } from 'mineflayer'
 import { Vec3 } from 'vec3'
 import type { ControlApiStatus } from '../shared/ipc'
 import type { BotManager } from './bot/botManager'
+import { loadWindowStore } from './storage/appStore'
+import { getItemFrames, knownMaps } from './bot/entities/itemFrames'
 
 type ControlEvent = { id: number; at: number; type: string; detail: unknown }
 
@@ -94,19 +97,15 @@ export const createControlApi = (botManager: BotManager, getWindow: () => Browse
     }
   }
 
-  const readStorage = async (key: string) => {
-    const window = getWindow()
-    if (!window) return null
-    const raw = await window.webContents.executeJavaScript(
-      `localStorage.getItem(${JSON.stringify(key)})`,
-      true
+  // The window's saves, parsed, with the saved server password left out.
+  const settings = () =>
+    Object.fromEntries(
+      Object.entries(loadWindowStore()).map(([key, text]) => {
+        const value = JSON.parse(text)
+        if (value && typeof value === 'object' && 'offlinePassword' in value) delete value.offlinePassword
+        return [key, value]
+      })
     )
-    try {
-      return JSON.parse(raw)
-    } catch {
-      return raw
-    }
-  }
 
   const routes: Record<string, (body: Record<string, unknown>, url: URL) => unknown> = {
     'GET /state': () => state(),
@@ -125,7 +124,25 @@ export const createControlApi = (botManager: BotManager, getWindow: () => Browse
         ? { name: block.name, boundingBox: block.boundingBox, light: block.light, skyLight: block.skyLight }
         : null
     },
-    'GET /storage': (_body, url) => readStorage(url.searchParams.get('key') ?? ''),
+    'GET /frames': () => {
+      const bot = botManager.bot
+      if (!bot?.entity) throw new Error('Not in a world.')
+      const nearby = Object.values(bot.entities).filter(
+        (entity) => entity !== bot.entity && entity.position.distanceTo(bot.entity.position) < 80
+      )
+      const names: Record<string, number> = {}
+      for (const entity of nearby) names[String(entity.name)] = (names[String(entity.name)] ?? 0) + 1
+      return {
+        entityNames: names,
+        frames: getItemFrames(bot),
+        rawFrames: nearby
+          .filter((entity) => entity.name?.endsWith('item_frame'))
+          .slice(0, 3)
+          .map((entity) => ({ id: entity.id, position: entity.position, metadata: entity.metadata })),
+        maps: knownMaps(bot),
+      }
+    },
+    'GET /settings': () => settings(),
     'POST /connect': async () => {
       const window = getWindow()
       if (!window) throw new Error('No window.')
