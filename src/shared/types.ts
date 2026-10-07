@@ -135,6 +135,20 @@ export type MiningState = {
   status: string
 }
 
+// A user script (Scripts in the toolbar): JavaScript defining `async function start()` and optionally
+// `async function stop()`, run with the `ryksu` API (see src/main/scripts/scriptApi.ts).
+export type Script = { id: string; name: string; code: string }
+
+export type ScriptLogEntry = { at: number; level: 'info' | 'error'; text: string }
+
+export type ScriptsState = {
+  scripts: Script[]
+  // The script that's on (one at a time) and what it last said it's doing.
+  running: { id: string; status: string } | null
+  // The latest lines scripts logged, oldest first.
+  log: ScriptLogEntry[]
+}
+
 export type InventoryItem = {
   name: string
   displayName: string

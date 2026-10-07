@@ -119,6 +119,15 @@ export const createElectronAPI = (ipcRenderer: IpcRendererLike) => {
         invoke('bot:setPathfinderOptions', ...args),
       setPvpOptions: (...args: Args<'bot:setPvpOptions'>) => invoke('bot:setPvpOptions', ...args),
     },
+    scripts: {
+      getState: () => invoke('scripts:getState'),
+      save: (...args: Args<'scripts:save'>) => invoke('scripts:save', ...args),
+      delete: (...args: Args<'scripts:delete'>) => invoke('scripts:delete', ...args),
+      start: (...args: Args<'scripts:start'>) => invoke('scripts:start', ...args),
+      stop: () => invoke('scripts:stop'),
+      onState: (callback: (state: EventChannels['scripts:state']) => void) =>
+        registerListener('scripts:state', callback),
+    },
   }
 }
 

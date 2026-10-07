@@ -15,6 +15,8 @@ import type {
   PathfinderOptions,
   PlayerList,
   PvpOptions,
+  Script,
+  ScriptsState,
   ServerPing,
   TradeOffer,
   WorldView,
@@ -155,6 +157,13 @@ export type InvokeChannels = {
     result: { ok: boolean; options: PathfinderOptions }
   }
   'bot:setPvpOptions': { args: [options: Partial<PvpOptions>]; result: { ok: boolean; options: PvpOptions } }
+  // User scripts (see src/main/scripts/scriptHost.ts). Saving without an id adds a new one.
+  'scripts:getState': { args: []; result: ScriptsState }
+  'scripts:save': { args: [script: Partial<Script>]; result: Result<{ script?: Script }> }
+  'scripts:delete': { args: [id: string]; result: Result }
+  // Turns a script on (the running one off first); stopping runs its stop().
+  'scripts:start': { args: [id: string]; result: Result }
+  'scripts:stop': { args: []; result: Result }
 }
 
 // Fire-and-forget channels (ipcRenderer.send / ipcMain.on) and their arguments.
@@ -181,6 +190,7 @@ export type EventChannels = {
   'bot:world': WorldView
   'bot:motion': Motion
   'bot:selfMotion': SelfMotion
+  'scripts:state': ScriptsState
 }
 
 export type InvokeChannel = keyof InvokeChannels

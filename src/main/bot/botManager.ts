@@ -11,6 +11,7 @@ import { getMotion } from './entities/entityView'
 import { kickReasonToText, normaliseError, type FriendlyError } from './errors'
 import { runInventoryAction } from './actions/inventoryActions'
 import { attachPlayerNames, playerList } from './entities/playerNames'
+import { AUTOMATIONS, AutomationGate, type Automation } from './automation'
 import { ArmorManagerController } from './plugins/armorManager'
 import { AutoEatController } from './plugins/autoEat'
 import { AutoShieldController } from './plugins/autoShield'
@@ -31,6 +32,9 @@ import { skinUrl } from './entities/profileTextures'
 import { readVitals } from './snapshot'
 import { describeTrades, isTrader, openTrader, runTrade, type TraderWindow } from './actions/trading'
 import { SUPPORTED_VERSIONS } from './versions'
+import { goals } from './vendor/pathfinder'
+import { ScriptHost } from '../scripts/scriptHost'
+import type { ScriptTarget } from '../scripts/scriptApi'
 import { WorldStream } from './world/worldStream'
 import type { ConnectOptions, SelfMotion, Vec3Like } from '../../shared/ipc'
 import type {
@@ -44,6 +48,7 @@ import type {
   Motion,
   PathfinderOptions,
   PvpOptions,
+  ScriptsState,
   WorldView,
 } from '../../shared/types'
 import { isPluginPacketError, PLUGIN_PACKET_WARNING } from '../../shared/protocolErrors'
@@ -60,6 +65,7 @@ type BotManagerEvents = {
   buildCells: [cells: BuildCells]
   chat: [entry: ChatMessage]
   miningStopped: [reason: string]
+  scripts: [state: ScriptsState]
 }
 
 type ConnectedSnapshot = Extract<BotSnapshot, { connected: true }>
@@ -115,6 +121,10 @@ export class BotManager extends EventEmitter<BotManagerEvents> {
   // Something is being opened (a block or a trader); other actions wait.
   private interaction: 'block' | 'trader' | null = null
   private trader: TraderWindow | null = null
+  // While a script runs, the automatic features are paused unless it turns them back on.
+  private automation = new AutomationGate()
+  // What the user picked for the toolbar toggles the plugins own (the rest live in BehaviorManager).
+  private userToggles = { armorManager: false, autoEat: false, autoTool: false, autoShield: false }
 
   private armorManager: ArmorManagerController
   private autoEat: AutoEatController
@@ -130,6 +140,7 @@ export class BotManager extends EventEmitter<BotManagerEvents> {
   private mining: MiningController
   private gestures: GestureController
   private tpaAccept: TpaAccept
+  scripts: ScriptHost
   firstPerson: FirstPersonActions
   private breakProgress: BreakProgress
   private world: WorldStream
@@ -153,6 +164,8 @@ export class BotManager extends EventEmitter<BotManagerEvents> {
         ),
     })
     this.autoTool = new AutoToolController()
+    this.scripts = new ScriptHost({ target: this._scriptTarget() })
+    this.scripts.on('state', (state) => this.emit('scripts', state))
     this.autoShield = new AutoShieldController({
       isManuallyControlled: () => this._isUserDriving(),
       isOverridden: () => this.creeperWatch.isFleeing(),
@@ -170,13 +183,17 @@ export class BotManager extends EventEmitter<BotManagerEvents> {
     })
     // The creeper fight hits and dodges the creeper the PvP plugin is targeting.
     this.creeperWatch = new CreeperWatch({
-      isManuallyControlled: () => this._isUserDriving(),
+      isManuallyControlled: () => this._isUserDriving() || !this._allows('creeperDodge'),
       pathfinder: this.pathfinder,
       pvp: this.pvp,
       autoTool: this.autoTool,
       onAlert: (message) => this.chat.pushSystemMessage(message),
     })
-    this.behavior = new BehaviorManager({ pathfinder: this.pathfinder, pvp: this.pvp })
+    this.behavior = new BehaviorManager({
+      pathfinder: this.pathfinder,
+      pvp: this.pvp,
+      resolve: (feature, userOn) => this.automation.resolve(feature, userOn),
+    })
     this.bed = new BedController({
       pathfinder: this.pathfinder,
       isFollowing: () => this.behavior.getPathfinderOptions().followEnabled,
@@ -184,6 +201,7 @@ export class BotManager extends EventEmitter<BotManagerEvents> {
     this.autoSleep = new AutoSleep({
       bed: this.bed,
       isBusy: () =>
+        !this._allows('autoSleep') ||
         this._isUserDriving() ||
         this.behavior.getPathfinderOptions().followEnabled ||
         this.mining.getState().active ||
@@ -211,12 +229,14 @@ export class BotManager extends EventEmitter<BotManagerEvents> {
       onUpdate: () => this._emitState(),
     })
     this.tpaAccept = new TpaAccept({
-      isTrusted: (name) => this.isTrusted(name),
+      isTrusted: (name) => this._allows('tpaAccept') && this.isTrusted(name),
       onAccept: (name) => this.chat.pushSystemMessage(`Accepted ${name}'s teleport request.`),
     })
     this.gestures = new GestureController({
       isTrusted: (name) => this.isTrusted(name),
-      onGesture: (entity) => this._toggleFollowFromGesture(entity),
+      onGesture: (entity) => {
+        if (this._allows('gestures')) this._toggleFollowFromGesture(entity)
+      },
     })
     this.firstPerson = new FirstPersonActions({ isAutoToolEnabled: () => this.autoTool.isEnabled() })
     this.breakProgress = new BreakProgress({ onChange: (state) => this.emit('breaking', state) })
@@ -297,11 +317,11 @@ export class BotManager extends EventEmitter<BotManagerEvents> {
     }
 
     this.chat.prepareForConnection(accountType === 'offline' ? offlinePassword : null, username)
-    this.armorManager.setEnabled(Boolean(armorManagerEnabled))
     this.autoEat.setOptions(autoEatOptions || {})
-    this.autoEat.setEnabled(Boolean(autoEatEnabled))
-    this.autoTool.setEnabled(Boolean(autoToolEnabled))
-    this.autoShield.setEnabled(Boolean(autoShieldEnabled))
+    this.setArmorManagerEnabled(armorManagerEnabled)
+    this.setAutoEatEnabled(autoEatEnabled)
+    this.setAutoToolEnabled(autoToolEnabled)
+    this.setAutoShieldEnabled(autoShieldEnabled)
     this.behavior.setPathfinderOptions(pathfinder)
     this.behavior.setPvpOptions(pvp)
 
@@ -603,6 +623,9 @@ export class BotManager extends EventEmitter<BotManagerEvents> {
     if (!this.bot) {
       throw new Error('The bot is not connected.')
     }
+    if (this.scripts.running) {
+      throw new Error('A script is on. Turn it off to mine.')
+    }
     // Following would keep pulling the bot away from the ore.
     if (this.behavior.getPathfinderOptions().followEnabled) {
       this.emit('pathfinderOptions', this.behavior.setPathfinderOptions({ followEnabled: false }))
@@ -679,24 +702,21 @@ export class BotManager extends EventEmitter<BotManagerEvents> {
     }
   }
 
+  // The toolbar toggles answer with the user's pick, which a running script may be overriding for now.
   setArmorManagerEnabled(enabled: unknown) {
-    this.armorManager.setEnabled(Boolean(enabled))
-    return this.armorManager.isEnabled()
+    return this._setUserToggle('armorManager', enabled)
   }
 
   setAutoEatEnabled(enabled: unknown) {
-    this.autoEat.setEnabled(Boolean(enabled))
-    return this.autoEat.isEnabled()
+    return this._setUserToggle('autoEat', enabled)
   }
 
   setAutoToolEnabled(enabled: unknown) {
-    this.autoTool.setEnabled(Boolean(enabled))
-    return this.autoTool.isEnabled()
+    return this._setUserToggle('autoTool', enabled)
   }
 
   setAutoShieldEnabled(enabled: unknown) {
-    this.autoShield.setEnabled(Boolean(enabled))
-    return this.autoShield.isEnabled()
+    return this._setUserToggle('autoShield', enabled)
   }
 
   setAutoEatOptions(options: unknown) {
@@ -755,6 +775,80 @@ export class BotManager extends EventEmitter<BotManagerEvents> {
     return { ok: true }
   }
 
+  private _allows(feature: Automation) {
+    return this.automation.resolve(feature, true)
+  }
+
+  private _setUserToggle(feature: keyof BotManager['userToggles'], enabled: unknown) {
+    this.userToggles[feature] = Boolean(enabled)
+    this._applyToggle(feature)
+    return this.userToggles[feature]
+  }
+
+  private _applyToggle(feature: keyof BotManager['userToggles']) {
+    const plugin = {
+      armorManager: this.armorManager,
+      autoEat: this.autoEat,
+      autoTool: this.autoTool,
+      autoShield: this.autoShield,
+    }[feature]
+    const on = this.automation.resolve(feature, this.userToggles[feature])
+    if (plugin.isEnabled() !== on) plugin.setEnabled(on)
+  }
+
+  // Applies the automation gate to everything after a script starts, stops or changes a toggle.
+  private _applyAutomation() {
+    for (const feature of Object.keys(this.userToggles) as (keyof BotManager['userToggles'])[]) {
+      this._applyToggle(feature)
+    }
+    this.behavior.applyCurrentState()
+    this._emitState()
+  }
+
+  // What scripts drive the bot through (see src/main/scripts/scriptApi.ts).
+  private _scriptTarget(): ScriptTarget & { pauseAutomation(): void; resumeAutomation(): void } {
+    const userOn = (feature: Automation) => {
+      if (feature in this.userToggles) return this.userToggles[feature as keyof BotManager['userToggles']]
+      const { followEnabled } = this.behavior.getPathfinderOptions()
+      const { mobEnabled, playerEnabled } = this.behavior.getPvpOptions()
+      if (feature === 'follow') return followEnabled
+      if (feature === 'attackMobs') return mobEnabled
+      if (feature === 'attackPlayer') return playerEnabled
+      // The rest have no toggle; they're always on for the user.
+      return true
+    }
+    return {
+      getBot: () => this.bot,
+      chat: (text) => this.sendChat(text),
+      goto: async (position, range) => {
+        await this.pathfinder.goto(new goals.GoalNear(position.x, position.y, position.z, range))
+      },
+      stopMoving: () => this.pathfinder.clearTemporaryGoal(),
+      toggles: () =>
+        Object.fromEntries(
+          AUTOMATIONS.map((feature) => [
+            feature,
+            { on: this.automation.resolve(feature, userOn(feature)), yours: userOn(feature) },
+          ])
+        ) as ReturnType<ScriptTarget['toggles']>,
+      setToggle: (feature, on) => {
+        this.automation.set(feature, on)
+        this._applyAutomation()
+      },
+      pauseAutomation: () => {
+        this.mining.stop('A script was turned on.')
+        this.pvp.clearTarget()
+        this.doors.cancel()
+        this.automation.pause()
+        this._applyAutomation()
+      },
+      resumeAutomation: () => {
+        this.automation.resume()
+        this._applyAutomation()
+      },
+    }
+  }
+
   // The user has the bot's controls (walking it, or a block or trader is being opened, or a window is open);
   // automatic behaviors stay out of the way.
   private _isUserDriving() {
@@ -786,6 +880,7 @@ export class BotManager extends EventEmitter<BotManagerEvents> {
   }
 
   private _detachAll(bot: Bot) {
+    this.scripts.end('the bot left the world.')
     this.chat.detach(bot)
     for (const plugin of this.plugins) plugin.detach()
   }

@@ -12,6 +12,8 @@
 //   POST /goto      {"x","y","z"}  walk somewhere (like the Go To button)
 //   POST /stop                   stop walking, mining and fighting
 //   POST /mining/start {"ores","blocks"} · POST /mining/stop
+//   GET  /scripts                the scripts, which is on, and their log
+//   POST /scripts/save {"id"?,"name","code"} · POST /scripts/start {"id"} · POST /scripts/stop
 import type { BrowserWindow } from 'electron'
 import http from 'node:http'
 import type { Bot } from 'mineflayer'
@@ -141,6 +143,16 @@ export const createControlApi = (botManager: BotManager, getWindow: () => Browse
     'POST /stop': () => {
       botManager.stopMining()
       return botManager.setPathfinderOptions({ cancelGoTo: true, followEnabled: false })
+    },
+    'GET /scripts': () => botManager.scripts.getState(),
+    'POST /scripts/save': (body) => botManager.scripts.save(body),
+    'POST /scripts/start': async (body) => {
+      await botManager.scripts.start(body.id)
+      return botManager.scripts.getState().running
+    },
+    'POST /scripts/stop': async () => {
+      await botManager.scripts.stop()
+      return { ok: true }
     },
     'POST /mining/start': (body) => botManager.startMining(body),
     'POST /mining/stop': () => botManager.stopMining(),

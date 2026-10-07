@@ -1,4 +1,5 @@
 import type { PathfinderOptions, PvpOptions } from '../../../shared/types'
+import type { Automation } from '../automation'
 import type { PathfinderController } from './pathfinder'
 import type { PvpController } from './pvp'
 
@@ -13,10 +14,21 @@ export class BehaviorManager {
   private pathfinder: PathfinderController
   private pvp: PvpController
   private state: { pathfinder: FollowOptions; pvp: PvpOptions }
+  // Whether an automatic feature runs, given the user's pick (a running script overrides it).
+  private resolve: (feature: Automation, userOn: boolean) => boolean
 
-  constructor({ pathfinder, pvp }: { pathfinder: PathfinderController; pvp: PvpController }) {
+  constructor({
+    pathfinder,
+    pvp,
+    resolve = (_feature, userOn) => userOn,
+  }: {
+    pathfinder: PathfinderController
+    pvp: PvpController
+    resolve?: (feature: Automation, userOn: boolean) => boolean
+  }) {
     this.pathfinder = pathfinder
     this.pvp = pvp
+    this.resolve = resolve
     this.state = {
       pathfinder: { followEnabled: false, followTarget: '' },
       pvp: {
@@ -105,8 +117,9 @@ export class BehaviorManager {
   }
 
   private _apply(extra: { goToLocation?: GoToLocation | null; cancelGoTo?: boolean } = {}) {
+    const followEnabled = this.resolve('follow', this.state.pathfinder.followEnabled)
     if (this.pathfinder) {
-      const mergedOptions: PathfinderOptions = { ...this.state.pathfinder }
+      const mergedOptions: PathfinderOptions = { ...this.state.pathfinder, followEnabled }
       if (extra.goToLocation) {
         mergedOptions.goToLocation = extra.goToLocation
       }
@@ -118,9 +131,14 @@ export class BehaviorManager {
     }
 
     if (this.pvp) {
-      const allowMovement = !this.state.pathfinder.followEnabled && this.state.pvp.mobMovementEnabled
+      const allowMovement = !followEnabled && this.state.pvp.mobMovementEnabled
       this.pvp.setMovementAllowed(allowMovement)
-      this.pvp.setOptions({ ...this.state.pvp, movementAllowed: allowMovement })
+      this.pvp.setOptions({
+        ...this.state.pvp,
+        mobEnabled: this.resolve('attackMobs', this.state.pvp.mobEnabled),
+        playerEnabled: this.resolve('attackPlayer', this.state.pvp.playerEnabled),
+        movementAllowed: allowMovement,
+      })
     }
   }
 }

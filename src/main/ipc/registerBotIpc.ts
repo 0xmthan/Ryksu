@@ -148,6 +148,13 @@ export const registerBotIpc = (ipcMain: IpcMain, botManager: BotManager) => {
 
   handle('bot:getMineableBlocks', () => botManager.getMineableBlocks())
 
+  botManager.on('scripts', (state) => emitToRenderer('scripts:state', state))
+  handle('scripts:getState', () => botManager.scripts.getState())
+  handle('scripts:save', (_event, script) => attempt(() => ({ script: botManager.scripts.save(script) })))
+  handle('scripts:delete', (_event, id) => attempt(() => botManager.scripts.remove(id)))
+  handle('scripts:start', (_event, id) => attempt(() => botManager.scripts.start(id)))
+  handle('scripts:stop', () => attempt(() => botManager.scripts.stop()))
+
   handle('bot:toggleMiningChest', (_event, position) => attempt(() => botManager.toggleMiningChest(position)))
 
   handle('bot:interactBlock', (_event, position) => attempt(() => botManager.interactBlock(position)))

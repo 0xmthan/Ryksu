@@ -7,10 +7,11 @@ import LocationManager from './LocationManager'
 import TradePanel from '../trading/TradePanel'
 import TabPanel from './TabPanel'
 import { prettyName } from '../../lib/blockColors'
-import { Hammer } from 'lucide-react'
+import { Hammer, ScrollText } from 'lucide-react'
 import { PICK_MINING_CHESTS_EVENT } from '../mining/MiningPanel'
 import VitalBars, { Hotbar } from './VitalBars'
 import { useSavedLocations } from './useSavedLocations'
+import { useScripts } from '../scripts/useScripts'
 import type {
   AutoEatOptions,
   BotSnapshot,
@@ -77,6 +78,10 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   // Chest picking for Auto Mine: started from the mining panel, clicks on chests add or remove them.
   const [pickingChests, setPickingChests] = useState(false)
+  const scripts = useScripts()
+  const runningScript = scripts.running
+    ? scripts.scripts.find((script) => script.id === scripts.running?.id)
+    : undefined
   useEffect(() => {
     const start = () => {
       setBuildMode(false)
@@ -364,6 +369,24 @@ const Dashboard: React.FC<DashboardProps> = ({
             effects={snapshot.effects}
           />
         </div>
+        {runningScript && scripts.running && !buildMode && !pickingChests ? (
+          <div
+            role="status"
+            className="absolute left-1/2 top-15 flex -translate-x-1/2 items-center gap-2.5 rounded-full border
+              border-emerald-400/30 bg-neutral-950/75 py-1.5 pl-2 pr-3.5 text-xs text-neutral-300 shadow-lg
+              backdrop-blur-xl"
+          >
+            <span
+              className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-400/15
+                text-emerald-300"
+            >
+              <ScrollText aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2} />
+            </span>
+            <span className="font-semibold text-emerald-100">{runningScript.name}</span>
+            <span className="text-neutral-400">{scripts.running.status}</span>
+            <span className="text-neutral-500">· automatic features paused</span>
+          </div>
+        ) : null}
         {buildMode ? (
           <div
             role="status"

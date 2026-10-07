@@ -18,6 +18,7 @@ import SleepButton from './SleepButton'
 import StatusPill from '../components/ui/StatusPill'
 import ToolbarButton from '../components/ui/ToolbarButton'
 import MiningPanel from '../features/mining/MiningPanel'
+import ScriptsPanel from '../features/scripts/ScriptsPanel'
 import type { BotStatus, MiningState } from '../../shared/types'
 import { useFps } from '../lib/frameRate'
 import { loadGraphicsSettings, onGraphicsSettingsChange } from '../lib/graphicsSettings'
@@ -311,6 +312,7 @@ const TitleBar: React.FC<TitleBarProps> = ({
               <ChevronsUp aria-hidden="true" className="h-4.5 w-4.5" strokeWidth={1.75} />
             </ToolbarButton>
             <MiningPanel mining={mining} />
+            <ScriptsPanel />
             <ToolbarButton
               label="Break / Place Blocks"
               description="Allow breaking and placing blocks (bridging, pillaring) while navigating. Click to toggle."
