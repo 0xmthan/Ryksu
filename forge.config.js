@@ -1,4 +1,6 @@
 // @ts-check
+const { execFileSync } = require('node:child_process')
+const path = require('node:path')
 const { FusesPlugin } = require('@electron-forge/plugin-fuses')
 const { FuseV1Options, FuseVersion } = require('@electron/fuses')
 
@@ -7,6 +9,7 @@ module.exports = {
   packagerConfig: {
     asar: true,
     icon: './assets/icon',
+    appBundleId: 'dev.mthan.ryksu',
     // Vite's default filter only copies bundles. The main process keeps
     // runtime dependencies external so their native modules and data survive.
     ignore: (file) =>
@@ -16,6 +19,21 @@ module.exports = {
       ),
   },
   rebuildConfig: {},
+  hooks: {
+    // Packaging renames Electron's app and flips its fuses, which breaks the signature it ships with. macOS
+    // quietly refuses an app with a broken signature things like notifications (no prompt, nothing shown),
+    // so the app is signed again once it's built: with the certificate named in RYKSU_SIGN_IDENTITY (from
+    // `security find-identity -p codesigning`), or else ad hoc ("-"), which is enough on this Mac.
+    postPackage: async (_config, { platform, outputPaths }) => {
+      if (platform !== 'darwin') return
+      const identity = process.env.RYKSU_SIGN_IDENTITY || '-'
+      for (const output of outputPaths) {
+        const app = path.join(output, 'Ryksu.app')
+        execFileSync('codesign', ['--force', '--deep', '--sign', identity, app])
+        execFileSync('codesign', ['--verify', '--deep', '--strict', app])
+      }
+    },
+  },
   makers: [
     {
       name: '@electron-forge/maker-zip',

@@ -85,9 +85,14 @@ export class AutoToolController extends ToggleablePlugin {
       return false
     }
 
-    const heldSlot = this.bot.getEquipmentDestSlot('hand')
-    const held = this.bot.inventory.slots?.[heldSlot]
-    if (held && held.slot === bestWeapon.slot) {
+    // Already holding it, or one as good: equipping another would pull it out of the inventory into the
+    // hotbar and move the selected slot, every attack.
+    const held = this.bot.heldItem
+    if (
+      held &&
+      this._isCombatWeapon(held) &&
+      (held.slot === bestWeapon.slot || this._weaponScore(held) >= this._weaponScore(bestWeapon))
+    ) {
       return true
     }
 
@@ -115,7 +120,11 @@ export class AutoToolController extends ToggleablePlugin {
       return null
     }
 
-    candidates.sort((a, b) => this._weaponScore(b) - this._weaponScore(a))
+    // Among equally good ones, the one in hand, then one already in the hotbar (the main inventory lists first).
+    const heldSlot = this.bot.heldItem?.slot
+    const hotbarStart = this.bot.inventory.hotbarStart
+    const nearness = (item: Item) => (item.slot === heldSlot ? 0 : item.slot >= hotbarStart ? 1 : 2)
+    candidates.sort((a, b) => this._weaponScore(b) - this._weaponScore(a) || nearness(a) - nearness(b))
     return candidates[0] ?? null
   }
 
