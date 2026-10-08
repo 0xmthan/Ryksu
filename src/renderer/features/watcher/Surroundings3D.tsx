@@ -85,6 +85,8 @@ type Surroundings3DProps = {
   // While set, a click on a block calls this instead of walking or opening it.
   onBlockPick?: ((block: { x: number; y: number; z: number; name: string }) => void) | null
   onHover: (text: string | null) => void
+  // A short message in the bubble over the hotbar, like the one opening a block shows.
+  onNotice: (text: string) => void
   // A click (not a drag) on a block or mob: the world block the bot should walk to.
   onWalkTo: (target: { x: number; y: number; z: number; door?: { x: number; y: number; z: number } }) => void
   onBlockInteract: (position: { x: number; y: number; z: number }) => void
@@ -132,6 +134,7 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
   chests,
   onBlockPick = null,
   onHover,
+  onNotice,
   onWalkTo,
   onEntityContext,
   onBlockInteract,
@@ -178,7 +181,7 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
     else firstPersonRef.current?.pause()
   }, [movementEnabled])
   const [anchorVersion, setAnchorVersion] = useState(0)
-  // H off: nothing is cut away or ghosted, not even an indoor roof or a cave ceiling.
+  // Set by H past 'all': indoor roofs and cave ceilings are drawn solid (the cutaway may still be on).
   const [solidView, setSolidView] = useState(false)
   const [atlas, setAtlas] = useState<BlockAtlas | null>(null)
 
@@ -193,6 +196,8 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
   }, [])
   const onHoverRef = useRef(onHover)
   onHoverRef.current = onHover
+  const onNoticeRef = useRef(onNotice)
+  onNoticeRef.current = onNotice
   const onBlockInteractRef = useRef(onBlockInteract)
   onBlockInteractRef.current = onBlockInteract
   const onBlockPickRef = useRef(onBlockPick)
@@ -1048,7 +1053,8 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
         else enterFirstPerson()
         return
       }
-      // H turns all see-through off and on: the cutaway over the bot, ghosted roofs and cut cave ceilings.
+      // H cycles the see-through: the cutaway over the bot with ghosted roofs and cut cave ceilings, the cutaway
+      // alone, then nothing.
       if (
         event.code === 'KeyH' &&
         !event.repeat &&
@@ -1063,11 +1069,13 @@ const Surroundings3D: React.FC<Surroundings3DProps> = ({
             (SEE_THROUGH_SHAPES.indexOf(getSeeThroughShape()) + 1) % SEE_THROUGH_SHAPES.length
           ]
         setSeeThroughShape(next)
-        setSolidView(next === 'off')
-        onHoverRef.current(
-          next === 'cutaway'
+        setSolidView(next !== 'all')
+        onNoticeRef.current(
+          next === 'all'
             ? 'See-through on: leaves, roofs and cave ceilings over the bot are hidden'
-            : 'See-through off: every block is drawn solid'
+            : next === 'cutaway'
+              ? 'Cutaway only: blocks over the bot are hidden, roofs and cave ceilings are solid'
+              : 'See-through off: every block is drawn solid'
         )
         return
       }

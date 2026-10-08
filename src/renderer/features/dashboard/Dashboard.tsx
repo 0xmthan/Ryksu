@@ -311,6 +311,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         chests={snapshot.mining?.chests ?? []}
         onBlockPick={pickingChests ? pickChest : null}
         onHover={setHover}
+        onNotice={setBlockFeedback}
         onEntityContext={(entity, position) => setEntityContext({ entity, position })}
         buildMode={buildMode}
         heldBlock={(() => {

@@ -70,6 +70,11 @@ export const SCRIPT_CALLS: ScriptCall[] = [
   },
   { name: 'stopMoving', signature: 'stopMoving()', doc: 'Stops walking.' },
   {
+    name: 'sneak',
+    signature: 'sneak(on = true)',
+    doc: "Holds sneak (or lets go with sneak(false)), even while walking, until the script turns off. Sneaking, the bot won't step off ledges.",
+  },
+  {
     name: 'blockAt',
     signature: 'blockAt({ x, y, z })',
     doc: 'The block there: { x, y, z, name, properties }, or null where the world is not loaded.',

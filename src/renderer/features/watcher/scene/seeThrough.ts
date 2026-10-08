@@ -1,7 +1,8 @@
 // Keeps the bot in sight under tree canopies, roofs and overhangs: blocks above the bot's head that stand
 // between the camera and the bot are cut away (not drawn at all), so there is no ghostly hologram to look
 // through. Everything at the bot's own level (trunks, walls, hills) stays solid; the bot and players show
-// through those as an outline instead (see silhouette.ts). H turns the cutaway off and on.
+// through those as an outline instead (see silhouette.ts). H cycles through the cutaway with the ghosted roofs
+// and cut cave ceilings, the cutaway alone, and nothing see-through.
 import * as THREE from 'three'
 
 // Blocks whose centers are this far above the feet can be cut: the two layers the bot stands in stay.
@@ -19,9 +20,10 @@ const uniforms = {
   uSeeStrength: { value: 0 },
 }
 
-export type SeeThroughShape = 'cutaway' | 'off'
-export const SEE_THROUGH_SHAPES: SeeThroughShape[] = ['cutaway', 'off']
-let shape: SeeThroughShape = 'cutaway'
+// all: the cutaway plus the ghosted roofs and cut cave ceilings (viewMode.ts); cutaway: the cutaway alone.
+export type SeeThroughShape = 'all' | 'cutaway' | 'off'
+export const SEE_THROUGH_SHAPES: SeeThroughShape[] = ['all', 'cutaway', 'off']
+let shape: SeeThroughShape = 'all'
 export const setSeeThroughShape = (next: SeeThroughShape) => {
   shape = next
 }

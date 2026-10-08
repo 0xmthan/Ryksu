@@ -24,6 +24,7 @@ const setup = (code: string, world: Partial<ScriptWorld> = {}) => {
       chat: (text) => said.push(text),
       goto: async () => {},
       stopMoving: () => events.push('stopMoving'),
+      sneak: (on) => events.push(`sneak=${on}`),
       toggles: () => ({}) as never,
       setToggle: (feature, on) => events.push(`${feature}=${on}`),
       pauseAutomation: () => events.push('pause'),
@@ -136,6 +137,18 @@ test('scripts can turn automatic features back on, but only known ones', async (
   await settle()
   assert.deepEqual(events, ['pause', 'autoEat=true', 'resume'])
   assert.match(host.getState().log.at(-1)?.text ?? '', /Unknown toggle "flying"/)
+})
+
+test('scripts can hold sneak and let go of it', async () => {
+  const { host, events } = setup(`
+    async function start() {
+      ryksu.sneak()
+      ryksu.sneak(false)
+    }
+  `)
+  await host.start('one')
+  await settle()
+  assert.deepEqual(events, ['pause', 'sneak=true', 'sneak=false'])
 })
 
 test('the gate uses the user picks unless a script is running', () => {

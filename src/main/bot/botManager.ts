@@ -130,6 +130,10 @@ export class BotManager extends EventEmitter<BotManagerEvents> {
   private automation = new AutomationGate()
   // What the user picked for the toolbar toggles the plugins own (the rest live in BehaviorManager).
   private userToggles = { armorManager: false, autoEat: false, autoTool: false, autoShield: false }
+  // A script holding sneak (ryksu.sneak()), until it lets go or turns off.
+  private scriptSneaking = false
+  // Block uses in progress, which let go of the script's sneak (see the login handler in connect).
+  private sneakReleases = 0
 
   private armorManager: ArmorManagerController
   private autoEat: AutoEatController
@@ -419,6 +423,29 @@ export class BotManager extends EventEmitter<BotManagerEvents> {
       this.mining.setServer(`${host}:${port}`)
       for (const plugin of this.plugins) plugin.attach(bot)
       this.behavior.applyCurrentState()
+
+      // A script's sneak stays held when the pathfinder or manual movement let go of every control. Mineflayer
+      // adds these a tick after createBot, so they're wrapped once the bot logs in.
+      bot.once('login', () => {
+        const holdingSneak = () => this.scriptSneaking && this.sneakReleases === 0
+        const setControlState = bot.setControlState.bind(bot)
+        bot.setControlState = (control, state) =>
+          setControlState(control, state || (control === 'sneak' && holdingSneak()))
+        // Using a block while sneaking with anything in hand skips the block (no bed, chest or door), so sneak
+        // is let go for the click (bot.sleep and openContainer come through here too).
+        const activateBlock = bot.activateBlock.bind(bot)
+        bot.activateBlock = async (...args) => {
+          if (!this.scriptSneaking) return activateBlock(...args)
+          this.sneakReleases++
+          setControlState('sneak', false)
+          try {
+            return await activateBlock(...args)
+          } finally {
+            this.sneakReleases--
+            if (holdingSneak() && bot.entity) setControlState('sneak', true)
+          }
+        }
+      })
 
       // The bot's own position every physics tick, so the watcher (first person above all) shows where it
       // really is, not where the slower motion stream last saw it.
@@ -842,6 +869,10 @@ export class BotManager extends EventEmitter<BotManagerEvents> {
       goto: (position, range) => world.walk(new goals.GoalNear(position.x, position.y, position.z, range)),
       world,
       stopMoving: () => this.pathfinder.clearTemporaryGoal(),
+      sneak: (on) => {
+        this.scriptSneaking = on
+        this.bot?.setControlState('sneak', on)
+      },
       notify: (title, text) => this.emit('notify', title, text),
       toggles: () =>
         Object.fromEntries(
@@ -862,6 +893,10 @@ export class BotManager extends EventEmitter<BotManagerEvents> {
         this._applyAutomation()
       },
       resumeAutomation: () => {
+        if (this.scriptSneaking) {
+          this.scriptSneaking = false
+          if (this.bot?.entity) this.bot.setControlState('sneak', false)
+        }
         this.automation.resume()
         this._applyAutomation()
       },

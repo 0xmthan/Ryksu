@@ -104,7 +104,8 @@ test('server sheep age metadata selects the new model and switches back on growt
         metadata: { [keys.indexOf('baby')]: true, [keys.indexOf('wool')]: 10 } as Record<number, unknown>,
       }
       const self = { id: 1, name: 'player', position: new Vec3(0, 0, 0) }
-      const bot = fake<Bot>({ registry, entity: self, entities: { 1: self, 2: sheep } })
+      // No blocks loaded: nothing to stand in, like lava (see the burning check).
+      const bot = fake<Bot>({ registry, entity: self, entities: { 1: self, 2: sheep }, blockAt: () => null })
       const baby = getMotion(bot)?.entities[0]
       assert.ok(baby)
       assert.equal(baby.baby, true, version)

@@ -20,6 +20,7 @@ const newBot = () => {
     getControlState: () => false,
     setControlState() {},
     clearControlStates() {},
+    activateBlock: async () => {},
     quitReason: null,
   })
   bot.quit = (reason: string) => {

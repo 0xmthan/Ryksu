@@ -9,6 +9,8 @@ export type ScriptTarget = {
   chat(text: string): void
   goto(position: Vec3Like, range: number): Promise<void>
   stopMoving(): void
+  // Holds sneak until let go, or the script turns off.
+  sneak(on: boolean): void
   // Each automatic feature: whether it's on now, and what the user picked for it.
   toggles(): Record<Automation, { on: boolean; yours: boolean }>
   setToggle(feature: Automation, on: boolean): void
@@ -336,6 +338,12 @@ export const createScriptApi = (target: ScriptTarget, scope: SessionScope, hooks
     stopMoving() {
       bot()
       target.stopMoving()
+    },
+
+    // Holds sneak, through walking too, until sneak(false) or the script turns off.
+    sneak(on: unknown = true) {
+      bot()
+      target.sneak(Boolean(on))
     },
 
     position,
