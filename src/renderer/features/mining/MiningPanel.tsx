@@ -88,12 +88,20 @@ const MiningPanel: React.FC<MiningPanelProps> = ({ mining, locked = null }) => {
   const suggestions = useMemo(() => {
     const term = query.trim().toLowerCase()
     if (!term) return []
+    const id = term.replace(/\s+/g, '_')
+    const rank = (block: MineableBlock) => {
+      const label = block.displayName.toLowerCase()
+      if (label === term || block.name === id) return 0
+      if (label.startsWith(term) || block.name.startsWith(id)) return 1
+      return 2
+    }
     return mineableBlocks
       .filter(
         (block) =>
           !blocks.includes(block.name) &&
-          (block.displayName.toLowerCase().includes(term) || block.name.includes(term.replace(/\s+/g, '_')))
+          (block.displayName.toLowerCase().includes(term) || block.name.includes(id))
       )
+      .sort((a, b) => rank(a) - rank(b))
       .slice(0, MAX_SUGGESTIONS)
   }, [query, mineableBlocks, blocks])
 
